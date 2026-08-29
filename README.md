@@ -1,56 +1,42 @@
-# Welcome to your Expo app 👋
+# HerFrame
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An Expo SDK 57 application for validating the HerFrame camera-guidance concept.
 
-## Get started
+## Development
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+This project uses pnpm and an Expo development build. Expo Go is not part of the
+development workflow because the camera layer will use app-local native code.
 
 ```bash
-npm run reset-project
+pnpm install
+pnpm ios
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+After the native app is installed, start Metro with:
 
-### Other setup steps
+```bash
+pnpm start
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Structure
 
-## Learn more
+```text
+src/
+├── app/          # Expo Router routes and route layouts only
+├── profiles/     # Subject profiles and baseline measurements
+├── references/   # Reference-image selection and derived data
+├── guidance/     # Guidance state and camera instructions
+└── shared/       # Cross-feature UI, utilities, types, and configuration
+modules/
+└── smart-camera/ # App-local native camera boundary
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Route files should remain thin: they compose and export domain screens. Native
+camera processing belongs in a local Expo module under `modules/`; camera frames
+and pixel buffers must not cross the React Native bridge.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+The generated `ios/` and `android/` directories are intentionally ignored and
+must remain reproducible through Expo Prebuild and config plugins.
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`modules/smart-camera` is an Apple-only, app-local Expo module skeleton. It is
+intentionally behavior-free until the native camera feasibility work begins.
