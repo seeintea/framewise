@@ -5,7 +5,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
-        <Text style={styles.title}>HerFrame</Text>
+        <Text style={styles.title}>Framewise</Text>
       </View>
     </SafeAreaView>
   );

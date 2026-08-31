@@ -1,42 +1,41 @@
-# HerFrame
+# Framewise
 
-An Expo SDK 57 application for validating the HerFrame camera-guidance concept.
+An Expo SDK 57 app that helps people compose better photos with visual templates
+overlaid on the live camera preview.
 
 ## Development
 
-This project uses pnpm and an Expo development build. Expo Go is not part of the
-development workflow because the camera layer will use app-local native code.
+This project uses pnpm and Expo Go for the initial development workflow.
 
 ```bash
 pnpm install
-pnpm ios
-```
-
-After the native app is installed, start Metro with:
-
-```bash
 pnpm start
 ```
+
+Open the project in Expo Go from the development server.
+
+## Product scope
+
+- Browse a small set of composition templates.
+- Open a template in the camera.
+- Align the scene with proportional guides drawn over the preview.
+- Take, review, save, or retake the photo.
 
 ## Structure
 
 ```text
 src/
-├── app/          # Expo Router routes and route layouts only
-├── profiles/     # Subject profiles and baseline measurements
-├── references/   # Reference-image selection and derived data
-├── guidance/     # Guidance state and camera instructions
+├── app/          # Expo Router routes and route layouts
+├── features/     # Templates, camera overlay, and photo review
 └── shared/       # Cross-feature UI, utilities, types, and configuration
-modules/
-└── smart-camera/ # App-local native camera boundary
 ```
 
-Route files should remain thin: they compose and export domain screens. Native
-camera processing belongs in a local Expo module under `modules/`; camera frames
-and pixel buffers must not cross the React Native bridge.
+The first version uses Expo Camera and a React Native Skia overlay. Templates
+store guide geometry as normalized coordinates so they work across screen sizes
+and can later serve as targets for optional on-device guidance.
 
-The generated `ios/` and `android/` directories are intentionally ignored and
-must remain reproducible through Expo Prebuild and config plugins.
+See [the first-version architecture](./plans/architecture.md) for the product
+flow, module boundaries, template model, and implementation order.
 
-`modules/smart-camera` is an Apple-only, app-local Expo module skeleton. It is
-intentionally behavior-free until the native camera feasibility work begins.
+See [the MVP plan](./plans/mvp.md) for the first end-to-end validation scope and
+acceptance criteria.

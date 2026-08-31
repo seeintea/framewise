@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "her-frame",
-    "slug": "her-frame",
+    "name": "Framewise",
+    "slug": "framewise",
     "version": "1.0.0",
     "platforms": ["ios", "android"],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "herframe",
+    "scheme": "framewise",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"

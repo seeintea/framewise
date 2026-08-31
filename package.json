@@ -1,10 +1,9 @@
 {
-  "name": "her-frame",
+  "name": "framewise",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
     "expo": "~57.0.18",
-    "expo-dev-client": "~57.0.16",
     "expo-router": "~57.0.17",
     "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
