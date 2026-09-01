@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Framewise",
+    "name": "framewise",
     "slug": "framewise",
     "version": "1.0.0",
     "platforms": ["ios", "android"],

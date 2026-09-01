@@ -143,12 +143,8 @@ referenceWidth = 390
 未传入 `referenceWidth` 时，默认使用当前系统窗口的短边，而不是直接使用当前方向的 `window.width`：
 
 ```ts
-function getDefaultReferenceWidth(
-  windowSize: Size,
-): number {
-  return Math.floor(
-    Math.min(windowSize.width, windowSize.height),
-  );
+function getDefaultReferenceWidth(windowSize: Size): number {
+  return Math.floor(Math.min(windowSize.width, windowSize.height));
 }
 ```
 
@@ -166,16 +162,12 @@ function resolveViewportSize(
   if (ratio.width <= ratio.height) {
     return {
       width: base,
-      height: Math.round(
-        base * ratio.height / ratio.width,
-      ),
+      height: Math.round((base * ratio.height) / ratio.width),
     };
   }
 
   return {
-    width: Math.round(
-      base * ratio.width / ratio.height,
-    ),
+    width: Math.round((base * ratio.width) / ratio.height),
     height: base,
   };
 }
@@ -191,14 +183,10 @@ function getMaxReferenceWidth(
   ratio: AspectRatioV1,
 ): number {
   const widthScale =
-    ratio.width <= ratio.height
-      ? 1
-      : ratio.width / ratio.height;
+    ratio.width <= ratio.height ? 1 : ratio.width / ratio.height;
 
   const heightScale =
-    ratio.width <= ratio.height
-      ? ratio.height / ratio.width
-      : 1;
+    ratio.width <= ratio.height ? ratio.height / ratio.width : 1;
 
   return Math.floor(
     Math.min(
@@ -230,10 +218,7 @@ return (
   >
     <CameraView style={StyleSheet.absoluteFill} />
 
-    <SkiaCompositionOverlay
-      variant={variant}
-      viewportSize={viewportSize}
-    />
+    <SkiaCompositionOverlay variant={variant} viewportSize={viewportSize} />
   </View>
 );
 ```
@@ -245,10 +230,7 @@ return (
 ### 4.1 Point
 
 ```ts
-function mapPoint(
-  point: Point,
-  viewport: Size,
-): Point {
+function mapPoint(point: Point, viewport: Size): Point {
   return {
     x: Math.round(point.x * viewport.width),
     y: Math.round(point.y * viewport.height),
@@ -270,25 +252,14 @@ type PixelBounds = {
   height: number;
 };
 
-function mapBounds(
-  bounds: Bounds,
-  viewport: Size,
-): PixelBounds {
-  const left = Math.round(
-    bounds.x * viewport.width,
-  );
+function mapBounds(bounds: Bounds, viewport: Size): PixelBounds {
+  const left = Math.round(bounds.x * viewport.width);
 
-  const top = Math.round(
-    bounds.y * viewport.height,
-  );
+  const top = Math.round(bounds.y * viewport.height);
 
-  const right = Math.round(
-    (bounds.x + bounds.width) * viewport.width,
-  );
+  const right = Math.round((bounds.x + bounds.width) * viewport.width);
 
-  const bottom = Math.round(
-    (bounds.y + bounds.height) * viewport.height,
-  );
+  const bottom = Math.round((bounds.y + bounds.height) * viewport.height);
 
   return {
     x: left,
@@ -306,16 +277,8 @@ function mapBounds(
 Circle radius 和 rect cornerRadius 使用实际视口短边：
 
 ```ts
-function mapShortSideLength(
-  value: number,
-  viewport: Size,
-): number {
-  return Math.round(
-    value * Math.min(
-      viewport.width,
-      viewport.height,
-    ),
-  );
+function mapShortSideLength(value: number, viewport: Size): number {
+  return Math.round(value * Math.min(viewport.width, viewport.height));
 }
 ```
 
@@ -334,10 +297,7 @@ type SkiaCompositionOverlayProps = {
 ```
 
 ```tsx
-<SkiaCompositionOverlay
-  variant={variant}
-  viewportSize={viewportSize}
-/>
+<SkiaCompositionOverlay variant={variant} viewportSize={viewportSize} />
 ```
 
 调用方不需要知道 rect、circle、ellipse 或 path 如何转换成 Skia 节点。
@@ -389,7 +349,7 @@ function SkiaCompositionOverlay({
         strokeJoin="round"
         antiAlias
       >
-        {variant.elements.map(element => (
+        {variant.elements.map((element) => (
           <CompositionElementNode
             key={element.id}
             element={element}
@@ -405,42 +365,19 @@ function SkiaCompositionOverlay({
 ### 5.4 Shape 分发
 
 ```tsx
-function ShapeNode({
-  shape,
-  viewportSize,
-}: ShapeNodeProps) {
+function ShapeNode({ shape, viewportSize }: ShapeNodeProps) {
   switch (shape.type) {
     case 'rect':
-      return (
-        <RectShapeNode
-          shape={shape}
-          viewportSize={viewportSize}
-        />
-      );
+      return <RectShapeNode shape={shape} viewportSize={viewportSize} />;
 
     case 'circle':
-      return (
-        <CircleShapeNode
-          shape={shape}
-          viewportSize={viewportSize}
-        />
-      );
+      return <CircleShapeNode shape={shape} viewportSize={viewportSize} />;
 
     case 'ellipse':
-      return (
-        <EllipseShapeNode
-          shape={shape}
-          viewportSize={viewportSize}
-        />
-      );
+      return <EllipseShapeNode shape={shape} viewportSize={viewportSize} />;
 
     case 'path':
-      return (
-        <PathShapeNode
-          shape={shape}
-          viewportSize={viewportSize}
-        />
-      );
+      return <PathShapeNode shape={shape} viewportSize={viewportSize} />;
   }
 }
 ```
@@ -452,10 +389,7 @@ function ShapeNode({
 Path 是 V1 最复杂的 Shape，应使用独立纯函数构建：
 
 ```ts
-function buildSkiaPath(
-  shape: PathShapeV1,
-  viewport: Size,
-): SkPath {
+function buildSkiaPath(shape: PathShapeV1, viewport: Size): SkPath {
   const path = Skia.Path.Make();
 
   // moveTo / lineTo / cubicTo / close
@@ -476,10 +410,7 @@ function buildSkiaPath(
 `PathShapeNode` 只消费构建结果：
 
 ```tsx
-function PathShapeNode({
-  shape,
-  viewportSize,
-}: PathShapeNodeProps) {
+function PathShapeNode({ shape, viewportSize }: PathShapeNodeProps) {
   const path = useMemo(
     () => buildSkiaPath(shape, viewportSize),
     [shape, viewportSize],

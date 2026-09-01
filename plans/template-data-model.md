@@ -80,10 +80,7 @@ type CompositionTemplateVariantV1 = {
 ### 5.1 数据结构
 
 ```ts
-type CompositionElementTypeV1 =
-  | 'subject'
-  | 'horizon'
-  | 'safe-line';
+type CompositionElementTypeV1 = 'subject' | 'horizon' | 'safe-line';
 
 type CompositionElementV1 = {
   id: string;
@@ -102,11 +99,11 @@ type CompositionElementV1 = {
 
 ### 5.2 类型与 Shape 的约束
 
-| Element type | V1 合法 Shape |
-| --- | --- |
-| `subject` | rect、circle、ellipse、闭合 path |
-| `horizon` | 开放 path |
-| `safe-line` | 开放或闭合 path |
+| Element type | V1 合法 Shape                    |
+| ------------ | -------------------------------- |
+| `subject`    | rect、circle、ellipse、闭合 path |
+| `horizon`    | 开放 path                        |
+| `safe-line`  | 开放或闭合 path                  |
 
 所有几何字段必须位于 `shape` 内。Element type 不定义 `x`、`y` 等专属几何字段。
 
@@ -211,11 +208,7 @@ type PathShapeV1 = {
 ### 6.6 Shape 联合类型
 
 ```ts
-type ShapeV1 =
-  | RectShapeV1
-  | CircleShapeV1
-  | EllipseShapeV1
-  | PathShapeV1;
+type ShapeV1 = RectShapeV1 | CircleShapeV1 | EllipseShapeV1 | PathShapeV1;
 ```
 
 V1 不单独增加 line、polygon 或 rounded-rect，它们分别由开放 path、闭合 path 和带 `cornerRadius` 的 rect 表达。
@@ -237,12 +230,12 @@ V1 暂不支持：
 
 映射规则：
 
-| 字段 | 映射基准 |
-| --- | --- |
-| `x`、`width` | 模板画布宽度 |
-| `y`、`height` | 模板画布高度 |
-| `circle.radius` | 模板画布短边 |
-| `rect.cornerRadius` | 模板画布短边 |
+| 字段                    | 映射基准     |
+| ----------------------- | ------------ |
+| `x`、`width`            | 模板画布宽度 |
+| `y`、`height`           | 模板画布高度 |
+| `circle.radius`         | 模板画布短边 |
+| `rect.cornerRadius`     | 模板画布短边 |
 | Path 节点和控制点的 `x` | 模板画布宽度 |
 | Path 节点和控制点的 `y` | 模板画布高度 |
 
