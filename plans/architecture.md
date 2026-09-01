@@ -192,6 +192,8 @@ src/
 
 ## 8. 核心组件
 
+Skia 构图层的坐标、基准宽度、视口计算、组件拆分和测试策略统一遵守 `plans/skia-rendering-guide.md`。
+
 ### `SkiaCompositionOverlay`
 
 - 输入：variant、视口宽高和渲染场景。

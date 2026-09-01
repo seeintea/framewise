@@ -150,6 +150,8 @@ const templateDocument: CompositionTemplateDocumentV1 = {
 
 `SkiaCompositionOverlay` 负责把 variant 的归一化 Shape 映射到实际视口。
 
+具体的屏幕密度、整数坐标映射、referenceWidth、viewportSize、组件拆分和测试要求统一遵守 `plans/skia-rendering-guide.md`。
+
 MVP 统一规则：
 
 - 所有 element 使用黄色引导线。
