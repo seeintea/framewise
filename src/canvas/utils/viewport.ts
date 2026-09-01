@@ -27,3 +27,24 @@ export function getViewportSize(
     height: base,
   };
 }
+
+export function getMaxReferenceWidth(
+  availableSize: Size,
+  aspectRatio: AspectRatio,
+): number {
+  const widthScale =
+    aspectRatio.width <= aspectRatio.height
+      ? 1
+      : aspectRatio.width / aspectRatio.height;
+  const heightScale =
+    aspectRatio.width <= aspectRatio.height
+      ? aspectRatio.height / aspectRatio.width
+      : 1;
+
+  return Math.floor(
+    Math.min(
+      availableSize.width / widthScale,
+      availableSize.height / heightScale,
+    ),
+  );
+}
