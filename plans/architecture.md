@@ -1,70 +1,102 @@
-# Framewise 第一版架构
+# Framewise MVP 架构
 
-## 1. 目标
+## 1. 目标和范围
 
-第一版只验证一个产品假设：用户选择一个构图模板后，能否通过相机上的静态引导线更快完成构图并拍出更满意的照片。
-
-完整流程：
+MVP 验证一个产品假设：用户选择构图模板后，能否借助相机上的静态黄色引导线更快完成构图并拍出更满意的照片。
 
 ```text
-模板列表 → 选择模板 → 相机对齐 → 拍照 → 预览 → 保存或重拍
+模板列表 → 选择 Preset → 相机对齐 → 拍照 → 结果预览 → 重拍或完成
 ```
 
-第一版不包含：
+MVP 不包含：
 
-- 人体、姿态或场景识别
-- 实时 AI 调整提示
-- 用户自定义模板
-- 模板下载与后台管理
-- 登录、云同步和作品历史
-- 视频拍摄和照片编辑
+- 人体、姿态或场景识别。
+- 实时 AI 调整提示。
+- 用户自定义或编辑模板。
+- 模板下载、后台管理和登录同步。
+- 视频拍摄、滤镜和手动裁切。
+- 保存到系统相册。
+- 横竖屏 variant 自动切换。
 
 ## 2. 技术边界
 
-- Expo SDK 57 + React Native 0.86
-- Expo Router 管理页面路由
-- `expo-camera` 提供相机预览和拍照
-- `@shopify/react-native-skia` 绘制矩形、线条、定位点和后续动态引导
-- `expo-media-library` 将确认后的照片写入系统相册
-- iOS 与 Android 都使用 Expo 实现，不维护原生模块
-- 开发阶段使用 Expo Go；需要验证正式权限文案时再构建应用
-- 第一版仅支持竖屏拍照
+- Expo SDK 57 + React Native 0.86。
+- Expo Router 管理页面路由。
+- `expo-camera` 的 `CameraView` 提供相机预览和拍照。
+- `@shopify/react-native-skia` 绘制模板黄色引导线。
+- iOS 与 Android 都使用 Expo 实现，不维护自定义原生模块。
+- MVP 只使用后置镜头和竖屏 `3:4` variant。
 
-相机蒙层是 `CameraView` 上方的透明 Skia Canvas，不参与照片输出。最终照片中不包含模板线条。
+相机引导层是 `CameraView` 上方的透明 Skia Canvas，不参与照片输出。最终照片中不能包含构图线条。
+
+Expo SDK 57 的实现必须以版本化文档为准：
+
+- [Expo Camera v57](https://docs.expo.dev/versions/v57.0.0/sdk/camera/)
+- [Expo MediaLibrary v57](https://docs.expo.dev/versions/v57.0.0/sdk/media-library/)
+
+MVP 不使用 MediaLibrary；链接保留给 MVP 后的相册保存实现。
 
 ## 3. 页面与导航
 
 ```text
 /
 └── 模板列表
-    └── /camera/[templateId]
+    └── /camera/[presetId]
         └── /review
 ```
 
 ### 模板列表
 
-- 展示内置模板的封面、名称和一句用途说明。
-- 点击模板时只传递 `templateId`，页面不传递完整模板对象。
-- 未知或失效的 `templateId` 返回模板列表并显示轻量错误提示。
+- 从本地 `CompositionTemplateDocumentV1` 读取 presets。
+- 展示 preset 名称、用途和 MVP `3:4` variant 的缩略图。
+- 点击 preset 时只传递 `presetId`，不通过路由传完整对象。
+- 未知 `presetId` 返回模板列表并展示轻量错误。
 
 ### 相机页
 
-- 根据 `templateId` 从内置模板仓库读取模板。
+- 根据 `presetId` 查询 preset。
+- MVP 从 preset 中选择唯一的 `3:4` variant。
 - 进入页面后请求相机权限。
 - 相机准备完成前禁止快门。
-- 页面失去焦点时卸载 `CameraView`，避免预览在预览页背后继续运行。
-- 拍照成功后把临时照片 URI 放入拍摄会话，再进入预览页。
+- 页面失去焦点时卸载 `CameraView`；Expo Camera 同一时间只允许一个预览处于活动状态。
+- 拍照成功后保存临时照片信息和本次使用的 preset、variant ID，再进入结果页。
 
-### 预览页
+### 结果页
 
-- 显示本次拍摄的临时照片，不再显示模板蒙层。
-- “重拍”清除当前照片并返回相机页。
-- “保存”时再请求相册写入权限，保存成功后返回模板列表或停留并显示成功状态。
-- 如果应用重启导致临时 URI 丢失，预览页返回模板列表。
+- 显示本次拍摄的临时照片，不显示模板引导线。
+- “重拍”清除照片并返回同一 preset 的相机页。
+- “完成”清除拍摄会话并返回模板列表。
+- 临时 URI 丢失或失效时返回模板列表。
 
-## 4. 构图视口
+## 4. 模板数据边界
 
-第一版使用固定的竖屏 `3:4` 构图视口。模板坐标只相对于该视口计算，不相对于整个设备屏幕计算。
+模板模型以 `plans/template-data-model.md` 为唯一规范。顶层结构为：
+
+```text
+CompositionTemplateDocumentV1
+└── presets: CompositionPresetV1[]
+    └── variants: CompositionTemplateVariantV1[]
+        └── elements: CompositionElementV1[]
+            ├── type
+            └── shape
+```
+
+关键规则：
+
+- 顶层 `schemaVersion` 为 `1`。
+- V1 允许 `3:4`、`4:3`、`9:16`、`16:9` 和 `1:1` 五种比例。
+- MVP 数据只包含 `3:4` variant。
+- `3:4` 和 `4:3` 是不同设计，不能自动旋转或拉伸生成。
+- 所有坐标使用 `0...1` 模板画布坐标。
+- Element type 表达构图语义，Shape 表达完整几何。
+- 引导颜色、线宽和通用提示属于代码或主题，不进入模板数据。
+- 模板数据是随应用发布的只读 TypeScript 数据，不需要数据库和网络请求。
+
+模板加载时执行开发期校验。校验规则完整定义在 `plans/template-data-model.md`，架构层不维护第二份模型。
+
+## 5. 构图视口和相机输出
+
+MVP 使用固定竖屏 `3:4` 构图视口。模板坐标只相对于该视口计算，不相对于整个设备屏幕计算。
 
 ```text
 ┌──────────────────────┐
@@ -73,110 +105,54 @@
 │   + Skia Canvas      │
 │                      │
 ├──────────────────────┤
-│ 提示、闪光灯、快门等  │
+│ 提示、快门等控件      │
 └──────────────────────┘
 ```
 
-这样可以保证：
+相机控件位于构图视口之外，不参与模板坐标变换。模板缩略图和相机页复用同一套 Shape 到像素坐标映射函数。
 
-- 不同手机上的模板比例一致。
-- 相机控件不会挤压或遮挡构图坐标。
-- 模板可以同时用于列表缩略图和实时相机。
-- 第二版 AI 检测结果可以映射到同一坐标空间。
+Expo Camera v57 的相关约束：
 
-相机实现需要优先选择 `4:3` 的照片尺寸。Android 可配置 `ratio="4:3"`；iOS 和 Android 都应从设备支持的 `pictureSize` 中选择一个 `4:3` 尺寸。由于不同设备的预览裁切行为可能不同，正式实现前必须在真机上校准“预览区域与成片区域一致性”。
+- `getAvailablePictureSizesAsync()` 返回当前设备支持的照片尺寸。
+- `pictureSize` 决定照片尺寸；设置后 `ratio` 会被忽略。
+- `ratio` 仅适用于 Android 预览。
+- `takePictureAsync()` 必须等待 `onCameraReady`。
+- 未启用 `skipProcessing` 时，照片会按设备方向处理并缩放以匹配预览。
 
-## 5. 模板数据模型
+实现阶段需要从设备支持尺寸中选择与 MVP 目标画幅兼容的照片尺寸，并在 iPhone 与 Android 真机上校准预览与成片的坐标一致性。
 
-模板作为随应用发布的只读 TypeScript 数据，不需要数据库或网络请求。
-
-所有几何坐标使用 `0` 到 `1` 的归一化数值：
-
-- `x=0, y=0` 表示构图视口左上角。
-- `x=1, y=1` 表示构图视口右下角。
-- 坐标在运行时映射为实际视口像素。
-
-建议的数据契约：
-
-```ts
-type Point = {
-  x: number;
-  y: number;
-};
-
-type RectGuide = {
-  id: string;
-  type: 'rect';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  role: 'subject' | 'background' | 'safe-area';
-};
-
-type LineGuide = {
-  id: string;
-  type: 'line';
-  from: Point;
-  to: Point;
-  role: 'horizon' | 'leading-line' | 'alignment';
-};
-
-type PointGuide = {
-  id: string;
-  type: 'point';
-  position: Point;
-  role: 'face' | 'focus' | 'vanishing-point';
-};
-
-type CompositionGuide = RectGuide | LineGuide | PointGuide;
-
-type CompositionTemplate = {
-  id: string;
-  title: string;
-  description: string;
-  instruction: string;
-  aspectRatio: '3:4';
-  defaultFacing: 'back' | 'front';
-  guides: CompositionGuide[];
-};
-```
-
-模板加载时需要进行开发期校验：ID 唯一、坐标有限且位于 `0...1`、矩形不能超出视口、模板至少包含一个引导元素。第一版不引入运行时 schema 库，先使用小型断言函数完成校验。
+产品当前倾向采用与 iOS 相册相同的裁切处理。具体裁切算法、预览映射和跨平台一致性在相机实现阶段确定，不写入模板数据。
 
 ## 6. 状态管理
 
-第一版不引入 Redux、Zustand 或服务端状态库。
-
-状态分为三类：
+MVP 不引入 Redux、Zustand 或服务端状态库。
 
 | 状态 | 所属位置 | 生命周期 |
 | --- | --- | --- |
-| 模板数据 | `templates/data` | 随应用发布，只读 |
+| 模板文档 | `templates/data` | 随应用发布，只读 |
 | 相机状态 | 相机页本地 state | 当前相机页面 |
-| 拍摄会话 | `CaptureSessionProvider` | 从拍照到预览结束 |
+| 拍摄会话 | `CaptureSessionProvider` | 从拍照到结果页结束 |
 
 相机本地状态包括：
 
-- 权限状态
-- 相机是否准备完成
-- 前后镜头
-- 闪光灯模式
-- 是否正在拍照
-- 页面是否处于焦点
+- 权限状态。
+- 相机是否准备完成。
+- 是否正在拍照。
+- 页面是否处于焦点。
 
-拍摄会话只保存：
+拍摄会话保存：
 
 ```ts
 type CaptureSession = {
-  templateId: string;
+  presetId: string;
+  variantId: string;
   photoUri: string;
   width: number;
   height: number;
 };
 ```
 
-临时照片位于 Expo Camera 返回的缓存目录。用户保存前不写入相册，也不做长期持久化。
+临时照片位于 Expo Camera 返回的缓存目录。MVP 不长期持久化照片。
 
 ## 7. 目录设计
 
@@ -186,7 +162,7 @@ src/
 │   ├── _layout.tsx
 │   ├── index.tsx
 │   ├── camera/
-│   │   └── [templateId].tsx
+│   │   └── [presetId].tsx
 │   └── review.tsx
 ├── features/
 │   ├── templates/
@@ -204,107 +180,106 @@ src/
 └── shared/
     ├── theme/
     └── ui/
-
-assets/
-└── templates/
 ```
 
 边界规则：
 
-- `src/app` 只解析路由参数并组合 feature screen，不写产品逻辑。
-- `templates` 不依赖相机实现，可以独立渲染模板缩略图。
-- `camera` 读取模板模型，但不修改模板。
-- `photo-review` 读取拍摄会话并负责相册写入。
+- `src/app` 只解析路由参数并组合 feature screen。
+- `templates` 不依赖相机实现，可以独立渲染缩略图。
+- `camera` 读取 preset 和 variant，但不修改模板数据。
+- `photo-review` 只读取拍摄会话。
 - `shared` 不包含 Framewise 特有业务规则。
 
 ## 8. 核心组件
 
 ### `SkiaCompositionOverlay`
 
-- 输入：模板、视口宽高和显示样式。
-- 输出：覆盖整个构图视口的透明 Skia Canvas。
-- 使用透明背景和 `pointerEvents="none"`，不阻挡相机手势或控件。
-- 只负责坐标映射和绘制，不读取权限、不持有相机状态。
-- 模板卡片和相机页共用同一个渲染器，避免两套构图规则产生偏差。
-- 模板只保存归一化几何数据，不保存 `SkPath`、`Paint` 等 Skia 运行时对象。
+- 输入：variant、视口宽高和渲染场景。
+- 输出：覆盖构图视口的透明 Skia Canvas。
+- 只负责坐标映射和黄色引导线绘制。
+- 根据 element type 选择特别绘制方式和通用提示语义。
+- 不读取相机权限，不持有相机状态。
+- 缩略图和相机页共用同一个几何渲染器。
+- 不把 `SkPath`、Paint 等运行时对象写回模板数据。
 
 ### `CameraViewport`
 
 - 组合 `CameraView` 与 `SkiaCompositionOverlay`。
-- 保持固定 `3:4` 布局。
+- MVP 保持固定 `3:4` 布局。
 - 负责相机 ref、准备状态和拍照调用。
 - 防止连续点击快门造成并发拍照。
 
 ### `CaptureSessionProvider`
 
-- 持有当前临时照片。
-- 提供 `setCapture` 与 `clearCapture`。
+- 持有当前临时照片和本次使用的 preset、variant ID。
+- 提供设置和清除拍摄会话的操作。
 - 不承担相机控制和模板查询。
 
 ## 9. 权限策略
 
-- 打开相机页时请求相机权限，并提供拒绝、永久拒绝和重试状态。
-- 只有用户点击“保存”时才请求相册权限。
-- 相册权限只请求照片写入能力，不请求读取整个照片库。
-- 权限文案必须说明功能用途，不使用泛化文案。
+- 打开相机页时请求相机权限。
+- 显式处理权限加载、拒绝、永久拒绝和重试状态。
+- MVP 不请求相册权限。
+- 权限文案必须说明功能用途。
 
-Expo SDK 57 的 MediaLibrary 新 API 应使用 `Asset.create(photoUri)` 保存文件；不使用已废弃且会在运行时报错的 `createAssetAsync` 或 `saveToLibraryAsync`。
+MVP 之后如增加相册保存，应在用户主动保存时请求写入权限，并按照 Expo SDK 57 MediaLibrary 文档使用 `Asset.create(fileUri)`；不使用会在新版入口运行时报错的 legacy API。
 
 ## 10. 错误处理
 
-第一版需要显式处理：
+MVP 显式处理：
 
-- 相机权限被拒绝
-- 相机挂载失败
-- 相机尚未准备完成
-- 拍照失败或返回空结果
-- 重复点击快门
-- 照片缓存 URI 已失效
-- 相册权限被拒绝
-- 保存失败
-- 模板 ID 不存在
+- 相机权限被拒绝。
+- 相机挂载失败。
+- 相机尚未准备完成。
+- 拍照失败或返回空结果。
+- 重复点击快门。
+- 临时照片 URI 已失效。
+- preset ID 不存在。
+- preset 缺少 MVP `3:4` variant。
+- 模板数据校验失败。
 
-错误只在最接近问题的页面展示。第一版不建立全局错误总线。
+错误在最接近问题的页面展示，不建立全局错误总线。
 
 ## 11. 验证策略
 
 ### 自动检查
 
-- 模板数据校验与坐标映射单元测试
-- 未知模板 ID 的行为测试
-- 拍摄会话 reducer/provider 测试
-- TypeScript、lint 和 Expo 配置检查
+- 模板文档和 Shape 校验测试。
+- Shape 到像素坐标映射测试。
+- preset 和 variant 查询测试。
+- 未知 preset ID 行为测试。
+- 拍摄会话测试。
+- TypeScript、lint 和 Expo 配置检查。
 
 ### 真机检查
 
-- iPhone 与 Android 各至少两种屏幕比例
-- 预览蒙层与最终照片的构图区域是否一致
-- 前后镜头方向及镜像行为
-- 相机切到预览页后是否停止
-- 权限首次请求、拒绝和设置页恢复流程
-- 连续拍摄与保存是否稳定
+- 至少一台 iPhone 和一台 Android。
+- 预览引导与最终照片的构图区域是否一致。
+- 照片方向是否正确且没有拉伸。
+- 相机页失焦后是否停止预览。
+- 权限首次请求、拒绝和恢复流程。
+- 连续拍摄是否稳定。
 
-最重要的验收标准不是像素级一致，而是模板中的人物框、地平线等关键位置在成片中没有明显漂移。
+最重要的验收标准是模板人物框、地平线等关键位置在成片中没有明显漂移。
 
 ## 12. 实现顺序
 
-1. 安装并配置 `expo-camera`、`expo-media-library` 和 `@shopify/react-native-skia`。
-2. 建立模板类型、校验函数和 2 个测试模板。
-3. 完成模板列表及共用的 `CompositionOverlay`。
-4. 完成相机权限、固定构图视口和拍照。
-5. 完成拍摄会话、预览、重拍与保存。
-6. 在真机校准预览与成片坐标，再扩充到首批 5 至 8 个模板。
+1. 安装并配置 `expo-camera` 和 `@shopify/react-native-skia`。
+2. 实现 V1 模板类型、校验器、查询和两个测试 preset。
+3. 实现共用的 `SkiaCompositionOverlay`。
+4. 实现模板列表和缩略图。
+5. 实现相机权限、固定 `3:4` 视口、引导层和快门。
+6. 实现拍摄会话、结果页、重拍和完成。
+7. 在 iPhone 和 Android 上校准预览、方向和成片区域。
+8. 修复阻断链路的问题后进入用户验证。
 
-在第 6 步通过前，不增加动画、模板编辑和 AI 能力。
+在静态模板拍摄链路验证通过前，不增加动画、模板编辑、横屏、多画幅切换、相册保存或 AI 能力。
 
-## 13. 第二版扩展接口
+## 13. MVP 之后
 
-第二版的本地 AI 可以输出同样采用归一化坐标的检测结果：
-
-```text
-相机帧检测结果 + CompositionTemplate
-→ 比较当前位置与目标区域
-→ 生成单条调整提示
-```
-
-第一版只保留稳定的模板坐标契约，不预先创建帧处理接口、原生模块或 AI 抽象层。等静态模板价值和端侧模型方案都得到验证后，再扩展相机 feature。
+- 保存照片到系统相册。
+- 扩充真实 preset 和各画幅 variant。
+- 根据设备方向选择 `3:4 ↔ 4:3` 或 `9:16 ↔ 16:9` variant。
+- 对缺少对应方向 variant 的 preset 提示用户。
+- 前后镜头、闪光灯、缩放和点击对焦。
+- 本地 AI 主体识别和构图调整提示。
