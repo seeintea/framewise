@@ -1,4 +1,4 @@
-import type { AspectRatio } from '@/types/aspect-ratio';
+import type { AspectRatio } from '@/types';
 
 export const ASPECT_RATIOS = {
   portrait: [

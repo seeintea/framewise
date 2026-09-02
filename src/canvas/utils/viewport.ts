@@ -1,7 +1,6 @@
 import { Dimensions } from 'react-native';
 
-import type { AspectRatio } from '@/types/aspect-ratio';
-import type { Size } from '@/types/geometry';
+import type { AspectRatio, Size } from '@/types';
 
 function getWindowShortSide(): number {
   const { width, height } = Dimensions.get('window');

@@ -1,4 +1,4 @@
-import type { AspectRatio } from '@/types/aspect-ratio';
+import type { AspectRatio } from '@/types';
 import type { ResolvedShape, Shape } from './shape';
 
 export type CompositionElementType = 'subject' | 'horizon' | 'safe-line';

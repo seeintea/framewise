@@ -3,7 +3,7 @@ import type {
   ResolvedCompositionTemplateVariant,
 } from '@/canvas/types';
 import type { ResolvedShape, Shape } from '@/canvas/types/shape';
-import type { Point, Size } from '@/types/geometry';
+import type { Point, Size } from '@/types';
 
 function resolvePoint(point: Point, size: Size): Point {
   return {

@@ -4,3 +4,4 @@ dist/
 web-build/
 pnpm-lock.yaml
 assets/expo.icon/
+archive/

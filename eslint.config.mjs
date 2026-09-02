@@ -3,7 +3,7 @@ import expoConfig from 'eslint-config-expo/flat.js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 
 export default defineConfig([
-  globalIgnores(['dist/*']),
+  globalIgnores(['archive/**', 'dist/*']),
   expoConfig,
   eslintPluginPrettierRecommended,
 ]);
