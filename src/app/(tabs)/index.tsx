@@ -4,7 +4,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Framewise</Text>
-      <Text style={styles.subtitle}>核心验证</Text>
+      <Text style={styles.subtitle}>模版</Text>
     </View>
   );
 }
