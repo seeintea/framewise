@@ -1,5 +1,6 @@
 {
   "plugins": ["@prettier/plugin-oxc"],
+  "endOfLine": "lf",
   "singleQuote": true,
   "trailingComma": "all"
 }
