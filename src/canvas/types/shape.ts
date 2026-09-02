@@ -1,4 +1,4 @@
-import type { Point } from '@/types';
+import type { Bounds, Point } from '@/types';
 
 export type LineShape = {
   type: 'line';
@@ -6,7 +6,19 @@ export type LineShape = {
   end: Point;
 };
 
-export type Shape = LineShape;
+export type CircleShape = {
+  type: 'circle';
+  center: Point;
+  radius: number;
+};
+
+export type RectShape = {
+  type: 'rect';
+  bounds: Bounds;
+  cornerRadius?: number;
+};
+
+export type Shape = CircleShape | LineShape | RectShape;
 
 export type ResolvedLineShape = {
   type: 'line';
@@ -14,4 +26,17 @@ export type ResolvedLineShape = {
   end: Point;
 };
 
-export type ResolvedShape = ResolvedLineShape;
+export type ResolvedCircleShape = {
+  type: 'circle';
+  center: Point;
+  radius: number;
+};
+
+export type ResolvedRectShape = {
+  type: 'rect';
+  bounds: Bounds;
+  cornerRadius: number;
+};
+
+export type ResolvedShape =
+  ResolvedCircleShape | ResolvedLineShape | ResolvedRectShape;
