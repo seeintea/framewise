@@ -10,7 +10,7 @@ import {
 
 import Canvas from '@/canvas';
 import type { CompositionTemplateVariant } from '@/canvas/types';
-import { PinchZoomLayer } from '@/features/camera/components/pinch-zoom-layer';
+import { PinchZoomLayer } from '@/features/camera/components/PinchZoomLayer';
 import type { Size } from '@/types/geometry';
 
 type CameraViewportProps = {

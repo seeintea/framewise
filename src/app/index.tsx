@@ -17,7 +17,7 @@ import {
   getViewportSize,
   type CompositionTemplateDocumentV1,
 } from '@/canvas';
-import { CameraViewport } from '@/features/camera/components/camera-viewport';
+import { CameraViewport } from '@/features/camera/components/CameraViewport';
 import { useCaptureSession } from '@/features/photo-review/model/capture-session';
 import type { Size } from '@/types/geometry';
 

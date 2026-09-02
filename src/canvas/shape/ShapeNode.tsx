@@ -1,4 +1,4 @@
-import { LineShapeNode } from './line-shape-node';
+import { LineShapeNode } from './LineShapeNode';
 
 import type { ResolvedShape } from '@/canvas/types/shape';
 

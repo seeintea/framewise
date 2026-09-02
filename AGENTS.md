@@ -20,6 +20,7 @@ Framewise 正在持续迭代。保持改动小而可逆，并以当前实际存�
 ## TypeScript 与模块
 
 - 应用代码使用 TypeScript，并保持 strict mode 开启。
+- 以 React 组件为主要职责的文件使用 PascalCase，例如 `CameraViewport.tsx`；其他源码文件和目录使用 kebab-case。Expo Router 的 `_layout.tsx`、`index.tsx`、路由语义文件，以及聚合导出的 `index.ts` / `index.tsx` 和生态固定配置文件保持其约定名称。
 - 在模块边界保留有用的类型。避免使用 `any`、不安全的类型断言和重复的领域类型。
 - 从 `src/` 导入模块时，如果 `@/` 别名能让归属更清晰，则优先使用它。
 - 工具配置使用 ESM 和明确的 `.mjs` 扩展名。没有具体需要时，不要把整个 package 切换为 ESM。
