@@ -29,6 +29,18 @@ function resolveShape(shape: Shape, size: Size): ResolvedShape {
         center: resolvePoint(shape.center, size),
         radius: Math.round(shape.radius * Math.min(size.width, size.height)),
       };
+    case 'dashed-circle':
+      return {
+        type: shape.type,
+        center: resolvePoint(shape.center, size),
+        radius: Math.round(shape.radius * Math.min(size.width, size.height)),
+      };
+    case 'dashed-line':
+      return {
+        type: shape.type,
+        start: resolvePoint(shape.start, size),
+        end: resolvePoint(shape.end, size),
+      };
     case 'line':
       return {
         type: shape.type,

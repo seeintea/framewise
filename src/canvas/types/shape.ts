@@ -6,6 +6,18 @@ export type LineShape = {
   end: Point;
 };
 
+export type DashedLineShape = {
+  type: 'dashed-line';
+  start: Point;
+  end: Point;
+};
+
+export type DashedCircleShape = {
+  type: 'dashed-circle';
+  center: Point;
+  radius: number;
+};
+
 export type CircleShape = {
   type: 'circle';
   center: Point;
@@ -18,12 +30,25 @@ export type RectShape = {
   cornerRadius?: number;
 };
 
-export type Shape = CircleShape | LineShape | RectShape;
+export type Shape =
+  CircleShape | DashedCircleShape | DashedLineShape | LineShape | RectShape;
 
 export type ResolvedLineShape = {
   type: 'line';
   start: Point;
   end: Point;
+};
+
+export type ResolvedDashedLineShape = {
+  type: 'dashed-line';
+  start: Point;
+  end: Point;
+};
+
+export type ResolvedDashedCircleShape = {
+  type: 'dashed-circle';
+  center: Point;
+  radius: number;
 };
 
 export type ResolvedCircleShape = {
@@ -39,4 +64,8 @@ export type ResolvedRectShape = {
 };
 
 export type ResolvedShape =
-  ResolvedCircleShape | ResolvedLineShape | ResolvedRectShape;
+  | ResolvedCircleShape
+  | ResolvedDashedCircleShape
+  | ResolvedDashedLineShape
+  | ResolvedLineShape
+  | ResolvedRectShape;

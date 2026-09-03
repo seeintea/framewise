@@ -9,7 +9,7 @@ export const goldenRatioPortrait = {
     {
       id: 'golden-ratio-portrait-3x4',
       aspectRatio: { width: 3, height: 4 },
-      instruction: '将人物置于画面右下方的圆角矩形内',
+      instruction: '将人物置于圆角矩形内，使面部边缘贴近黄金分割线',
       defaultFacing: 'back',
       elements: [
         {
@@ -18,12 +18,21 @@ export const goldenRatioPortrait = {
           shape: {
             type: 'rect',
             bounds: {
-              x: 0.478,
-              y: 0.58,
-              width: 0.28,
-              height: 0.4,
+              x: 0.338,
+              y: 0.5,
+              width: 0.36,
+              height: 0.48,
             },
-            cornerRadius: 0.04,
+            cornerRadius: 0.02,
+          },
+        },
+        {
+          id: 'golden-ratio-line',
+          type: 'safe-line',
+          shape: {
+            type: 'dashed-line',
+            start: { x: 0.618, y: 0.5 },
+            end: { x: 0.618, y: 0.98 },
           },
         },
       ],
