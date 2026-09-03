@@ -1,15 +1,24 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { listPresets } from '@/data/composition-templates';
+
 import { Card } from './components/Card';
 import { FeaturedCard } from './components/FeaturedCard';
 import { Tip } from './components/Tip';
 
+const PLACEHOLDER_COLORS = ['#D9DDD5', '#DDD7D1', '#D6D9DF'] as const;
+const presets = listPresets();
+
 type TemplatesProps = {
-  onSelectTemplate: () => void;
+  onOpenFeatured: () => void;
+  onSelectTemplate: (presetId: string) => void;
 };
 
-export function Templates({ onSelectTemplate }: TemplatesProps) {
+export function Templates({
+  onOpenFeatured,
+  onSelectTemplate,
+}: TemplatesProps) {
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <ScrollView
@@ -22,7 +31,9 @@ export function Templates({ onSelectTemplate }: TemplatesProps) {
           <Text style={styles.subtitle}>让取景框替你守住画面的秩序。</Text>
         </View>
 
-        <FeaturedCard onPress={onSelectTemplate} />
+        <FeaturedCard onPress={onOpenFeatured} />
+
+        <Tip />
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>常用构图</Text>
@@ -30,21 +41,19 @@ export function Templates({ onSelectTemplate }: TemplatesProps) {
         </View>
 
         <View style={styles.templateGrid}>
-          <Card
-            description="突出主体与留白"
-            onPress={onSelectTemplate}
-            orientation="portrait"
-            title="人像中心"
-          />
-          <Card
-            description="保持地平线稳定"
-            onPress={onSelectTemplate}
-            orientation="landscape"
-            title="水平引导"
-          />
+          {presets.map((preset, index) => (
+            <View key={preset.id} style={styles.templateCard}>
+              <Card
+                description={preset.description}
+                onPress={() => onSelectTemplate(preset.id)}
+                previewColor={
+                  PLACEHOLDER_COLORS[index % PLACEHOLDER_COLORS.length]
+                }
+                title={preset.title}
+              />
+            </View>
+          ))}
         </View>
-
-        <Tip />
       </ScrollView>
     </SafeAreaView>
   );
@@ -102,6 +111,10 @@ const styles = StyleSheet.create({
   },
   templateGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
+  },
+  templateCard: {
+    width: '48%',
   },
 });
