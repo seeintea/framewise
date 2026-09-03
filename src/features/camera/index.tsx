@@ -1,5 +1,4 @@
-import { ChevronLeft } from 'lucide-react-native';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -12,6 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Canvas, { getViewportSize } from '@/canvas';
 import { findPresetById } from '@/data/composition-templates';
 
+import { CameraControls } from './components/CameraControls';
+import { usePhotoLibrary } from './hooks/use-photo-library';
+
+const ZOOM_OPTIONS = [0.5, 1, 2] as const;
+
 type CameraProps = {
   onBack: () => void;
   presetId?: string;
@@ -19,13 +23,20 @@ type CameraProps = {
 
 export function Camera({ onBack, presetId }: CameraProps) {
   const windowSize = useWindowDimensions();
+  const { top, bottom } = useSafeAreaInsets();
+  const [selectedZoom, setSelectedZoom] = useState<number>(1);
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [livePhotoEnabled, setLivePhotoEnabled] = useState(false);
+  const [isFrontFacing, setIsFrontFacing] = useState(false);
+  const [measuredPreviewBottom, setMeasuredPreviewBottom] = useState<number>();
+  const { latestPhotoUri, openPhotoLibrary } = usePhotoLibrary();
   const preset = presetId ? findPresetById(presetId) : undefined;
 
   if (!preset) {
     return (
-      <CameraLayout onBack={onBack}>
+      <CameraErrorLayout onBack={onBack} topInset={top}>
         <Text style={styles.message}>未找到所选构图模版</Text>
-      </CameraLayout>
+      </CameraErrorLayout>
     );
   }
 
@@ -38,32 +49,71 @@ export function Camera({ onBack, presetId }: CameraProps) {
   const displaySize = isLandscape
     ? { width: viewportSize.height, height: viewportSize.width }
     : viewportSize;
+  const previewBottom =
+    measuredPreviewBottom ??
+    Math.round((windowSize.height + displaySize.height) / 2);
 
   return (
-    <CameraLayout onBack={onBack}>
-      <View style={[styles.canvasFrame, displaySize]}>
+    <View style={styles.container}>
+      <View
+        pointerEvents="box-none"
+        style={[StyleSheet.absoluteFill, styles.stage]}
+      >
         <View
-          style={[
-            styles.canvasSurface,
-            viewportSize,
-            isLandscape && styles.rotatedCanvas,
-          ]}
+          onLayout={({ nativeEvent }) => {
+            const { y, height } = nativeEvent.layout;
+            setMeasuredPreviewBottom(Math.round(y + height));
+          }}
+          style={[styles.previewFrame, displaySize]}
         >
-          <Canvas variant={variant} viewportSize={viewportSize} />
+          <View
+            style={[
+              styles.canvasSurface,
+              viewportSize,
+              isLandscape && styles.rotatedCanvas,
+            ]}
+          >
+            <Canvas variant={variant} viewportSize={viewportSize} />
+          </View>
         </View>
       </View>
-    </CameraLayout>
+      <CameraControls
+        bottomInset={bottom}
+        flashEnabled={flashEnabled}
+        isFrontFacing={isFrontFacing}
+        latestPhotoUri={latestPhotoUri}
+        livePhotoEnabled={livePhotoEnabled}
+        onBack={onBack}
+        onCapture={() => undefined}
+        onFlipCamera={() => setIsFrontFacing((current) => !current)}
+        onOpenGallery={() => {
+          void openPhotoLibrary().catch((error: unknown) => {
+            console.error('打开相册失败', error);
+          });
+        }}
+        onToggleFlash={() => setFlashEnabled((current) => !current)}
+        onToggleLivePhoto={() => setLivePhotoEnabled((current) => !current)}
+        onZoomChange={setSelectedZoom}
+        previewBottom={previewBottom}
+        selectedZoom={selectedZoom}
+        topInset={top}
+        zoomOptions={ZOOM_OPTIONS}
+      />
+    </View>
   );
 }
 
-type CameraLayoutProps = {
+type CameraErrorLayoutProps = {
   children: ReactNode;
   onBack: () => void;
+  topInset: number;
 };
 
-function CameraLayout({ children, onBack }: CameraLayoutProps) {
-  const { top } = useSafeAreaInsets();
-
+function CameraErrorLayout({
+  children,
+  onBack,
+  topInset,
+}: CameraErrorLayoutProps) {
   return (
     <View style={styles.container}>
       <View style={[StyleSheet.absoluteFill, styles.stage]}>{children}</View>
@@ -74,11 +124,11 @@ function CameraLayout({ children, onBack }: CameraLayoutProps) {
         onPress={onBack}
         style={({ pressed }) => [
           styles.backButton,
-          { top: top + 8 },
+          { top: topInset + 10 },
           pressed && styles.backButtonPressed,
         ]}
       >
-        <ChevronLeft color="#FFFFFF" size={28} strokeWidth={2.5} />
+        <Text style={styles.backLabel}>‹</Text>
       </Pressable>
     </View>
   );
@@ -106,12 +156,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  canvasFrame: {
+  previewFrame: {
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: '#242427',
   },
   canvasSurface: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#242427',
   },
   rotatedCanvas: {
     transform: [{ rotate: '90deg' }],
@@ -119,5 +171,11 @@ const styles = StyleSheet.create({
   message: {
     color: '#FFFFFF',
     fontSize: 16,
+  },
+  backLabel: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    lineHeight: 36,
+    fontWeight: '300',
   },
 });
