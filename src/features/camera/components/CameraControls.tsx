@@ -147,7 +147,7 @@ export function CameraControls({
 
       <View style={[styles.actionRow, { bottom: actionRowBottom }]}>
         <Pressable
-          accessibilityLabel="打开最近照片"
+          accessibilityLabel="打开相册"
           accessibilityRole="button"
           hitSlop={8}
           onPress={onOpenGallery}
@@ -159,7 +159,6 @@ export function CameraControls({
           {latestPhotoUri ? (
             <Image
               accessibilityIgnoresInvertColors
-              resizeMode="cover"
               source={{ uri: latestPhotoUri }}
               style={styles.galleryImage}
             />
@@ -349,6 +348,8 @@ const styles = StyleSheet.create({
   galleryButton: {
     width: 58,
     height: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.16)',
@@ -366,6 +367,7 @@ const styles = StyleSheet.create({
   galleryImage: {
     width: '100%',
     height: '100%',
+    objectFit: 'cover',
   },
   shutterOuter: {
     position: 'absolute',

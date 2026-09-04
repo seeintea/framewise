@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as IntentLauncher from 'expo-intent-launcher';
 import {
   AssetField,
   type GranularPermission,
@@ -7,6 +8,7 @@ import {
   usePermissions,
 } from 'expo-media-library';
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 const PHOTO_PERMISSION_OPTIONS = {
   granularPermissions: ['photo'] satisfies GranularPermission[],
@@ -14,9 +16,7 @@ const PHOTO_PERMISSION_OPTIONS = {
 };
 
 export function usePhotoLibrary() {
-  const [permission, requestPermission] = usePermissions(
-    PHOTO_PERMISSION_OPTIONS,
-  );
+  const [permission] = usePermissions(PHOTO_PERMISSION_OPTIONS);
   const [latestPhotoUri, setLatestPhotoUri] = useState<string>();
 
   const refreshLatestPhoto = useCallback(async () => {
@@ -32,25 +32,22 @@ export function usePhotoLibrary() {
   }, [permission?.granted]);
 
   const openPhotoLibrary = useCallback(async () => {
-    let currentPermission = permission;
-
-    if (!currentPermission?.granted) {
-      currentPermission = await requestPermission();
+    if (Platform.OS === 'android') {
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        type: 'vnd.android.cursor.dir/image',
+      });
+    } else {
+      await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: false,
+        allowsMultipleSelection: false,
+        mediaTypes: ['images'],
+      });
     }
 
-    if (!currentPermission.granted) {
-      return;
+    if (permission?.granted) {
+      await refreshLatestPhoto();
     }
-
-    await refreshLatestPhoto();
-    await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: false,
-      allowsMultipleSelection: false,
-      defaultTab: 'photos',
-      mediaTypes: ['images'],
-    });
-    await refreshLatestPhoto();
-  }, [permission, refreshLatestPhoto, requestPermission]);
+  }, [permission?.granted, refreshLatestPhoto]);
 
   return {
     latestPhotoUri: permission?.granted ? latestPhotoUri : undefined,
