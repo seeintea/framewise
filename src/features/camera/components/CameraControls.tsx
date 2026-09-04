@@ -1,8 +1,6 @@
 import {
   ChevronLeft,
-  CircleDotDashed,
   CircleHelp,
-  Ellipsis,
   Images,
   RefreshCw,
   Zap,
@@ -22,25 +20,30 @@ const ZOOM_SHUTTER_GAP = 12;
 
 type CameraControlsProps = {
   bottomInset: number;
+  captureDisabled: boolean;
+  captureStatus?: string;
   flashEnabled: boolean;
   guidanceInstruction: string;
   guidanceTitle: string;
   guidanceVisible: boolean;
   isFrontFacing: boolean;
   latestPhotoUri?: string;
-  livePhotoEnabled: boolean;
   onBack: () => void;
   onCapture: () => void;
   onFlipCamera: () => void;
   onOpenGallery: () => void;
   onToggleFlash: () => void;
   onToggleGuidance: () => void;
-  onToggleLivePhoto: () => void;
   onZoomChange: (zoom: number) => void;
   previewBottom: number;
   selectedZoom: number;
   topInset: number;
-  zoomOptions: readonly number[];
+  zoomOptions: readonly ZoomOption[];
+};
+
+type ZoomOption = {
+  label: string;
+  value: number;
 };
 
 export function CameraControls({
@@ -50,15 +53,15 @@ export function CameraControls({
   guidanceTitle,
   guidanceVisible,
   isFrontFacing,
+  captureDisabled,
+  captureStatus,
   latestPhotoUri,
-  livePhotoEnabled,
   onBack,
   onCapture,
   onFlipCamera,
   onOpenGallery,
   onToggleFlash,
   onToggleGuidance,
-  onToggleLivePhoto,
   onZoomChange,
   previewBottom,
   selectedZoom,
@@ -108,22 +111,6 @@ export function CameraControls({
                 <ZapOff color={ICON_COLOR} size={20} strokeWidth={1.7} />
               )}
             </ToolButton>
-            <ToolButton
-              accessibilityLabel={
-                livePhotoEnabled ? '关闭实况照片' : '打开实况照片'
-              }
-              active={livePhotoEnabled}
-              onPress={onToggleLivePhoto}
-            >
-              <CircleDotDashed
-                color={livePhotoEnabled ? ACTIVE_COLOR : ICON_COLOR}
-                size={21}
-                strokeWidth={1.6}
-              />
-            </ToolButton>
-            <ToolButton accessibilityLabel="更多相机功能">
-              <Ellipsis color={ICON_COLOR} size={22} strokeWidth={1.8} />
-            </ToolButton>
           </View>
 
           <MaterialButton
@@ -148,17 +135,17 @@ export function CameraControls({
       )}
 
       <View style={[styles.zoomRow, { top: zoomTop }]}>
-        {zoomOptions.map((zoom) => {
-          const selected = zoom === selectedZoom;
+        {zoomOptions.map((option) => {
+          const selected = option.value === selectedZoom;
 
           return (
             <Pressable
-              key={zoom}
-              accessibilityLabel={`${formatZoom(zoom)} 倍率`}
+              key={option.label}
+              accessibilityLabel={`相机缩放 ${option.label}`}
               accessibilityRole="button"
               accessibilityState={{ selected }}
               hitSlop={6}
-              onPress={() => onZoomChange(zoom)}
+              onPress={() => onZoomChange(option.value)}
               style={({ pressed }) => [
                 styles.zoomButton,
                 selected && styles.zoomButtonSelected,
@@ -168,12 +155,24 @@ export function CameraControls({
               <Text
                 style={[styles.zoomLabel, selected && styles.zoomLabelSelected]}
               >
-                {formatZoom(zoom)}
+                {option.label}
               </Text>
             </Pressable>
           );
         })}
       </View>
+
+      {captureStatus && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.captureStatus,
+            { bottom: actionRowBottom + ACTION_ROW_HEIGHT + 8 },
+          ]}
+        >
+          <Text style={styles.captureStatusLabel}>{captureStatus}</Text>
+        </View>
+      )}
 
       <View style={[styles.actionRow, { bottom: actionRowBottom }]}>
         <Pressable
@@ -202,10 +201,13 @@ export function CameraControls({
         <Pressable
           accessibilityLabel="拍照"
           accessibilityRole="button"
+          accessibilityState={{ disabled: captureDisabled }}
+          disabled={captureDisabled}
           hitSlop={8}
           onPress={onCapture}
           style={({ pressed }) => [
             styles.shutterOuter,
+            captureDisabled && styles.shutterDisabled,
             pressed && styles.shutterPressed,
           ]}
         >
@@ -285,10 +287,6 @@ function ToolButton({
       {children}
     </Pressable>
   );
-}
-
-function formatZoom(zoom: number): string {
-  return zoom < 1 ? zoom.toFixed(1).replace(/^0/, '') : `${zoom}×`;
 }
 
 const styles = StyleSheet.create({
@@ -405,6 +403,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  captureStatus: {
+    position: 'absolute',
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(24, 24, 27, 0.82)',
+  },
+  captureStatusLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
   galleryButton: {
     width: 58,
     height: 58,
@@ -457,6 +469,9 @@ const styles = StyleSheet.create({
   shutterPressed: {
     opacity: 0.86,
     transform: [{ scale: 0.94 }],
+  },
+  shutterDisabled: {
+    opacity: 0.5,
   },
   flipButton: {
     width: 58,

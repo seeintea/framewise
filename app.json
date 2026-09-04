@@ -43,7 +43,7 @@
         "expo-media-library",
         {
           "photosPermission": "允许 Framewise 访问相册以展示最近照片并选择照片",
-          "savePhotosPermission": false,
+          "savePhotosPermission": "允许 Framewise 将拍摄的照片保存到相册",
           "granularPermissions": ["photo"]
         }
       ],

@@ -50,8 +50,9 @@ export function usePhotoLibrary() {
   }, [permission?.granted, refreshLatestPhoto]);
 
   return {
-    latestPhotoUri: permission?.granted ? latestPhotoUri : undefined,
+    latestPhotoUri,
     openPhotoLibrary,
+    rememberLatestPhoto: setLatestPhotoUri,
   };
 }
 
