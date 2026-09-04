@@ -19,6 +19,7 @@ import { CameraControls } from './components/CameraControls';
 import { PinchZoomLayer } from './components/PinchZoomLayer';
 import { TemplateAnnotations } from './components/TemplateAnnotations';
 import { usePhotoLibrary } from './hooks/use-photo-library';
+import { createLabeledPhoto } from './utils/create-labeled-photo';
 
 const GUIDANCE_DURATION_MS = 3000;
 const CAPTURE_SUCCESS_DURATION_MS = 1500;
@@ -77,7 +78,12 @@ export function Camera({ onBack, presetId }: CameraProps) {
   );
 
   async function capturePhoto() {
-    if (!isCameraReady || captureLockRef.current || !cameraRef.current) {
+    if (
+      !preset ||
+      !isCameraReady ||
+      captureLockRef.current ||
+      !cameraRef.current
+    ) {
       return;
     }
 
@@ -93,9 +99,16 @@ export function Camera({ onBack, presetId }: CameraProps) {
         throw new Error('相机没有返回照片');
       }
 
+      setCaptureStatus('正在添加标注…');
+      const labeledPhoto = await createLabeledPhoto(photo.uri, preset.title);
+
       setCaptureStatus('正在保存到相册…');
-      await Asset.create(photo.uri);
-      rememberLatestPhoto(photo.uri);
+      try {
+        const asset = await Asset.create(labeledPhoto.uri);
+        rememberLatestPhoto(await asset.getUri());
+      } finally {
+        labeledPhoto.delete();
+      }
       setCaptureStatus('已保存到相册');
 
       if (captureStatusTimeoutRef.current) {
