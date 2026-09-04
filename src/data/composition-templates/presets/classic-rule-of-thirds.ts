@@ -3,7 +3,7 @@ import type { CompositionPreset } from '@/canvas';
 export const classicRuleOfThirds = {
   id: 'classic-rule-of-thirds',
   title: '经典三分法',
-  description: '适合带有环境空间的人像，让人物与背景形成自然平衡。',
+  description: '通用九宫格参考，适合自由安排主体、地平线和环境空间。',
   variants: [
     {
       id: 'classic-rule-of-thirds-3x4',

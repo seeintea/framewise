@@ -8,6 +8,10 @@ import { FeaturedCard } from './components/FeaturedCard';
 import { Tip } from './components/Tip';
 
 const PLACEHOLDER_COLORS = ['#D9DDD5', '#DDD7D1', '#D6D9DF'] as const;
+const ORIGIN_LABELS = {
+  'ai-generated': '纯 AI 生成',
+  'human-refined': '人工打磨',
+} as const;
 const presets = listPresets();
 
 type TemplatesProps = {
@@ -44,6 +48,7 @@ export function Templates({
           {presets.map((preset, index) => (
             <View key={preset.id} style={styles.templateCard}>
               <Card
+                badge={preset.origin ? ORIGIN_LABELS[preset.origin] : undefined}
                 description={preset.description}
                 onPress={() => onSelectTemplate(preset.id)}
                 previewColor={

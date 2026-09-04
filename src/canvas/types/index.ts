@@ -40,6 +40,7 @@ export type CompositionPreset = {
   id: string;
   title: string;
   description: string;
+  origin?: 'ai-generated' | 'human-refined';
   variants: CompositionTemplateVariant[];
 };
 

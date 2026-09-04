@@ -2,13 +2,20 @@ import { ArrowUpRight } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 type CardProps = {
+  badge?: string;
   description: string;
   onPress: () => void;
   previewColor: string;
   title: string;
 };
 
-export function Card({ description, onPress, previewColor, title }: CardProps) {
+export function Card({
+  badge,
+  description,
+  onPress,
+  previewColor,
+  title,
+}: CardProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -16,7 +23,13 @@ export function Card({ description, onPress, previewColor, title }: CardProps) {
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.surface}>
-        <View style={[styles.preview, { backgroundColor: previewColor }]} />
+        <View style={[styles.preview, { backgroundColor: previewColor }]}>
+          {badge && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.footer}>
           <View style={styles.copy}>
@@ -49,6 +62,20 @@ const styles = StyleSheet.create({
   },
   preview: {
     height: 142,
+    alignItems: 'flex-start',
+    padding: 12,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(23, 24, 23, 0.78)',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '600',
   },
   footer: {
     zIndex: 1,
