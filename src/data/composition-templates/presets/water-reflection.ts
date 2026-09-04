@@ -11,6 +11,23 @@ export const waterReflection = {
       instruction:
         '让天空占画面上方五分之一，使倒影沿中部水平线延展，并将主体收在右侧三角区域内',
       defaultFacing: 'back',
+      annotations: [
+        {
+          id: 'sky-label',
+          text: '天空',
+          position: { x: 0.5, y: 0.1 },
+        },
+        {
+          id: 'subject-label',
+          text: '主体',
+          position: { x: 0.78, y: 0.43 },
+        },
+        {
+          id: 'reflection-label',
+          text: '倒影',
+          position: { x: 0.78, y: 0.77 },
+        },
+      ],
       elements: [
         {
           id: 'sky-line',

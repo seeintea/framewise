@@ -36,6 +36,19 @@ export const goldenRatioPortrait = {
           },
         },
       ],
+      annotations: [
+        {
+          id: 'person-label',
+          text: '人物',
+          position: { x: 0.518, y: 0.46 },
+        },
+        {
+          id: 'arm-guidance',
+          text: '手臂保持在框内',
+          position: { x: 0.82, y: 0.74 },
+          maxWidth: 0.15,
+        },
+      ],
     },
   ],
 } satisfies CompositionPreset;

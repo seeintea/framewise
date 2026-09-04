@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -12,8 +12,10 @@ import Canvas, { getViewportSize } from '@/canvas';
 import { findPresetById } from '@/data/composition-templates';
 
 import { CameraControls } from './components/CameraControls';
+import { TemplateAnnotations } from './components/TemplateAnnotations';
 import { usePhotoLibrary } from './hooks/use-photo-library';
 
+const GUIDANCE_DURATION_MS = 3000;
 const ZOOM_OPTIONS = [0.5, 1, 2] as const;
 
 type CameraProps = {
@@ -28,9 +30,23 @@ export function Camera({ onBack, presetId }: CameraProps) {
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [livePhotoEnabled, setLivePhotoEnabled] = useState(false);
   const [isFrontFacing, setIsFrontFacing] = useState(false);
+  const [guidanceVisible, setGuidanceVisible] = useState(true);
   const [measuredPreviewBottom, setMeasuredPreviewBottom] = useState<number>();
   const { latestPhotoUri, openPhotoLibrary } = usePhotoLibrary();
   const preset = presetId ? findPresetById(presetId) : undefined;
+
+  useEffect(() => {
+    if (!guidanceVisible) {
+      return;
+    }
+
+    const timeoutId = setTimeout(
+      () => setGuidanceVisible(false),
+      GUIDANCE_DURATION_MS,
+    );
+
+    return () => clearTimeout(timeoutId);
+  }, [guidanceVisible]);
 
   if (!preset) {
     return (
@@ -75,16 +91,26 @@ export function Camera({ onBack, presetId }: CameraProps) {
           >
             <Canvas variant={variant} viewportSize={viewportSize} />
           </View>
+          {guidanceVisible && variant.annotations && (
+            <TemplateAnnotations
+              annotations={variant.annotations}
+              isLandscape={isLandscape}
+              viewportSize={displaySize}
+            />
+          )}
         </View>
       </View>
       <CameraControls
         bottomInset={bottom}
         flashEnabled={flashEnabled}
+        guidanceInstruction={variant.instruction}
+        guidanceTitle={preset.title}
+        guidanceVisible={guidanceVisible}
         isFrontFacing={isFrontFacing}
         latestPhotoUri={latestPhotoUri}
         livePhotoEnabled={livePhotoEnabled}
         onBack={onBack}
-        onCapture={() => undefined}
+        onCapture={() => setGuidanceVisible(false)}
         onFlipCamera={() => setIsFrontFacing((current) => !current)}
         onOpenGallery={() => {
           void openPhotoLibrary().catch((error: unknown) => {
@@ -92,6 +118,7 @@ export function Camera({ onBack, presetId }: CameraProps) {
           });
         }}
         onToggleFlash={() => setFlashEnabled((current) => !current)}
+        onToggleGuidance={() => setGuidanceVisible((visible) => !visible)}
         onToggleLivePhoto={() => setLivePhotoEnabled((current) => !current)}
         onZoomChange={setSelectedZoom}
         previewBottom={previewBottom}

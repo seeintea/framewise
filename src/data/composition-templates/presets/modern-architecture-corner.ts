@@ -11,6 +11,23 @@ export const modernArchitectureCorner = {
       instruction:
         '将建筑最高转角对准圆圈，使主棱线贴合中轴，两侧顶部轮廓沿斜线展开',
       defaultFacing: 'back',
+      annotations: [
+        {
+          id: 'corner-label',
+          text: '顶部转角',
+          position: { x: 0.46, y: 0.19 },
+        },
+        {
+          id: 'roof-line-label',
+          text: '顶部轮廓',
+          position: { x: 0.76, y: 0.29 },
+        },
+        {
+          id: 'corner-axis-label',
+          text: '建筑棱线',
+          position: { x: 0.58, y: 0.65 },
+        },
+      ],
       elements: [
         {
           id: 'corner-anchor',

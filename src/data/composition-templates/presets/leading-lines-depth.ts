@@ -48,6 +48,18 @@ export const leadingLinesDepth = {
           },
         },
       ],
+      annotations: [
+        {
+          id: 'vanishing-point-label',
+          text: '汇聚点',
+          position: { x: 0.5, y: 0.45 },
+        },
+        {
+          id: 'leading-lines-label',
+          text: '线条延伸',
+          position: { x: 0.5, y: 0.78 },
+        },
+      ],
     },
   ],
 } satisfies CompositionPreset;

@@ -1,4 +1,4 @@
-import type { AspectRatio } from '@/types';
+import type { AspectRatio, Point } from '@/types';
 import type { ResolvedShape, Shape } from './shape';
 
 export type CompositionElementType = 'subject' | 'horizon' | 'safe-line';
@@ -9,12 +9,20 @@ export type CompositionElement = {
   shape: Shape;
 };
 
+export type CompositionAnnotation = {
+  id: string;
+  text: string;
+  position: Point;
+  maxWidth?: number;
+};
+
 export type CompositionTemplateVariant = {
   id: string;
   aspectRatio: AspectRatio;
   instruction: string;
   defaultFacing: 'back' | 'front';
   elements: CompositionElement[];
+  annotations?: CompositionAnnotation[];
 };
 
 export type ResolvedCompositionElement = Omit<CompositionElement, 'shape'> & {

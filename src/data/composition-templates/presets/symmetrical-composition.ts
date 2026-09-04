@@ -8,23 +8,9 @@ export const symmetricalComposition = {
     {
       id: 'symmetrical-composition-3x4',
       aspectRatio: { width: 3, height: 4 },
-      instruction: '让场景中轴贴合虚线，并保持主体两侧留白一致',
+      instruction: '让场景的对称中轴贴合虚线，保持左右画面平衡',
       defaultFacing: 'back',
       elements: [
-        {
-          id: 'subject-area',
-          type: 'subject',
-          shape: {
-            type: 'rect',
-            bounds: {
-              x: 0.12,
-              y: 0.1,
-              width: 0.76,
-              height: 0.8,
-            },
-            cornerRadius: 0.02,
-          },
-        },
         {
           id: 'symmetry-axis',
           type: 'safe-line',

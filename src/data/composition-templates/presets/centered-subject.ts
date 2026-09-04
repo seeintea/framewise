@@ -21,6 +21,13 @@ export const centeredSubject = {
           },
         },
       ],
+      annotations: [
+        {
+          id: 'subject-label',
+          text: '主体',
+          position: { x: 0.5, y: 0.5 },
+        },
+      ],
     },
     {
       id: 'centered-subject-1x1',
@@ -36,6 +43,13 @@ export const centeredSubject = {
             center: { x: 0.5, y: 0.5 },
             radius: 0.3,
           },
+        },
+      ],
+      annotations: [
+        {
+          id: 'subject-label',
+          text: '主体',
+          position: { x: 0.5, y: 0.5 },
         },
       ],
     },

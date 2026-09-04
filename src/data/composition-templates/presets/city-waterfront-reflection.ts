@@ -39,6 +39,18 @@ export const cityWaterfrontReflection = {
           },
         },
       ],
+      annotations: [
+        {
+          id: 'scene-label',
+          text: '景物',
+          position: { x: 0.5, y: 0.3 },
+        },
+        {
+          id: 'reflection-label',
+          text: '倒影',
+          position: { x: 0.5, y: 0.62 },
+        },
+      ],
     },
   ],
 } satisfies CompositionPreset;

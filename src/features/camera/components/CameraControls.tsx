@@ -1,6 +1,7 @@
 import {
   ChevronLeft,
   CircleDotDashed,
+  CircleHelp,
   Ellipsis,
   Images,
   RefreshCw,
@@ -22,6 +23,9 @@ const ZOOM_SHUTTER_GAP = 12;
 type CameraControlsProps = {
   bottomInset: number;
   flashEnabled: boolean;
+  guidanceInstruction: string;
+  guidanceTitle: string;
+  guidanceVisible: boolean;
   isFrontFacing: boolean;
   latestPhotoUri?: string;
   livePhotoEnabled: boolean;
@@ -30,6 +34,7 @@ type CameraControlsProps = {
   onFlipCamera: () => void;
   onOpenGallery: () => void;
   onToggleFlash: () => void;
+  onToggleGuidance: () => void;
   onToggleLivePhoto: () => void;
   onZoomChange: (zoom: number) => void;
   previewBottom: number;
@@ -41,6 +46,9 @@ type CameraControlsProps = {
 export function CameraControls({
   bottomInset,
   flashEnabled,
+  guidanceInstruction,
+  guidanceTitle,
+  guidanceVisible,
   isFrontFacing,
   latestPhotoUri,
   livePhotoEnabled,
@@ -49,6 +57,7 @@ export function CameraControls({
   onFlipCamera,
   onOpenGallery,
   onToggleFlash,
+  onToggleGuidance,
   onToggleLivePhoto,
   onZoomChange,
   previewBottom,
@@ -86,36 +95,57 @@ export function CameraControls({
           </View>
         </MaterialButton>
 
-        <View style={styles.toolGroup}>
-          <ToolButton
-            accessibilityLabel={flashEnabled ? '关闭闪光灯' : '打开闪光灯'}
-            active={flashEnabled}
-            onPress={onToggleFlash}
-          >
-            {flashEnabled ? (
-              <Zap color={ACTIVE_COLOR} size={20} strokeWidth={1.7} />
-            ) : (
-              <ZapOff color={ICON_COLOR} size={20} strokeWidth={1.7} />
-            )}
-          </ToolButton>
-          <ToolButton
+        <View style={styles.topActions}>
+          <View style={styles.toolGroup}>
+            <ToolButton
+              accessibilityLabel={flashEnabled ? '关闭闪光灯' : '打开闪光灯'}
+              active={flashEnabled}
+              onPress={onToggleFlash}
+            >
+              {flashEnabled ? (
+                <Zap color={ACTIVE_COLOR} size={20} strokeWidth={1.7} />
+              ) : (
+                <ZapOff color={ICON_COLOR} size={20} strokeWidth={1.7} />
+              )}
+            </ToolButton>
+            <ToolButton
+              accessibilityLabel={
+                livePhotoEnabled ? '关闭实况照片' : '打开实况照片'
+              }
+              active={livePhotoEnabled}
+              onPress={onToggleLivePhoto}
+            >
+              <CircleDotDashed
+                color={livePhotoEnabled ? ACTIVE_COLOR : ICON_COLOR}
+                size={21}
+                strokeWidth={1.6}
+              />
+            </ToolButton>
+            <ToolButton accessibilityLabel="更多相机功能">
+              <Ellipsis color={ICON_COLOR} size={22} strokeWidth={1.8} />
+            </ToolButton>
+          </View>
+
+          <MaterialButton
             accessibilityLabel={
-              livePhotoEnabled ? '关闭实况照片' : '打开实况照片'
+              guidanceVisible ? '隐藏构图指引' : '查看构图指引'
             }
-            active={livePhotoEnabled}
-            onPress={onToggleLivePhoto}
+            onPress={onToggleGuidance}
           >
-            <CircleDotDashed
-              color={livePhotoEnabled ? ACTIVE_COLOR : ICON_COLOR}
-              size={21}
-              strokeWidth={1.6}
-            />
-          </ToolButton>
-          <ToolButton accessibilityLabel="更多相机功能">
-            <Ellipsis color={ICON_COLOR} size={22} strokeWidth={1.8} />
-          </ToolButton>
+            <CircleHelp color={ICON_COLOR} size={21} strokeWidth={1.7} />
+          </MaterialButton>
         </View>
       </View>
+
+      {guidanceVisible && (
+        <View
+          pointerEvents="none"
+          style={[styles.guidance, { top: topInset + 62 }]}
+        >
+          <Text style={styles.guidanceTitle}>{guidanceTitle}</Text>
+          <Text style={styles.guidanceInstruction}>{guidanceInstruction}</Text>
+        </View>
+      )}
 
       <View style={[styles.zoomRow, { top: zoomTop }]}>
         {zoomOptions.map((zoom) => {
@@ -283,6 +313,11 @@ const styles = StyleSheet.create({
   backIcon: {
     transform: [{ translateX: -1 }],
   },
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   toolGroup: {
     height: 40,
     flexDirection: 'row',
@@ -303,6 +338,31 @@ const styles = StyleSheet.create({
   },
   toolButtonActive: {
     backgroundColor: 'rgba(255, 214, 10, 0.1)',
+  },
+  guidance: {
+    position: 'absolute',
+    right: 24,
+    left: 24,
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(24, 24, 27, 0.78)',
+  },
+  guidanceTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  guidanceInstruction: {
+    color: '#E8E8EC',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   zoomRow: {
     position: 'absolute',
