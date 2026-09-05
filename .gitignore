@@ -12,6 +12,8 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+modules/*/android/.gradle/
+modules/*/android/build/
 *.orig.*
 *.jks
 *.p8
@@ -30,6 +32,9 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+
+# IDE
+.idea/
 
 # local env files
 .env*.local

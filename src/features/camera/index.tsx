@@ -1,4 +1,4 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import { Asset } from 'expo-media-library';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
@@ -16,6 +16,8 @@ import Canvas, { getViewportSize } from '@/canvas';
 import { findPresetById } from '@/data/composition-templates';
 
 import { CameraControls } from './components/CameraControls';
+import { CameraViewport } from './components/CameraViewport';
+import type { CameraViewportHandle } from './components/camera-viewport.types';
 import { PinchZoomLayer } from './components/PinchZoomLayer';
 import { TemplateAnnotations } from './components/TemplateAnnotations';
 import { usePhotoLibrary } from './hooks/use-photo-library';
@@ -34,7 +36,7 @@ type CameraProps = {
 };
 
 export function Camera({ onBack, presetId }: CameraProps) {
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<CameraViewportHandle>(null);
   const captureLockRef = useRef(false);
   const captureStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -87,11 +89,7 @@ export function Camera({ onBack, presetId }: CameraProps) {
     setGuidanceVisible(false);
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
-
-      if (!photo) {
-        throw new Error('相机没有返回照片');
-      }
+      const photo = await cameraRef.current.takePictureAsync();
 
       setCaptureStatus('正在保存到相册…');
       await Asset.create(photo.uri);
@@ -167,20 +165,18 @@ export function Camera({ onBack, presetId }: CameraProps) {
           }}
           style={[styles.previewFrame, displaySize]}
         >
-          <CameraView
+          <CameraViewport
             facing={isFrontFacing ? 'front' : 'back'}
-            flash={flashEnabled ? 'on' : 'off'}
-            mode="picture"
+            flashEnabled={flashEnabled}
             onCameraReady={() => {
               setIsCameraReady(true);
               setCaptureStatus(undefined);
             }}
-            onMountError={({ message }) => {
+            onMountError={(message) => {
               setIsCameraReady(false);
               setCaptureStatus(undefined);
               Alert.alert('相机启动失败', message);
             }}
-            ratio="4:3"
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             zoom={selectedZoom}
