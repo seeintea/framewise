@@ -17,22 +17,24 @@ Framewise 是一款帮助用户完成照片构图的相机应用。
 
 ## 开发
 
-项目使用 pnpm，要求 Node.js 22.22.1 或更高版本。
+项目仅使用 npm，要求 Node.js 22.22.1 或更高版本。为避免 pnpm 在本项目 Windows 打包中出现的路径过长问题，不要使用 pnpm、Yarn 或 Bun；只维护 `package-lock.json`。
 
 ```bash
-pnpm install
-pnpm start
+npm install
+npm start
 ```
 
 常用命令：
 
 ```bash
-pnpm ios          # 启动 iOS 原生开发构建
-pnpm android      # 启动 Android 原生开发构建
-pnpm format       # 格式化项目文件
-pnpm lint         # 运行 Expo ESLint
-pnpm typecheck    # 运行 TypeScript 类型检查
-pnpm check        # 运行格式、lint 和类型检查
+npm run ios          # 启动 iOS 原生开发构建
+npm run android      # 启动 Android 原生开发构建
+npm run build:local:ios      # 使用 preview 配置在本机打包 iOS 预览包
+npm run build:local:android  # 使用 preview 配置在本机打包 Android 预览包
+npm run format       # 格式化项目文件
+npm run lint         # 运行 Expo ESLint
+npm run typecheck    # 运行 TypeScript 类型检查
+npm run check        # 运行格式、lint 和类型检查
 ```
 
 提交代码时，pre-commit hook 会通过 lint-staged 自动格式化并检查暂存文件。

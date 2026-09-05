@@ -10,9 +10,10 @@ Framewise 正在持续迭代。保持改动小而可逆，并以当前实际存�
 
 ## 运行环境与依赖
 
-- 使用 Node.js 22.22.1 或更高版本以及 pnpm。不要引入 npm、Yarn、Bun 或额外的锁文件。
+- 使用 Node.js 22.22.1 或更高版本，包管理工具只能使用 npm。禁止使用 pnpm、Yarn 或 Bun，只维护 `package-lock.json`，不要引入其他锁文件。
+- 项目使用 pnpm 时在 Windows 打包中出现了路径过长的问题，因此安装依赖、运行脚本和配置 CI 时必须统一使用 npm。
 - 保持 Expo SDK 57、React Native 0.86 和 React 19.2 与 `package.json` 一致。除非用户明确要求，否则不要升级核心运行时。
-- 使用 `pnpm expo install` 安装 Expo 和 React Native 包，让 Expo 选择兼容版本。
+- 使用 `npx expo install --npm` 安装 Expo 和 React Native 包，让 Expo 选择兼容版本并使用 npm 安装。
 - 优先使用 Expo 支持的 API 和 config plugin，不要直接修改生成的原生项目。
 - 生成的 `ios/` 和 `android/` 目录不纳入版本控制，不要依赖其中的手动修改。
 - 只有当平台、Expo、React Native 或简单的本地实现无法合理提供所需能力时，才新增依赖。
@@ -54,7 +55,7 @@ Framewise 正在持续迭代。保持改动小而可逆，并以当前实际存�
 - 完成代码或配置改动前，运行：
 
   ```bash
-  pnpm check
+  npm run check
   ```
 
 - pre-commit hook 会运行 lint-staged。不要为了隐藏检查失败而绕过它。

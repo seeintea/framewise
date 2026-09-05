@@ -159,9 +159,9 @@ src/
 
 ### 自动检查
 
-- `pnpm format:check`
-- `pnpm lint`
-- `pnpm typecheck`
+- `npm run format:check`
+- `npm run lint`
+- `npm run typecheck`
 - Expo 配置解析检查
 
 ### 真机检查

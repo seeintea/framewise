@@ -3,19 +3,18 @@
   "main": "expo-router/entry",
   "version": "0.1.0",
   "private": true,
-  "engines": {
-    "node": ">=22.22.1"
-  },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "build:local:android": "npx --yes eas-cli@latest build --platform android --profile preview --local",
+    "build:local:ios": "npx --yes eas-cli@latest build --platform ios --profile preview --local",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint -- --max-warnings=0",
+    "lint": "expo lint --max-warnings=0",
     "lint:fix": "expo lint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck",
+    "check": "npm run format:check && npm run lint && npm run typecheck",
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
@@ -53,6 +52,12 @@
     "typescript": "~6.0.3"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged"
+    "pre-commit": "npm exec -- lint-staged"
+  },
+  "overrides": {
+    "react-dom": "19.2.3"
+  },
+  "engines": {
+    "node": ">=22.22.1"
   }
 }
