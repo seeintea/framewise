@@ -1,6 +1,6 @@
 # Framewise MVP 架构
 
-> 状态：与当前已实现的 MVP 保持一致。
+> 状态：记录已完成的静态蒙版 MVP 架构。当前原生相机和本地 AI 的增量架构见 `plans/native-camera-local-ai-mvp.md`。
 
 ## 1. 目标和范围
 
