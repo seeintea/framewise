@@ -1,46 +1,93 @@
 import type { CameraLens } from './components/camera-viewport.types';
+import type { ZoomOption } from './components/camera-control.types';
 
-export function createZoomOptions(lens: CameraLens) {
-  const candidates = [
-    lens.minimumZoomRatio,
+export function createZoomOptions(lenses: readonly CameraLens[]) {
+  if (!lenses.length) {
+    return [];
+  }
+
+  const minimumDisplayRatio = Math.min(
+    ...lenses.map((lens) => lens.intrinsicZoomRatio * lens.minimumZoomRatio),
+  );
+  const targets = [
+    ...(minimumDisplayRatio < 1 ? [minimumDisplayRatio] : []),
+    ...lenses.map((lens) => lens.intrinsicZoomRatio),
     1,
     2,
-    lens.maximumZoomRatio,
-  ].filter(
-    (zoomRatio) =>
-      zoomRatio >= lens.minimumZoomRatio && zoomRatio <= lens.maximumZoomRatio,
-  );
-  const uniqueRatios = candidates.filter(
-    (zoomRatio, index) =>
-      candidates.findIndex(
-        (candidate) => Math.abs(candidate - zoomRatio) < 0.01,
-      ) === index,
-  );
+  ]
+    .filter((ratio) => Number.isFinite(ratio) && ratio > 0)
+    .filter(
+      (ratio, index, values) =>
+        values.findIndex((candidate) => Math.abs(candidate - ratio) < 0.05) ===
+        index,
+    )
+    .sort((first, second) => first - second);
 
-  return uniqueRatios.map((value) => ({
-    label: `${formatRatio(value)}×`,
-    value,
-  }));
+  return targets.flatMap((displayRatio): ZoomOption[] => {
+    const option = resolveZoomOption(lenses, displayRatio);
+    return option ? [option] : [];
+  });
 }
 
-export function createLensLabel(lens: CameraLens, index: number) {
-  const focalLength = lens.focalLengths[0];
-  return focalLength
-    ? `${focalLength.toFixed(1)}mm · #${lens.id}`
-    : `镜头 ${index + 1} · #${lens.id}`;
+export function resolveZoomOption(
+  lenses: readonly CameraLens[],
+  displayRatio: number,
+): ZoomOption | undefined {
+  const lens = findBestLens(lenses, displayRatio);
+
+  if (!lens) {
+    return undefined;
+  }
+
+  return {
+    label: `${formatRatio(displayRatio)}×`,
+    lensId: lens.id,
+    zoomRatio: Math.min(
+      lens.maximumZoomRatio,
+      Math.max(lens.minimumZoomRatio, displayRatio / lens.intrinsicZoomRatio),
+    ),
+  };
 }
 
-export function createCameraInfoLabel(lens: CameraLens) {
-  const focalLengths = lens.focalLengths.length
-    ? lens.focalLengths.map((value) => `${value.toFixed(1)}mm`).join('/')
-    : '焦距未知';
-  const physicalIds = lens.physicalCameraIds.length
-    ? ` · physical ${lens.physicalCameraIds.join(',')}`
-    : '';
-
-  return `Camera ${lens.id} · ${focalLengths} · ${formatRatio(lens.minimumZoomRatio)}–${formatRatio(lens.maximumZoomRatio)}×${physicalIds}`;
+export function getDisplayZoomRatio(lens: CameraLens, zoomRatio: number) {
+  return lens.intrinsicZoomRatio * zoomRatio;
 }
 
-function formatRatio(value: number) {
+export function getDisplayZoomRange(lenses: readonly CameraLens[]) {
+  return {
+    minimum: Math.min(
+      ...lenses.map((lens) => lens.intrinsicZoomRatio * lens.minimumZoomRatio),
+    ),
+    maximum: Math.max(
+      ...lenses.map((lens) => lens.intrinsicZoomRatio * lens.maximumZoomRatio),
+    ),
+  };
+}
+
+function findBestLens(lenses: readonly CameraLens[], displayRatio: number) {
+  return lenses
+    .filter((lens) => {
+      const zoomRatio = displayRatio / lens.intrinsicZoomRatio;
+      return (
+        zoomRatio >= lens.minimumZoomRatio - 0.01 &&
+        zoomRatio <= lens.maximumZoomRatio + 0.01
+      );
+    })
+    .sort((first, second) => {
+      if (first.isLogicalMultiCamera !== second.isLogicalMultiCamera) {
+        return first.isLogicalMultiCamera ? -1 : 1;
+      }
+
+      const firstZoomDistance = Math.abs(
+        Math.log(displayRatio / first.intrinsicZoomRatio),
+      );
+      const secondZoomDistance = Math.abs(
+        Math.log(displayRatio / second.intrinsicZoomRatio),
+      );
+      return firstZoomDistance - secondZoomDistance;
+    })[0];
+}
+
+export function formatRatio(value: number) {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
 }

@@ -1,11 +1,4 @@
-import {
-  ChevronLeft,
-  CircleHelp,
-  Minus,
-  Plus,
-  Zap,
-  ZapOff,
-} from 'lucide-react-native';
+import { ChevronLeft, CircleHelp, Zap, ZapOff } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -13,36 +6,24 @@ const ACTIVE_COLOR = '#FFD60A';
 const ICON_COLOR = '#FFFFFF';
 
 type CameraTopControlsProps = {
-  cameraInfoLabel?: string;
-  exposureCompensation: number;
-  exposureMaximum: number;
-  exposureMinimum: number;
-  exposureStep: number;
   flashEnabled: boolean;
   flashSupported: boolean;
   guidanceInstruction: string;
   guidanceTitle: string;
   guidanceVisible: boolean;
   onBack: () => void;
-  onExposureChange: (index: number) => void;
   onToggleFlash: () => void;
   onToggleGuidance: () => void;
   topInset: number;
 };
 
 export function CameraTopControls({
-  cameraInfoLabel,
-  exposureCompensation,
-  exposureMaximum,
-  exposureMinimum,
-  exposureStep,
   flashEnabled,
   flashSupported,
   guidanceInstruction,
   guidanceTitle,
   guidanceVisible,
   onBack,
-  onExposureChange,
   onToggleFlash,
   onToggleGuidance,
   topInset,
@@ -57,28 +38,6 @@ export function CameraTopControls({
         </MaterialButton>
 
         <View style={styles.topActions}>
-          {exposureMinimum < exposureMaximum && (
-            <View style={styles.toolGroup}>
-              <ToolButton
-                accessibilityLabel="降低曝光"
-                disabled={exposureCompensation <= exposureMinimum}
-                onPress={() => onExposureChange(exposureCompensation - 1)}
-              >
-                <Minus color={ICON_COLOR} size={16} strokeWidth={1.8} />
-              </ToolButton>
-              <Text style={styles.exposureLabel}>
-                {(exposureCompensation * exposureStep).toFixed(1)}
-              </Text>
-              <ToolButton
-                accessibilityLabel="提高曝光"
-                disabled={exposureCompensation >= exposureMaximum}
-                onPress={() => onExposureChange(exposureCompensation + 1)}
-              >
-                <Plus color={ICON_COLOR} size={16} strokeWidth={1.8} />
-              </ToolButton>
-            </View>
-          )}
-
           {flashSupported && (
             <View style={styles.toolGroup}>
               <ToolButton
@@ -113,20 +72,6 @@ export function CameraTopControls({
         >
           <Text style={styles.guidanceTitle}>{guidanceTitle}</Text>
           <Text style={styles.guidanceInstruction}>{guidanceInstruction}</Text>
-        </View>
-      )}
-
-      {cameraInfoLabel && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.cameraInfo,
-            { top: topInset + (guidanceVisible ? 126 : 62) },
-          ]}
-        >
-          <Text numberOfLines={2} style={styles.cameraInfoLabel}>
-            {cameraInfoLabel}
-          </Text>
         </View>
       )}
     </>
@@ -243,14 +188,6 @@ const styles = StyleSheet.create({
   toolButtonDisabled: {
     opacity: 0.35,
   },
-  exposureLabel: {
-    minWidth: 34,
-    color: '#FFFFFF',
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: 'center',
-    fontVariant: ['tabular-nums'],
-  },
   guidance: {
     position: 'absolute',
     right: 24,
@@ -275,21 +212,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
-  },
-  cameraInfo: {
-    position: 'absolute',
-    left: 18,
-    maxWidth: '82%',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 9,
-    backgroundColor: 'rgba(24, 24, 27, 0.68)',
-  },
-  cameraInfoLabel: {
-    color: '#D8D8DC',
-    fontSize: 10,
-    lineHeight: 14,
-    fontVariant: ['tabular-nums'],
   },
   controlPressed: {
     opacity: 0.7,

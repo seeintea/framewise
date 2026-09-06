@@ -1,14 +1,13 @@
 import { Images, RefreshCw } from 'lucide-react-native';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { LensOption, ZoomOption } from './camera-control.types';
+import type { ZoomOption } from './camera-control.types';
 
 export const ACTION_ROW_HEIGHT = 90;
 export const SHUTTER_SIZE = 84;
 export const ZOOM_ROW_HEIGHT = 46;
 const ACTIVE_COLOR = '#FFD60A';
 const ICON_COLOR = '#FFFFFF';
-const LENS_ROW_GAP = 38;
 
 type CameraCaptureControlsProps = {
   actionRowBottom: number;
@@ -16,12 +15,10 @@ type CameraCaptureControlsProps = {
   captureStatus?: string;
   isFrontFacing: boolean;
   latestPhotoUri?: string;
-  lensOptions: readonly LensOption[];
   onCapture: () => void;
   onFlipCamera: () => void;
-  onLensChange: (lensId: string) => void;
   onOpenGallery: () => void;
-  onZoomRatioChange: (zoomRatio: number) => void;
+  onZoomPresetSelect: (option: ZoomOption) => void;
   selectedLensId?: string;
   selectedZoomRatio: number;
   zoomOptions: readonly ZoomOption[];
@@ -34,12 +31,10 @@ export function CameraCaptureControls({
   captureStatus,
   isFrontFacing,
   latestPhotoUri,
-  lensOptions,
   onCapture,
   onFlipCamera,
-  onLensChange,
   onOpenGallery,
-  onZoomRatioChange,
+  onZoomPresetSelect,
   selectedLensId,
   selectedZoomRatio,
   zoomOptions,
@@ -47,50 +42,20 @@ export function CameraCaptureControls({
 }: CameraCaptureControlsProps) {
   return (
     <>
-      {lensOptions.length > 1 && (
-        <View style={[styles.lensRow, { top: zoomTop - LENS_ROW_GAP }]}>
-          {lensOptions.map((option) => {
-            const selected = option.id === selectedLensId;
-
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityLabel={`选择镜头 ${option.label}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => onLensChange(option.id)}
-                style={({ pressed }) => [
-                  styles.lensButton,
-                  selected && styles.lensButtonSelected,
-                  pressed && styles.controlPressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.lensLabel,
-                    selected && styles.lensLabelSelected,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
       <View style={[styles.zoomRow, { top: zoomTop }]}>
         {zoomOptions.map((option) => {
-          const selected = Math.abs(option.value - selectedZoomRatio) < 0.01;
+          const selected =
+            option.lensId === selectedLensId &&
+            Math.abs(option.zoomRatio - selectedZoomRatio) < 0.01;
 
           return (
             <Pressable
-              key={option.label}
+              key={`${option.lensId}:${option.zoomRatio}`}
               accessibilityLabel={`相机缩放 ${option.label}`}
               accessibilityRole="button"
               accessibilityState={{ selected }}
               hitSlop={6}
-              onPress={() => onZoomRatioChange(option.value)}
+              onPress={() => onZoomPresetSelect(option)}
               style={({ pressed }) => [
                 styles.zoomButton,
                 selected && styles.zoomButtonSelected,
@@ -188,33 +153,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 5,
-  },
-  lensRow: {
-    position: 'absolute',
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 6,
-  },
-  lensButton: {
-    height: 30,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    borderRadius: 15,
-    backgroundColor: 'rgba(38, 38, 41, 0.72)',
-  },
-  lensButtonSelected: {
-    backgroundColor: 'rgba(74, 72, 77, 0.96)',
-  },
-  lensLabel: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    lineHeight: 15,
-    fontVariant: ['tabular-nums'],
-  },
-  lensLabelSelected: {
-    color: ACTIVE_COLOR,
   },
   zoomButton: {
     minWidth: 36,

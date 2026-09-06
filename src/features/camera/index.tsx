@@ -16,9 +16,10 @@ import { findPresetById } from '@/composition';
 import { logError, logInfo, logNativeEvent } from '@/logging';
 
 import {
-  createCameraInfoLabel,
-  createLensLabel,
   createZoomOptions,
+  getDisplayZoomRange,
+  getDisplayZoomRatio,
+  resolveZoomOption,
 } from './camera-control-options';
 import { cameraReducer, initialCameraState } from './camera-state';
 import { CameraErrorLayout } from './components/CameraErrorLayout';
@@ -67,14 +68,16 @@ export function Camera({ onBack, presetId }: CameraProps) {
   } = cameraState;
   const preset = presetId ? findPresetById(presetId) : undefined;
   const activeLens = capabilities?.lenses.find(
-    (lens) => lens.id === capabilities.activeLensId,
+    (lens) => lens.id === selectedLensId,
   );
-  const zoomOptions = activeLens ? createZoomOptions(activeLens) : [];
-  const lensOptions =
-    capabilities?.lenses.map((lens, index) => ({
-      id: lens.id,
-      label: createLensLabel(lens, index),
-    })) ?? [];
+  const lenses = capabilities?.lenses ?? [];
+  const zoomOptions = createZoomOptions(lenses);
+  const displayZoomRatio = activeLens
+    ? getDisplayZoomRatio(activeLens, zoomRatio)
+    : 1;
+  const displayZoomRange = lenses.length
+    ? getDisplayZoomRange(lenses)
+    : { minimum: 1, maximum: 1 };
   const exposureRange = activeLens?.exposureCompensationRange;
 
   useEffect(() => {
@@ -252,37 +255,50 @@ export function Camera({ onBack, presetId }: CameraProps) {
             />
           )}
           <PinchZoomLayer
-            maximumZoomRatio={activeLens?.maximumZoomRatio ?? 1}
-            minimumZoomRatio={activeLens?.minimumZoomRatio ?? 1}
+            exposureCompensation={exposureCompensation}
+            exposureMaximum={exposureRange?.maximum ?? 0}
+            exposureMinimum={exposureRange?.minimum ?? 0}
+            maximumZoomRatio={displayZoomRange.maximum}
+            minimumZoomRatio={displayZoomRange.minimum}
+            onExposureChange={(nextExposureCompensation) =>
+              dispatchCamera({
+                type: 'exposure-changed',
+                exposureCompensation: nextExposureCompensation,
+              })
+            }
             onFocusAt={(x, y) => {
               void cameraRef.current?.focusAt(x, y).catch((error: unknown) => {
                 logError('camera', 'focus_failed', error, { x, y });
               });
             }}
-            onZoomRatioChange={(nextZoomRatio) =>
-              dispatchCamera({
-                type: 'zoom-changed',
-                zoomRatio: nextZoomRatio,
-              })
-            }
+            onZoomRatioChange={(nextDisplayZoomRatio) => {
+              const option = resolveZoomOption(lenses, nextDisplayZoomRatio);
+
+              if (!option) {
+                return;
+              }
+
+              dispatchCamera(
+                option.lensId === selectedLensId
+                  ? { type: 'zoom-changed', zoomRatio: option.zoomRatio }
+                  : {
+                      type: 'zoom-preset-selected',
+                      lensId: option.lensId,
+                      zoomRatio: option.zoomRatio,
+                    },
+              );
+            }}
             supportsFocusMetering={activeLens?.supportsFocusMetering ?? false}
-            zoomRatio={zoomRatio}
+            zoomRatio={displayZoomRatio}
           />
         </View>
       </View>
       <CameraControls
         bottomInset={bottom}
-        cameraInfoLabel={
-          activeLens ? createCameraInfoLabel(activeLens) : undefined
-        }
         captureDisabled={!isReady || isCapturing}
         captureStatus={
           captureStatus ?? (!isReady ? '正在启动相机…' : undefined)
         }
-        exposureCompensation={exposureCompensation}
-        exposureMaximum={exposureRange?.maximum ?? 0}
-        exposureMinimum={exposureRange?.minimum ?? 0}
-        exposureStep={exposureRange?.step ?? 0}
         flashEnabled={flashEnabled}
         flashSupported={activeLens?.supportsFlash ?? false}
         guidanceInstruction={variant.instruction}
@@ -290,19 +306,9 @@ export function Camera({ onBack, presetId }: CameraProps) {
         guidanceVisible={guidanceVisible}
         isFrontFacing={isFrontFacing}
         latestPhotoUri={latestPhotoUri}
-        lensOptions={lensOptions}
         onBack={onBack}
         onCapture={() => void capturePhoto()}
-        onExposureChange={(nextExposureCompensation) =>
-          dispatchCamera({
-            type: 'exposure-changed',
-            exposureCompensation: nextExposureCompensation,
-          })
-        }
         onFlipCamera={() => dispatchCamera({ type: 'camera-flipped' })}
-        onLensChange={(lensId) =>
-          dispatchCamera({ type: 'lens-changed', lensId })
-        }
         onOpenGallery={() => {
           void openPhotoLibrary().catch((error: unknown) => {
             logError('camera', 'photo_library_open_failed', error);
@@ -310,10 +316,11 @@ export function Camera({ onBack, presetId }: CameraProps) {
         }}
         onToggleFlash={() => dispatchCamera({ type: 'flash-toggled' })}
         onToggleGuidance={() => setGuidanceVisible((visible) => !visible)}
-        onZoomRatioChange={(nextZoomRatio) =>
+        onZoomPresetSelect={(option) =>
           dispatchCamera({
-            type: 'zoom-changed',
-            zoomRatio: nextZoomRatio,
+            type: 'zoom-preset-selected',
+            lensId: option.lensId,
+            zoomRatio: option.zoomRatio,
           })
         }
         previewBottom={previewBottom}

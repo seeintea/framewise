@@ -55,7 +55,7 @@ class FramewiseCameraView(
     scaleType = PreviewView.ScaleType.FILL_CENTER
     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
   }
-  private val capabilitiesReader = CameraCapabilitiesReader(context, previewView)
+  private val capabilitiesReader = CameraCapabilitiesReader(previewView)
   private val cameraCapture = CameraCapture(
     appContext.cacheDirectory,
     mainExecutor,
@@ -143,6 +143,12 @@ class FramewiseCameraView(
 
   fun setZoomRatio(zoomRatio: Float) {
     requestedZoomRatio = zoomRatio
+    if (
+      boundFacing != requestedFacing ||
+      (requestedLensId != null && boundLensId != requestedLensId)
+    ) {
+      return
+    }
     val activeCamera = camera ?: return
     val zoomState = activeCamera.cameraInfo.zoomState.value ?: return
     val appliedRatio = zoomRatio.coerceIn(zoomState.minZoomRatio, zoomState.maxZoomRatio)
@@ -253,11 +259,15 @@ class FramewiseCameraView(
       val selectorBuilder = CameraSelector.Builder()
         .requireLensFacing(targetFacing)
       targetLensId?.let { lensId ->
+        val logicalCameraId = capabilitiesReader.getLogicalCameraId(lensId)
         selectorBuilder.addCameraFilter(
           CameraFilter { cameraInfos ->
-            cameraInfos.filter { capabilitiesReader.getCameraId(it) == lensId }
+            cameraInfos.filter { capabilitiesReader.getCameraId(it) == logicalCameraId }
           }
         )
+        capabilitiesReader.getPhysicalCameraId(lensId)?.let {
+          selectorBuilder.setPhysicalCameraId(it)
+        }
       }
       val selector = selectorBuilder.build()
       val resolutionSelector = ResolutionSelector.Builder()
@@ -299,7 +309,7 @@ class FramewiseCameraView(
       preview = nextPreview
       imageCapture = nextImageCapture
       boundFacing = targetFacing
-      boundLensId = capabilitiesReader.getCameraId(nextCamera.cameraInfo)
+      boundLensId = targetLensId ?: capabilitiesReader.getCameraId(nextCamera.cameraInfo)
       emitLog(
         "info",
         "camera.bind_completed",
@@ -403,7 +413,7 @@ class FramewiseCameraView(
       return
     }
 
-    val captureLensId = capabilitiesReader.getCameraId(activeCamera.cameraInfo)
+    val captureLensId = boundLensId ?: capabilitiesReader.getCameraId(activeCamera.cameraInfo)
     val captureZoomRatio = activeCamera.cameraInfo.zoomState.value?.zoomRatio ?: requestedZoomRatio
     cameraCapture.takePicture(capture, captureLensId, captureZoomRatio, promise)
   }
@@ -448,7 +458,8 @@ class FramewiseCameraView(
         provider,
         activeCamera,
         requestedFacing,
-        requestedZoomRatio
+        requestedZoomRatio,
+        boundLensId ?: capabilitiesReader.getCameraId(activeCamera.cameraInfo)
       )
     )
   }

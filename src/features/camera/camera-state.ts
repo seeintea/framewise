@@ -25,7 +25,7 @@ export type CameraAction =
   | { type: 'exposure-changed'; exposureCompensation: number }
   | { type: 'flash-toggled' }
   | { type: 'camera-flipped' }
-  | { type: 'lens-changed'; lensId: string }
+  | { type: 'zoom-preset-selected'; lensId: string; zoomRatio: number }
   | { type: 'zoom-changed'; zoomRatio: number };
 
 export function cameraReducer(
@@ -57,11 +57,16 @@ export function cameraReducer(
         ...initialCameraState,
         isFrontFacing: !state.isFrontFacing,
       };
-    case 'lens-changed':
+    case 'zoom-preset-selected':
+      if (action.lensId === state.selectedLensId) {
+        return { ...state, zoomRatio: action.zoomRatio };
+      }
+
       return {
         ...state,
         isReady: false,
         selectedLensId: action.lensId,
+        zoomRatio: action.zoomRatio,
         exposureCompensation: 0,
         flashEnabled: false,
       };

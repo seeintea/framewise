@@ -1,9 +1,6 @@
 package com.leviegu.framewise.camera
 
-import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
-import android.os.Build
 import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
@@ -15,7 +12,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 
 class CameraCapabilitiesReader(
-  private val context: Context,
   private val previewView: PreviewView
 ) {
   @OptIn(ExperimentalCamera2Interop::class)
@@ -23,7 +19,8 @@ class CameraCapabilitiesReader(
     provider: ProcessCameraProvider,
     activeCamera: Camera,
     requestedFacing: Int,
-    requestedZoomRatio: Float
+    requestedZoomRatio: Float,
+    activeLensId: String
   ): Map<String, Any?> {
     val activeInfo = activeCamera.cameraInfo
     val zoomState = activeInfo.zoomState.value
@@ -33,8 +30,8 @@ class CameraCapabilitiesReader(
     }
 
     return mapOf(
-      "lenses" to cameraInfos.map { serializeLens(it) },
-      "activeLensId" to getCameraId(activeInfo),
+      "lenses" to serializeAvailableLenses(cameraInfos),
+      "activeLensId" to activeLensId,
       "zoomRatio" to (zoomState?.zoomRatio ?: requestedZoomRatio),
       "exposureCompensation" to exposureState.exposureCompensationIndex
     )
@@ -43,8 +40,34 @@ class CameraCapabilitiesReader(
   @OptIn(ExperimentalCamera2Interop::class)
   fun getCameraId(cameraInfo: CameraInfo) = Camera2CameraInfo.from(cameraInfo).cameraId
 
+  fun getLogicalCameraId(lensId: String) = lensId.substringBefore(PHYSICAL_LENS_SEPARATOR)
+
+  fun getPhysicalCameraId(lensId: String) = lensId
+    .substringAfter(PHYSICAL_LENS_SEPARATOR, missingDelimiterValue = "")
+    .ifEmpty { null }
+
   @OptIn(ExperimentalCamera2Interop::class)
-  private fun serializeLens(cameraInfo: CameraInfo): Map<String, Any?> {
+  private fun serializeAvailableLenses(cameraInfos: List<CameraInfo>) = buildList {
+    cameraInfos.forEach { logicalCameraInfo ->
+      val logicalCameraId = getCameraId(logicalCameraInfo)
+      add(serializeLens(logicalCameraInfo, logicalCameraId))
+
+      if (logicalCameraInfo.isLogicalMultiCameraSupported) {
+        logicalCameraInfo.physicalCameraInfos.forEach { physicalCameraInfo ->
+          val physicalCameraId = getCameraId(physicalCameraInfo)
+          add(
+            serializeLens(
+              physicalCameraInfo,
+              "$logicalCameraId$PHYSICAL_LENS_SEPARATOR$physicalCameraId"
+            )
+          )
+        }
+      }
+    }
+  }
+
+  @OptIn(ExperimentalCamera2Interop::class)
+  private fun serializeLens(cameraInfo: CameraInfo, lensId: String): Map<String, Any?> {
     val camera2Info = Camera2CameraInfo.from(cameraInfo)
     val zoomState = cameraInfo.zoomState.value
     val exposureState = cameraInfo.exposureState
@@ -56,17 +79,9 @@ class CameraCapabilitiesReader(
       ),
       FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
     ).build()
-    val physicalCameraIds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      runCatching {
-        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        cameraManager.getCameraCharacteristics(camera2Info.cameraId).physicalCameraIds.toList()
-      }.getOrDefault(emptyList())
-    } else {
-      emptyList()
-    }
 
     return mapOf(
-      "id" to camera2Info.cameraId,
+      "id" to lensId,
       "facing" to if (cameraInfo.lensFacing == CameraSelector.LENS_FACING_FRONT) "front" else "back",
       "focalLengths" to camera2Info
         .getCameraCharacteristic(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
@@ -78,7 +93,7 @@ class CameraCapabilitiesReader(
       "supportsFlash" to cameraInfo.hasFlashUnit(),
       "supportsFocusMetering" to cameraInfo.isFocusMeteringSupported(focusAction),
       "isLogicalMultiCamera" to cameraInfo.isLogicalMultiCameraSupported,
-      "physicalCameraIds" to physicalCameraIds,
+      "physicalCameraIds" to cameraInfo.physicalCameraInfos.map(::getCameraId),
       "exposureCompensationRange" to if (exposureState.isExposureCompensationSupported) {
         mapOf(
           "minimum" to exposureRange.lower,
@@ -89,5 +104,9 @@ class CameraCapabilitiesReader(
         null
       }
     )
+  }
+
+  private companion object {
+    const val PHYSICAL_LENS_SEPARATOR = "::physical::"
   }
 }

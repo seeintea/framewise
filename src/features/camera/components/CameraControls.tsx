@@ -8,20 +8,15 @@ import {
   ZOOM_ROW_HEIGHT,
 } from './CameraCaptureControls';
 import { CameraTopControls } from './CameraTopControls';
-import type { LensOption, ZoomOption } from './camera-control.types';
+import type { ZoomOption } from './camera-control.types';
 
 const ZOOM_CANVAS_INSET = 64;
 const ZOOM_SHUTTER_GAP = 12;
 
 type CameraControlsProps = {
   bottomInset: number;
-  cameraInfoLabel?: string;
   captureDisabled: boolean;
   captureStatus?: string;
-  exposureCompensation: number;
-  exposureMaximum: number;
-  exposureMinimum: number;
-  exposureStep: number;
   flashEnabled: boolean;
   flashSupported: boolean;
   guidanceInstruction: string;
@@ -29,16 +24,13 @@ type CameraControlsProps = {
   guidanceVisible: boolean;
   isFrontFacing: boolean;
   latestPhotoUri?: string;
-  lensOptions: readonly LensOption[];
   onBack: () => void;
   onCapture: () => void;
-  onExposureChange: (index: number) => void;
   onFlipCamera: () => void;
-  onLensChange: (lensId: string) => void;
   onOpenGallery: () => void;
   onToggleFlash: () => void;
   onToggleGuidance: () => void;
-  onZoomRatioChange: (zoomRatio: number) => void;
+  onZoomPresetSelect: (option: ZoomOption) => void;
   previewBottom: number;
   selectedLensId?: string;
   selectedZoomRatio: number;
