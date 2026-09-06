@@ -1,4 +1,4 @@
-import type { CompositionPreset } from '@/canvas';
+import type { CompositionPreset } from './types';
 
 import { templateDocument } from './catalog';
 

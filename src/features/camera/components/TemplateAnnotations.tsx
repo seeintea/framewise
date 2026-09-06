@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { CompositionAnnotation } from '@/canvas/types';
+import type { CompositionAnnotation } from '@/composition';
 import type { Point, Size } from '@/types';
 
 const VIEWPORT_INSET = 8;

@@ -41,8 +41,8 @@ Framewise 正在持续迭代。保持改动小而可逆，并以当前实际存�
 
 - `src/app/` 只负责 Expo Router 路由、参数处理和 screen 组合。
 - 产品特有的行为放在 `src/features/<feature>/` 下。
-- 真正跨 feature 的 UI、类型、工具和配置放在 `src/shared/` 下。
-- `shared` 不得依赖 feature 或 route 模块，feature 模块不得依赖 route 模块。
+- 真正跨 feature 的领域能力、UI、类型、工具和配置直接放在 `src/` 下职责明确的同级目录中，例如 `src/composition/`、`src/canvas/`、`src/logging/` 和 `src/types/`；不要创建笼统的 `src/shared/`。
+- `src/` 下的跨 feature 模块不得依赖 feature 或 route 模块，feature 模块不得依赖 route 模块。
 - 引入全局状态库前，优先使用组件本地状态和 React context。
 - 保持可序列化的构图模板数据独立于 Skia 运行时对象和屏幕像素值。
 

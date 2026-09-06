@@ -4,19 +4,11 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
-import android.net.Uri
-import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
-import androidx.annotation.OptIn
-import androidx.camera.camera2.interop.Camera2CameraInfo
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraFilter
 import androidx.camera.core.CameraInfo
@@ -24,7 +16,6 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -32,7 +23,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
-import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.LifecycleOwner
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.Promise
@@ -43,9 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 
 private const val LOG_TAG = "FramewiseCamera"
 
@@ -59,7 +47,6 @@ class FramewiseCameraView(
   private val onCapabilitiesChanged by EventDispatcher<Map<String, Any?>>()
   private val onLog by EventDispatcher<Map<String, Any?>>()
   private val mainExecutor = ContextCompat.getMainExecutor(context)
-  private val captureInProgress = AtomicBoolean(false)
   private val cameraScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
   private val currentActivity
     get() = appContext.throwingActivity as LifecycleOwner
@@ -68,6 +55,12 @@ class FramewiseCameraView(
     scaleType = PreviewView.ScaleType.FILL_CENTER
     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
   }
+  private val capabilitiesReader = CameraCapabilitiesReader(context, previewView)
+  private val cameraCapture = CameraCapture(
+    appContext.cacheDirectory,
+    mainExecutor,
+    ::emitLog
+  )
 
   private var cameraProvider: ProcessCameraProvider? = null
   private var camera: Camera? = null
@@ -80,6 +73,8 @@ class FramewiseCameraView(
   private var requestedFlashEnabled = false
   private var requestedZoomRatio = 1f
   private var requestedExposureCompensation = 0
+  private var observedCameraInfo: CameraInfo? = null
+  private var observedLifecycleOwner: LifecycleOwner? = null
   private var isDestroyed = false
   private var isBinding = false
   private var shouldCreateCamera = true
@@ -157,6 +152,9 @@ class FramewiseCameraView(
       {
         runCatching { result.get() }
           .onSuccess { emitCapabilities() }
+          .onFailure { error ->
+            emitControlFailure("camera.zoom_failed", error)
+          }
       },
       mainExecutor
     )
@@ -180,6 +178,9 @@ class FramewiseCameraView(
       {
         runCatching { result.get() }
           .onSuccess { emitCapabilities() }
+          .onFailure { error ->
+            emitControlFailure("camera.exposure_failed", error)
+          }
       },
       mainExecutor
     )
@@ -254,7 +255,7 @@ class FramewiseCameraView(
       targetLensId?.let { lensId ->
         selectorBuilder.addCameraFilter(
           CameraFilter { cameraInfos ->
-            cameraInfos.filter { getCameraId(it) == lensId }
+            cameraInfos.filter { capabilitiesReader.getCameraId(it) == lensId }
           }
         )
       }
@@ -298,7 +299,7 @@ class FramewiseCameraView(
       preview = nextPreview
       imageCapture = nextImageCapture
       boundFacing = targetFacing
-      boundLensId = getCameraId(nextCamera.cameraInfo)
+      boundLensId = capabilitiesReader.getCameraId(nextCamera.cameraInfo)
       emitLog(
         "info",
         "camera.bind_completed",
@@ -334,7 +335,13 @@ class FramewiseCameraView(
   }
 
   private fun observeCameraState(cameraInfo: CameraInfo) {
-    cameraInfo.cameraState.observe(currentActivity) { state ->
+    observedLifecycleOwner?.let { owner ->
+      observedCameraInfo?.cameraState?.removeObservers(owner)
+    }
+    val lifecycleOwner = currentActivity
+    observedCameraInfo = cameraInfo
+    observedLifecycleOwner = lifecycleOwner
+    cameraInfo.cameraState.observe(lifecycleOwner) { state ->
       emitLog(
         if (state.error == null) "info" else "error",
         "camera.state_changed",
@@ -396,70 +403,20 @@ class FramewiseCameraView(
       return
     }
 
-    if (!captureInProgress.compareAndSet(false, true)) {
-      promise.reject("E_CAPTURE_IN_PROGRESS", "已有拍照任务正在进行", null)
-      return
-    }
-
-    val captureLensId = getCameraId(activeCamera.cameraInfo)
+    val captureLensId = capabilitiesReader.getCameraId(activeCamera.cameraInfo)
     val captureZoomRatio = activeCamera.cameraInfo.zoomState.value?.zoomRatio ?: requestedZoomRatio
-    emitLog(
-      "info",
-      "camera.capture_started",
-      mapOf("lensId" to captureLensId, "zoomRatio" to captureZoomRatio)
-    )
-    val outputFile = File.createTempFile("framewise-", ".jpg", appContext.cacheDirectory)
-    val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
-
-    capture.takePicture(
-      outputOptions,
-      mainExecutor,
-      object : ImageCapture.OnImageSavedCallback {
-        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-          captureInProgress.set(false)
-          val (width, height) = readImageDimensions(outputFile)
-          emitLog(
-            "info",
-            "camera.capture_completed",
-            mapOf(
-              "width" to width,
-              "height" to height,
-              "lensId" to captureLensId,
-              "zoomRatio" to captureZoomRatio
-            )
-          )
-          promise.resolve(
-            mapOf(
-              "uri" to Uri.fromFile(outputFile).toString(),
-              "width" to width,
-              "height" to height,
-              "lensId" to captureLensId,
-              "zoomRatio" to captureZoomRatio
-            )
-          )
-        }
-
-        override fun onError(exception: ImageCaptureException) {
-          captureInProgress.set(false)
-          outputFile.delete()
-          emitLog(
-            "error",
-            "camera.capture_failed",
-            mapOf(
-              "errorCode" to exception.imageCaptureError,
-              "message" to exception.message
-            )
-          )
-          promise.reject("E_CAPTURE_FAILED", exception.message ?: "拍照失败", exception)
-        }
-      }
-    )
+    cameraCapture.takePicture(capture, captureLensId, captureZoomRatio, promise)
   }
 
   fun cleanup() {
     emitLog("info", "camera.cleanup")
     isDestroyed = true
     cameraScope.cancel()
+    observedLifecycleOwner?.let { owner ->
+      observedCameraInfo?.cameraState?.removeObservers(owner)
+    }
+    observedCameraInfo = null
+    observedLifecycleOwner = null
     unbindUseCases()
     cameraProvider = null
   }
@@ -479,7 +436,6 @@ class FramewiseCameraView(
     boundLensId = null
   }
 
-  @OptIn(ExperimentalCamera2Interop::class)
   private fun emitCapabilities() {
     if (isBinding) {
       return
@@ -487,91 +443,14 @@ class FramewiseCameraView(
 
     val provider = cameraProvider ?: return
     val activeCamera = camera ?: return
-    val activeInfo = activeCamera.cameraInfo
-    val zoomState = activeInfo.zoomState.value
-    val exposureState = activeInfo.exposureState
-    val cameraInfos = provider.availableCameraInfos.filter {
-      it.lensFacing == requestedFacing
-    }
-
     onCapabilitiesChanged(
-      mapOf(
-        "lenses" to cameraInfos.map { serializeLens(it) },
-        "activeLensId" to getCameraId(activeInfo),
-        "zoomRatio" to (zoomState?.zoomRatio ?: requestedZoomRatio),
-        "exposureCompensation" to exposureState.exposureCompensationIndex
+      capabilitiesReader.read(
+        provider,
+        activeCamera,
+        requestedFacing,
+        requestedZoomRatio
       )
     )
-  }
-
-  @OptIn(ExperimentalCamera2Interop::class)
-  private fun serializeLens(cameraInfo: CameraInfo): Map<String, Any?> {
-    val camera2Info = Camera2CameraInfo.from(cameraInfo)
-    val zoomState = cameraInfo.zoomState.value
-    val exposureState = cameraInfo.exposureState
-    val exposureRange = exposureState.exposureCompensationRange
-    val focusAction = FocusMeteringAction.Builder(
-      previewView.meteringPointFactory.createPoint(
-        previewView.width.coerceAtLeast(1) / 2f,
-        previewView.height.coerceAtLeast(1) / 2f
-      ),
-      FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
-    ).build()
-    val physicalCameraIds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      runCatching {
-        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        cameraManager.getCameraCharacteristics(camera2Info.cameraId).physicalCameraIds.toList()
-      }.getOrDefault(emptyList())
-    } else {
-      emptyList()
-    }
-
-    return mapOf(
-      "id" to camera2Info.cameraId,
-      "facing" to if (cameraInfo.lensFacing == CameraSelector.LENS_FACING_FRONT) "front" else "back",
-      "focalLengths" to camera2Info
-        .getCameraCharacteristic(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
-        ?.toList()
-        .orEmpty(),
-      "minimumZoomRatio" to (zoomState?.minZoomRatio ?: 1f),
-      "maximumZoomRatio" to (zoomState?.maxZoomRatio ?: 1f),
-      "intrinsicZoomRatio" to cameraInfo.intrinsicZoomRatio,
-      "supportsFlash" to cameraInfo.hasFlashUnit(),
-      "supportsFocusMetering" to cameraInfo.isFocusMeteringSupported(focusAction),
-      "isLogicalMultiCamera" to cameraInfo.isLogicalMultiCameraSupported,
-      "physicalCameraIds" to physicalCameraIds,
-      "exposureCompensationRange" to if (exposureState.isExposureCompensationSupported) {
-        mapOf(
-          "minimum" to exposureRange.lower,
-          "maximum" to exposureRange.upper,
-          "step" to exposureState.exposureCompensationStep.toFloat()
-        )
-      } else {
-        null
-      }
-    )
-  }
-
-  @OptIn(ExperimentalCamera2Interop::class)
-  private fun getCameraId(cameraInfo: CameraInfo) = Camera2CameraInfo.from(cameraInfo).cameraId
-
-  private fun readImageDimensions(file: File): Pair<Int, Int> {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(file.absolutePath, bounds)
-    val orientation = ExifInterface(file).getAttributeInt(
-      ExifInterface.TAG_ORIENTATION,
-      ExifInterface.ORIENTATION_NORMAL
-    )
-    val isRotated = orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
-      orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
-      orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
-      orientation == ExifInterface.ORIENTATION_TRANSVERSE
-
-    return if (isRotated) {
-      bounds.outHeight to bounds.outWidth
-    } else {
-      bounds.outWidth to bounds.outHeight
-    }
   }
 
   private fun emitMountError(message: String) {
@@ -580,6 +459,17 @@ class FramewiseCameraView(
 
   private fun facingName(facing: Int) =
     if (facing == CameraSelector.LENS_FACING_FRONT) "front" else "back"
+
+  private fun emitControlFailure(event: String, error: Throwable) {
+    emitLog(
+      "error",
+      event,
+      mapOf(
+        "errorType" to error.javaClass.simpleName,
+        "message" to error.message
+      )
+    )
+  }
 
   private fun emitLog(
     level: String,

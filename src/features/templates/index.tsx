@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { listPresets } from '@/data/composition-templates';
+import { listPresets } from '@/composition';
 
 import { Card } from './components/Card';
 import { FeaturedCard } from './components/FeaturedCard';

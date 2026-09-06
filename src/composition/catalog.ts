@@ -1,4 +1,4 @@
-import type { CompositionTemplateDocumentV1 } from '@/canvas';
+import type { CompositionTemplateDocumentV1 } from './types';
 
 import { classicRuleOfThirds } from './presets/classic-rule-of-thirds';
 import { centeredSubject } from './presets/centered-subject';

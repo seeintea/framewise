@@ -1,8 +1,8 @@
 import { Group, Canvas as SkiaCanvas } from '@shopify/react-native-skia';
 
 import { ShapeNode } from '@/canvas/shape/ShapeNode';
-import type { CompositionTemplateVariant } from '@/canvas/types';
 import { resolveTemplate } from '@/canvas/utils/resolve-template';
+import type { CompositionTemplateVariant } from '@/composition';
 import type { Size } from '@/types';
 
 const GUIDE_COLOR = '#FFD400';

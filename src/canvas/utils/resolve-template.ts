@@ -1,8 +1,6 @@
-import type {
-  CompositionTemplateVariant,
-  ResolvedCompositionTemplateVariant,
-} from '@/canvas/types';
-import type { ResolvedShape, Shape } from '@/canvas/types/shape';
+import type { ResolvedCompositionTemplateVariant } from '@/canvas/types';
+import type { ResolvedShape } from '@/canvas/types/shape';
+import type { CompositionTemplateVariant, Shape } from '@/composition';
 import type { Bounds, Point, Size } from '@/types';
 
 function resolvePoint(point: Point, size: Size): Point {

@@ -1,10 +1,9 @@
 import { useCameraPermissions } from 'expo-camera';
 import { Asset } from 'expo-media-library';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -13,16 +12,19 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Canvas, { getViewportSize } from '@/canvas';
-import { findPresetById } from '@/data/composition-templates';
+import { findPresetById } from '@/composition';
 import { logError, logInfo, logNativeEvent } from '@/logging';
 
+import {
+  createCameraInfoLabel,
+  createLensLabel,
+  createZoomOptions,
+} from './camera-control-options';
+import { cameraReducer, initialCameraState } from './camera-state';
+import { CameraErrorLayout } from './components/CameraErrorLayout';
 import { CameraControls } from './components/CameraControls';
 import { CameraViewport } from './components/CameraViewport';
-import type {
-  CameraCapabilities,
-  CameraLens,
-  CameraViewportHandle,
-} from './components/camera-viewport.types';
+import type { CameraViewportHandle } from './components/camera-viewport.types';
 import { PinchZoomLayer } from './components/PinchZoomLayer';
 import { TemplateAnnotations } from './components/TemplateAnnotations';
 import { usePhotoLibrary } from './hooks/use-photo-library';
@@ -44,19 +46,25 @@ export function Camera({ onBack, presetId }: CameraProps) {
   const windowSize = useWindowDimensions();
   const { top, bottom } = useSafeAreaInsets();
   const [cameraPermission] = useCameraPermissions();
-  const [capabilities, setCapabilities] = useState<CameraCapabilities>();
-  const [selectedLensId, setSelectedLensId] = useState<string>();
-  const [zoomRatio, setZoomRatio] = useState(1);
-  const [exposureCompensation, setExposureCompensation] = useState(0);
-  const [flashEnabled, setFlashEnabled] = useState(false);
-  const [isFrontFacing, setIsFrontFacing] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [cameraState, dispatchCamera] = useReducer(
+    cameraReducer,
+    initialCameraState,
+  );
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureStatus, setCaptureStatus] = useState<string>();
   const [guidanceVisible, setGuidanceVisible] = useState(true);
   const [measuredPreviewBottom, setMeasuredPreviewBottom] = useState<number>();
   const { latestPhotoUri, openPhotoLibrary, rememberLatestPhoto } =
     usePhotoLibrary();
+  const {
+    capabilities,
+    exposureCompensation,
+    flashEnabled,
+    isFrontFacing,
+    isReady,
+    selectedLensId,
+    zoomRatio,
+  } = cameraState;
   const preset = presetId ? findPresetById(presetId) : undefined;
   const activeLens = capabilities?.lenses.find(
     (lens) => lens.id === capabilities.activeLensId,
@@ -100,7 +108,7 @@ export function Camera({ onBack, presetId }: CameraProps) {
   );
 
   async function capturePhoto() {
-    if (!isCameraReady || captureLockRef.current || !cameraRef.current) {
+    if (!isReady || captureLockRef.current || !cameraRef.current) {
       return;
     }
 
@@ -206,19 +214,19 @@ export function Camera({ onBack, presetId }: CameraProps) {
             flashEnabled={flashEnabled}
             lensId={selectedLensId}
             onCapabilitiesChanged={(nextCapabilities) => {
-              setCapabilities(nextCapabilities);
-              setSelectedLensId(nextCapabilities.activeLensId);
-              setZoomRatio(nextCapabilities.zoomRatio);
-              setExposureCompensation(nextCapabilities.exposureCompensation);
+              dispatchCamera({
+                type: 'capabilities-changed',
+                capabilities: nextCapabilities,
+              });
             }}
             onCameraReady={() => {
               logInfo('camera', 'ready_received');
-              setIsCameraReady(true);
+              dispatchCamera({ type: 'camera-ready' });
               setCaptureStatus(undefined);
             }}
             onMountError={(message) => {
               logError('camera', 'mount_failed', new Error(message));
-              setIsCameraReady(false);
+              dispatchCamera({ type: 'camera-failed' });
               setCaptureStatus(undefined);
               Alert.alert('相机启动失败', message);
             }}
@@ -251,7 +259,12 @@ export function Camera({ onBack, presetId }: CameraProps) {
                 logError('camera', 'focus_failed', error, { x, y });
               });
             }}
-            onZoomRatioChange={setZoomRatio}
+            onZoomRatioChange={(nextZoomRatio) =>
+              dispatchCamera({
+                type: 'zoom-changed',
+                zoomRatio: nextZoomRatio,
+              })
+            }
             supportsFocusMetering={activeLens?.supportsFocusMetering ?? false}
             zoomRatio={zoomRatio}
           />
@@ -262,9 +275,9 @@ export function Camera({ onBack, presetId }: CameraProps) {
         cameraInfoLabel={
           activeLens ? createCameraInfoLabel(activeLens) : undefined
         }
-        captureDisabled={!isCameraReady || isCapturing}
+        captureDisabled={!isReady || isCapturing}
         captureStatus={
-          captureStatus ?? (!isCameraReady ? '正在启动相机…' : undefined)
+          captureStatus ?? (!isReady ? '正在启动相机…' : undefined)
         }
         exposureCompensation={exposureCompensation}
         exposureMaximum={exposureRange?.maximum ?? 0}
@@ -280,30 +293,29 @@ export function Camera({ onBack, presetId }: CameraProps) {
         lensOptions={lensOptions}
         onBack={onBack}
         onCapture={() => void capturePhoto()}
-        onExposureChange={setExposureCompensation}
-        onFlipCamera={() => {
-          setIsCameraReady(false);
-          setCapabilities(undefined);
-          setSelectedLensId(undefined);
-          setZoomRatio(1);
-          setExposureCompensation(0);
-          setFlashEnabled(false);
-          setIsFrontFacing((current) => !current);
-        }}
-        onLensChange={(lensId) => {
-          setIsCameraReady(false);
-          setSelectedLensId(lensId);
-          setExposureCompensation(0);
-          setFlashEnabled(false);
-        }}
+        onExposureChange={(nextExposureCompensation) =>
+          dispatchCamera({
+            type: 'exposure-changed',
+            exposureCompensation: nextExposureCompensation,
+          })
+        }
+        onFlipCamera={() => dispatchCamera({ type: 'camera-flipped' })}
+        onLensChange={(lensId) =>
+          dispatchCamera({ type: 'lens-changed', lensId })
+        }
         onOpenGallery={() => {
           void openPhotoLibrary().catch((error: unknown) => {
             logError('camera', 'photo_library_open_failed', error);
           });
         }}
-        onToggleFlash={() => setFlashEnabled((current) => !current)}
+        onToggleFlash={() => dispatchCamera({ type: 'flash-toggled' })}
         onToggleGuidance={() => setGuidanceVisible((visible) => !visible)}
-        onZoomRatioChange={setZoomRatio}
+        onZoomRatioChange={(nextZoomRatio) =>
+          dispatchCamera({
+            type: 'zoom-changed',
+            zoomRatio: nextZoomRatio,
+          })
+        }
         previewBottom={previewBottom}
         selectedLensId={selectedLensId}
         selectedZoomRatio={zoomRatio}
@@ -314,98 +326,10 @@ export function Camera({ onBack, presetId }: CameraProps) {
   );
 }
 
-function createZoomOptions(lens: CameraLens) {
-  const candidates = [
-    lens.minimumZoomRatio,
-    1,
-    2,
-    lens.maximumZoomRatio,
-  ].filter(
-    (zoomRatio) =>
-      zoomRatio >= lens.minimumZoomRatio && zoomRatio <= lens.maximumZoomRatio,
-  );
-  const uniqueRatios = candidates.filter(
-    (zoomRatio, index) =>
-      candidates.findIndex(
-        (candidate) => Math.abs(candidate - zoomRatio) < 0.01,
-      ) === index,
-  );
-
-  return uniqueRatios.map((value) => ({
-    label: `${formatRatio(value)}×`,
-    value,
-  }));
-}
-
-function createLensLabel(lens: CameraLens, index: number) {
-  const focalLength = lens.focalLengths[0];
-  return focalLength
-    ? `${focalLength.toFixed(1)}mm · #${lens.id}`
-    : `镜头 ${index + 1} · #${lens.id}`;
-}
-
-function createCameraInfoLabel(lens: CameraLens) {
-  const focalLengths = lens.focalLengths.length
-    ? lens.focalLengths.map((value) => `${value.toFixed(1)}mm`).join('/')
-    : '焦距未知';
-  const physicalIds = lens.physicalCameraIds.length
-    ? ` · physical ${lens.physicalCameraIds.join(',')}`
-    : '';
-
-  return `Camera ${lens.id} · ${focalLengths} · ${formatRatio(lens.minimumZoomRatio)}–${formatRatio(lens.maximumZoomRatio)}×${physicalIds}`;
-}
-
-function formatRatio(value: number) {
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
-}
-
-type CameraErrorLayoutProps = {
-  children: ReactNode;
-  onBack: () => void;
-  topInset: number;
-};
-
-function CameraErrorLayout({
-  children,
-  onBack,
-  topInset,
-}: CameraErrorLayoutProps) {
-  return (
-    <View style={styles.container}>
-      <View style={[StyleSheet.absoluteFill, styles.stage]}>{children}</View>
-      <Pressable
-        accessibilityLabel="返回"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={onBack}
-        style={({ pressed }) => [
-          styles.backButton,
-          { top: topInset + 10 },
-          pressed && styles.backButtonPressed,
-        ]}
-      >
-        <Text style={styles.backLabel}>‹</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
-  },
-  backButton: {
-    position: 'absolute',
-    left: 12,
-    zIndex: 1,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonPressed: {
-    opacity: 0.75,
   },
   stage: {
     alignItems: 'center',
@@ -427,11 +351,5 @@ const styles = StyleSheet.create({
   message: {
     color: '#FFFFFF',
     fontSize: 16,
-  },
-  backLabel: {
-    color: '#FFFFFF',
-    fontSize: 34,
-    lineHeight: 36,
-    fontWeight: '300',
   },
 });

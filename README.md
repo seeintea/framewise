@@ -35,9 +35,12 @@ npm run format       # 格式化项目文件
 npm run lint         # 运行 Expo ESLint
 npm run typecheck    # 运行 TypeScript 类型检查
 npm run check        # 运行格式、lint 和类型检查
+npm run check:android # 生成 Android 工程并检查原生相机的 Kotlin 编译与 Android Lint
 ```
 
 提交代码时，pre-commit hook 会通过 lint-staged 自动格式化并检查暂存文件。
+
+`check:android` 会排除 `react-native-worklets` 当前会导致 Android Lint 分析器崩溃的依赖任务，但仍会完整执行 `framewise-camera` 自身的 Kotlin 编译和 Lint 报告。该检查比 `npm run check` 慢，不放入 pre-commit。
 
 ## 设计文档
 

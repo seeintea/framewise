@@ -104,12 +104,12 @@ Expo Camera v57 的相关约束：
 
 MVP 不引入 Redux、Zustand 或服务端状态库。
 
-| 状态           | 所属位置                          | 生命周期         |
-| -------------- | --------------------------------- | ---------------- |
-| 模板文档       | `src/data/composition-templates/` | 随应用发布，只读 |
-| 权限状态       | 模板路由与相机兜底检查            | 当前页面         |
-| 相机与拍摄状态 | `src/features/camera/`            | 当前相机页面     |
-| 最近照片缩略图 | `use-photo-library`               | 当前相机页面     |
+| 状态           | 所属位置                | 生命周期         |
+| -------------- | ----------------------- | ---------------- |
+| 模板文档       | `src/composition/`      | 随应用发布，只读 |
+| 权限状态       | 相机 feature 与页面兜底 | 当前页面         |
+| 相机与拍摄状态 | `src/features/camera/`  | 当前相机页面     |
+| 最近照片缩略图 | `use-photo-library`     | 当前相机页面     |
 
 相机本地状态包括准备状态、拍摄锁、保存反馈、镜头方向、闪光灯、缩放值和构图提示可见性。
 
@@ -123,17 +123,19 @@ src/
 ├── features/
 │   ├── templates/
 │   └── camera/
-├── data/composition-templates/
+├── composition/
 ├── canvas/
-└── shared/
+├── logging/
+├── navigation/
+└── types/
 ```
 
-- `src/app/` 只处理路由参数、权限入口和 screen 组合。
+- `src/app/` 只处理路由参数、导航和 screen 组合。
 - `features/templates` 负责模板列表界面，不依赖相机实现。
-- `features/camera` 负责真实预览、相机控制、拍照和相册交互。
+- `features/camera` 负责权限入口、真实预览、相机控制、拍照和相册交互。
+- `composition` 保存与渲染实现无关的模板类型、只读文档和查询。
 - `canvas` 负责模板几何解析与 Skia 绘制。
-- `data/composition-templates` 保存只读模板文档和查询。
-- `shared` 不依赖 feature 或 route 模块。
+- `logging`、`navigation` 和 `types` 等顶层模块不得依赖 feature 或 route 模块。
 
 ## 8. 权限策略
 
