@@ -9,20 +9,26 @@ import {
 import type { NativeSyntheticEvent } from 'react-native';
 
 import type {
+  CameraCapabilities,
   CameraCaptureResult,
   CameraViewportHandle,
   CameraViewportProps,
+  FocusResult,
 } from './camera-viewport.types';
 
 type NativeCameraViewportProps = Omit<
   CameraViewportProps,
-  'onCameraReady' | 'onMountError'
+  'onCameraReady' | 'onCapabilitiesChanged' | 'onMountError'
 > & {
   onCameraReady: (event: NativeSyntheticEvent<Record<string, never>>) => void;
+  onCapabilitiesChanged: (
+    event: NativeSyntheticEvent<CameraCapabilities>,
+  ) => void;
   onMountError: (event: NativeSyntheticEvent<{ message: string }>) => void;
 };
 
 type NativeCameraViewportHandle = {
+  focusAt: (x: number, y: number) => Promise<FocusResult>;
   takePicture: () => Promise<CameraCaptureResult>;
 };
 
@@ -36,10 +42,20 @@ const NativeCameraViewport =
 export const CameraViewport = forwardRef<
   CameraViewportHandle,
   CameraViewportProps
->(function CameraViewport({ onCameraReady, onMountError, ...viewProps }, ref) {
+>(function CameraViewport(
+  { onCameraReady, onCapabilitiesChanged, onMountError, ...viewProps },
+  ref,
+) {
   const nativeRef = useRef<NativeCameraViewportHandle>(null);
 
   useImperativeHandle(ref, () => ({
+    async focusAt(x, y) {
+      if (!nativeRef.current) {
+        throw new Error('相机尚未就绪');
+      }
+
+      return nativeRef.current.focusAt(x, y);
+    },
     async takePictureAsync() {
       if (!nativeRef.current) {
         throw new Error('相机尚未就绪');
@@ -53,6 +69,9 @@ export const CameraViewport = forwardRef<
     <NativeCameraViewport
       {...viewProps}
       onCameraReady={onCameraReady}
+      onCapabilitiesChanged={({ nativeEvent }) =>
+        onCapabilitiesChanged(nativeEvent)
+      }
       onMountError={({ nativeEvent }) => onMountError(nativeEvent.message)}
       ref={nativeRef}
     />

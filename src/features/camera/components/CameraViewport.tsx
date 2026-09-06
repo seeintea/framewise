@@ -10,12 +10,25 @@ export const CameraViewport = forwardRef<
   CameraViewportHandle,
   CameraViewportProps
 >(function CameraViewport(
-  { facing, flashEnabled, onCameraReady, onMountError, zoom, ...viewProps },
+  {
+    exposureCompensation: _exposureCompensation,
+    facing,
+    flashEnabled,
+    lensId: _lensId,
+    onCapabilitiesChanged: _onCapabilitiesChanged,
+    onCameraReady,
+    onMountError,
+    zoomRatio,
+    ...viewProps
+  },
   ref,
 ) {
   const cameraRef = useRef<CameraView>(null);
 
   useImperativeHandle(ref, () => ({
+    async focusAt() {
+      return { focusSuccessful: false };
+    },
     async takePictureAsync() {
       const photo = await cameraRef.current?.takePictureAsync({ quality: 1 });
 
@@ -37,7 +50,7 @@ export const CameraViewport = forwardRef<
       onMountError={({ message }) => onMountError(message)}
       ratio="4:3"
       ref={cameraRef}
-      zoom={zoom}
+      zoom={Math.max(0, Math.min(1, zoomRatio - 1))}
     />
   );
 });

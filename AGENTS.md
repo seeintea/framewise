@@ -58,6 +58,7 @@ Framewise 正在持续迭代。保持改动小而可逆，并以当前实际存�
   npm run check
   ```
 
+- 自动验证只需保证 `npm run check` 通过。除非用户明确要求，否则不要执行 Android 或 iOS 构建、安装应用、启动模拟器，或操作真机；真机交互验证由用户负责。
 - pre-commit hook 会运行 lint-staged。不要为了隐藏检查失败而绕过它。
 
 ## Git 提交

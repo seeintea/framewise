@@ -9,7 +9,7 @@ class FramewiseCameraModule : Module() {
     Name("FramewiseCamera")
 
     View(FramewiseCameraView::class) {
-      Events("onCameraReady", "onMountError")
+      Events("onCameraReady", "onMountError", "onCapabilitiesChanged")
 
       Prop("facing") { view: FramewiseCameraView, facing: String ->
         view.setFacing(facing)
@@ -19,12 +19,20 @@ class FramewiseCameraModule : Module() {
         view.setFlashEnabled(enabled)
       }
 
-      Prop("zoom") { view: FramewiseCameraView, zoom: Float ->
-        view.setLinearZoom(zoom)
+      Prop("lensId") { view: FramewiseCameraView, lensId: String? ->
+        view.setLensId(lensId)
+      }
+
+      Prop("zoomRatio") { view: FramewiseCameraView, zoomRatio: Float ->
+        view.setZoomRatio(zoomRatio)
+      }
+
+      Prop("exposureCompensation") { view: FramewiseCameraView, index: Int ->
+        view.setExposureCompensation(index)
       }
 
       OnViewDidUpdateProps { view: FramewiseCameraView ->
-        view.bindCamera()
+        view.recreateCamera()
       }
 
       OnViewDestroys { view: FramewiseCameraView ->
@@ -33,6 +41,10 @@ class FramewiseCameraModule : Module() {
 
       AsyncFunction("takePicture") { view: FramewiseCameraView, promise: Promise ->
         view.takePicture(promise)
+      }
+
+      AsyncFunction("focusAt") { view: FramewiseCameraView, x: Float, y: Float, promise: Promise ->
+        view.focusAt(x, y, promise)
       }
     }
   }

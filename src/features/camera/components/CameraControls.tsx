@@ -2,6 +2,8 @@ import {
   ChevronLeft,
   CircleHelp,
   Images,
+  Minus,
+  Plus,
   RefreshCw,
   Zap,
   ZapOff,
@@ -17,26 +19,37 @@ const SHUTTER_SIZE = 84;
 const ZOOM_CANVAS_INSET = 64;
 const ZOOM_ROW_HEIGHT = 46;
 const ZOOM_SHUTTER_GAP = 12;
+const LENS_ROW_GAP = 38;
 
 type CameraControlsProps = {
   bottomInset: number;
+  cameraInfoLabel?: string;
   captureDisabled: boolean;
   captureStatus?: string;
+  exposureCompensation: number;
+  exposureMaximum: number;
+  exposureMinimum: number;
+  exposureStep: number;
   flashEnabled: boolean;
+  flashSupported: boolean;
   guidanceInstruction: string;
   guidanceTitle: string;
   guidanceVisible: boolean;
   isFrontFacing: boolean;
   latestPhotoUri?: string;
+  lensOptions: readonly LensOption[];
   onBack: () => void;
   onCapture: () => void;
+  onExposureChange: (index: number) => void;
   onFlipCamera: () => void;
+  onLensChange: (lensId: string) => void;
   onOpenGallery: () => void;
   onToggleFlash: () => void;
   onToggleGuidance: () => void;
-  onZoomChange: (zoom: number) => void;
+  onZoomRatioChange: (zoomRatio: number) => void;
   previewBottom: number;
-  selectedZoom: number;
+  selectedLensId?: string;
+  selectedZoomRatio: number;
   topInset: number;
   zoomOptions: readonly ZoomOption[];
 };
@@ -46,9 +59,20 @@ type ZoomOption = {
   value: number;
 };
 
+type LensOption = {
+  id: string;
+  label: string;
+};
+
 export function CameraControls({
   bottomInset,
+  cameraInfoLabel,
+  exposureCompensation,
+  exposureMaximum,
+  exposureMinimum,
+  exposureStep,
   flashEnabled,
+  flashSupported,
   guidanceInstruction,
   guidanceTitle,
   guidanceVisible,
@@ -56,15 +80,19 @@ export function CameraControls({
   captureDisabled,
   captureStatus,
   latestPhotoUri,
+  lensOptions,
   onBack,
   onCapture,
+  onExposureChange,
   onFlipCamera,
+  onLensChange,
   onOpenGallery,
   onToggleFlash,
   onToggleGuidance,
-  onZoomChange,
+  onZoomRatioChange,
   previewBottom,
-  selectedZoom,
+  selectedLensId,
+  selectedZoomRatio,
   topInset,
   zoomOptions,
 }: CameraControlsProps) {
@@ -99,19 +127,43 @@ export function CameraControls({
         </MaterialButton>
 
         <View style={styles.topActions}>
-          <View style={styles.toolGroup}>
-            <ToolButton
-              accessibilityLabel={flashEnabled ? '关闭闪光灯' : '打开闪光灯'}
-              active={flashEnabled}
-              onPress={onToggleFlash}
-            >
-              {flashEnabled ? (
-                <Zap color={ACTIVE_COLOR} size={20} strokeWidth={1.7} />
-              ) : (
-                <ZapOff color={ICON_COLOR} size={20} strokeWidth={1.7} />
-              )}
-            </ToolButton>
-          </View>
+          {exposureMinimum < exposureMaximum && (
+            <View style={styles.toolGroup}>
+              <ToolButton
+                accessibilityLabel="降低曝光"
+                disabled={exposureCompensation <= exposureMinimum}
+                onPress={() => onExposureChange(exposureCompensation - 1)}
+              >
+                <Minus color={ICON_COLOR} size={16} strokeWidth={1.8} />
+              </ToolButton>
+              <Text style={styles.exposureLabel}>
+                {(exposureCompensation * exposureStep).toFixed(1)}
+              </Text>
+              <ToolButton
+                accessibilityLabel="提高曝光"
+                disabled={exposureCompensation >= exposureMaximum}
+                onPress={() => onExposureChange(exposureCompensation + 1)}
+              >
+                <Plus color={ICON_COLOR} size={16} strokeWidth={1.8} />
+              </ToolButton>
+            </View>
+          )}
+
+          {flashSupported && (
+            <View style={styles.toolGroup}>
+              <ToolButton
+                accessibilityLabel={flashEnabled ? '关闭闪光灯' : '打开闪光灯'}
+                active={flashEnabled}
+                onPress={onToggleFlash}
+              >
+                {flashEnabled ? (
+                  <Zap color={ACTIVE_COLOR} size={20} strokeWidth={1.7} />
+                ) : (
+                  <ZapOff color={ICON_COLOR} size={20} strokeWidth={1.7} />
+                )}
+              </ToolButton>
+            </View>
+          )}
 
           <MaterialButton
             accessibilityLabel={
@@ -134,9 +186,55 @@ export function CameraControls({
         </View>
       )}
 
+      {cameraInfoLabel && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.cameraInfo,
+            { top: topInset + (guidanceVisible ? 126 : 62) },
+          ]}
+        >
+          <Text numberOfLines={2} style={styles.cameraInfoLabel}>
+            {cameraInfoLabel}
+          </Text>
+        </View>
+      )}
+
+      {lensOptions.length > 1 && (
+        <View style={[styles.lensRow, { top: zoomTop - LENS_ROW_GAP }]}>
+          {lensOptions.map((option) => {
+            const selected = option.id === selectedLensId;
+
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityLabel={`选择镜头 ${option.label}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                onPress={() => onLensChange(option.id)}
+                style={({ pressed }) => [
+                  styles.lensButton,
+                  selected && styles.lensButtonSelected,
+                  pressed && styles.controlPressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.lensLabel,
+                    selected && styles.lensLabelSelected,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
       <View style={[styles.zoomRow, { top: zoomTop }]}>
         {zoomOptions.map((option) => {
-          const selected = option.value === selectedZoom;
+          const selected = Math.abs(option.value - selectedZoomRatio) < 0.01;
 
           return (
             <Pressable
@@ -145,7 +243,7 @@ export function CameraControls({
               accessibilityRole="button"
               accessibilityState={{ selected }}
               hitSlop={6}
-              onPress={() => onZoomChange(option.value)}
+              onPress={() => onZoomRatioChange(option.value)}
               style={({ pressed }) => [
                 styles.zoomButton,
                 selected && styles.zoomButtonSelected,
@@ -263,12 +361,14 @@ function MaterialButton({
 
 type ToolButtonProps = MaterialButtonProps & {
   active?: boolean;
+  disabled?: boolean;
 };
 
 function ToolButton({
   accessibilityLabel,
   active = false,
   children,
+  disabled = false,
   onPress,
 }: ToolButtonProps) {
   return (
@@ -276,11 +376,13 @@ function ToolButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
+      disabled={disabled}
       hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [
         styles.toolButton,
         active && styles.toolButtonActive,
+        disabled && styles.toolButtonDisabled,
         pressed && styles.controlPressed,
       ]}
     >
@@ -337,6 +439,17 @@ const styles = StyleSheet.create({
   toolButtonActive: {
     backgroundColor: 'rgba(255, 214, 10, 0.1)',
   },
+  toolButtonDisabled: {
+    opacity: 0.35,
+  },
+  exposureLabel: {
+    minWidth: 34,
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
   guidance: {
     position: 'absolute',
     right: 24,
@@ -362,6 +475,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
   },
+  cameraInfo: {
+    position: 'absolute',
+    left: 18,
+    maxWidth: '82%',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 9,
+    backgroundColor: 'rgba(24, 24, 27, 0.68)',
+  },
+  cameraInfoLabel: {
+    color: '#D8D8DC',
+    fontSize: 10,
+    lineHeight: 14,
+    fontVariant: ['tabular-nums'],
+  },
   zoomRow: {
     position: 'absolute',
     alignSelf: 'center',
@@ -370,6 +498,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 5,
+  },
+  lensRow: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  lensButton: {
+    height: 30,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    backgroundColor: 'rgba(38, 38, 41, 0.72)',
+  },
+  lensButtonSelected: {
+    backgroundColor: 'rgba(74, 72, 77, 0.96)',
+  },
+  lensLabel: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 15,
+    fontVariant: ['tabular-nums'],
+  },
+  lensLabelSelected: {
+    color: ACTIVE_COLOR,
   },
   zoomButton: {
     minWidth: 36,
