@@ -1,5 +1,7 @@
 import type { ViewProps } from 'react-native';
 
+import type { NativeLogEvent } from '@/logging';
+
 export type CameraFacing = 'back' | 'front';
 
 export type CameraCaptureResult = {
@@ -53,6 +55,7 @@ export type CameraViewportProps = ViewProps & {
   lensId?: string;
   onCapabilitiesChanged: (capabilities: CameraCapabilities) => void;
   onCameraReady: () => void;
+  onLog: (event: NativeLogEvent) => void;
   onMountError: (message: string) => void;
   zoomRatio: number;
 };

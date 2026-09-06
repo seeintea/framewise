@@ -10,6 +10,8 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { logError } from '@/logging';
+
 const PHOTO_PERMISSION_OPTIONS = {
   granularPermissions: ['photo'] satisfies GranularPermission[],
   writeOnly: false,
@@ -28,7 +30,11 @@ export function usePhotoLibrary() {
       return;
     }
 
-    void getLatestPhotoUri().then(setLatestPhotoUri).catch(console.error);
+    void getLatestPhotoUri()
+      .then(setLatestPhotoUri)
+      .catch((error: unknown) =>
+        logError('photo-library', 'latest_photo_load_failed', error),
+      );
   }, [permission?.granted]);
 
   const openPhotoLibrary = useCallback(async () => {

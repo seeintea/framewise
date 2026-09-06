@@ -9,7 +9,7 @@ class FramewiseCameraModule : Module() {
     Name("FramewiseCamera")
 
     View(FramewiseCameraView::class) {
-      Events("onCameraReady", "onMountError", "onCapabilitiesChanged")
+      Events("onCameraReady", "onMountError", "onCapabilitiesChanged", "onLog")
 
       Prop("facing") { view: FramewiseCameraView, facing: String ->
         view.setFacing(facing)

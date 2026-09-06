@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Canvas, { getViewportSize } from '@/canvas';
 import { findPresetById } from '@/data/composition-templates';
+import { logError, logInfo, logNativeEvent } from '@/logging';
 
 import { CameraControls } from './components/CameraControls';
 import { CameraViewport } from './components/CameraViewport';
@@ -69,6 +70,14 @@ export function Camera({ onBack, presetId }: CameraProps) {
   const exposureRange = activeLens?.exposureCompensationRange;
 
   useEffect(() => {
+    logInfo('camera', 'screen_opened', { presetId: presetId ?? null });
+
+    return () => {
+      logInfo('camera', 'screen_closed', { presetId: presetId ?? null });
+    };
+  }, [presetId]);
+
+  useEffect(() => {
     if (!guidanceVisible) {
       return;
     }
@@ -99,6 +108,11 @@ export function Camera({ onBack, presetId }: CameraProps) {
     setIsCapturing(true);
     setCaptureStatus('正在拍摄…');
     setGuidanceVisible(false);
+    logInfo('camera', 'capture_requested', {
+      presetId: presetId ?? null,
+      lensId: activeLens?.id ?? null,
+      zoomRatio,
+    });
 
     try {
       const photo = await cameraRef.current.takePictureAsync();
@@ -107,6 +121,12 @@ export function Camera({ onBack, presetId }: CameraProps) {
       await Asset.create(photo.uri);
       rememberLatestPhoto(photo.uri);
       setCaptureStatus('已保存到相册');
+      logInfo('camera', 'photo_saved', {
+        width: photo.width,
+        height: photo.height,
+        lensId: photo.lensId ?? null,
+        zoomRatio: photo.zoomRatio ?? null,
+      });
 
       if (captureStatusTimeoutRef.current) {
         clearTimeout(captureStatusTimeoutRef.current);
@@ -116,6 +136,9 @@ export function Camera({ onBack, presetId }: CameraProps) {
         CAPTURE_SUCCESS_DURATION_MS,
       );
     } catch (error) {
+      logError('camera', 'capture_or_save_failed', error, {
+        presetId: presetId ?? null,
+      });
       setCaptureStatus(undefined);
       Alert.alert(
         '照片保存失败',
@@ -189,10 +212,12 @@ export function Camera({ onBack, presetId }: CameraProps) {
               setExposureCompensation(nextCapabilities.exposureCompensation);
             }}
             onCameraReady={() => {
+              logInfo('camera', 'ready_received');
               setIsCameraReady(true);
               setCaptureStatus(undefined);
             }}
             onMountError={(message) => {
+              logError('camera', 'mount_failed', new Error(message));
               setIsCameraReady(false);
               setCaptureStatus(undefined);
               Alert.alert('相机启动失败', message);
@@ -200,6 +225,7 @@ export function Camera({ onBack, presetId }: CameraProps) {
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             zoomRatio={zoomRatio}
+            onLog={logNativeEvent}
           />
           <View
             style={[
@@ -222,7 +248,7 @@ export function Camera({ onBack, presetId }: CameraProps) {
             minimumZoomRatio={activeLens?.minimumZoomRatio ?? 1}
             onFocusAt={(x, y) => {
               void cameraRef.current?.focusAt(x, y).catch((error: unknown) => {
-                console.error('点击聚焦失败', error);
+                logError('camera', 'focus_failed', error, { x, y });
               });
             }}
             onZoomRatioChange={setZoomRatio}
@@ -272,7 +298,7 @@ export function Camera({ onBack, presetId }: CameraProps) {
         }}
         onOpenGallery={() => {
           void openPhotoLibrary().catch((error: unknown) => {
-            console.error('打开相册失败', error);
+            logError('camera', 'photo_library_open_failed', error);
           });
         }}
         onToggleFlash={() => setFlashEnabled((current) => !current)}

@@ -17,6 +17,7 @@ export const CameraViewport = forwardRef<
     lensId: _lensId,
     onCapabilitiesChanged: _onCapabilitiesChanged,
     onCameraReady,
+    onLog: _onLog,
     onMountError,
     zoomRatio,
     ...viewProps

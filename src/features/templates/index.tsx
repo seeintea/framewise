@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { listPresets } from '@/data/composition-templates';
@@ -15,11 +15,13 @@ const ORIGIN_LABELS = {
 const presets = listPresets();
 
 type TemplatesProps = {
+  onOpenDiagnostics?: () => void;
   onOpenFeatured: () => void;
   onSelectTemplate: (presetId: string) => void;
 };
 
 export function Templates({
+  onOpenDiagnostics,
   onOpenFeatured,
   onSelectTemplate,
 }: TemplatesProps) {
@@ -30,7 +32,15 @@ export function Templates({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>FRAMEWISE</Text>
+          <Pressable
+            accessibilityHint="长按打开诊断日志"
+            accessibilityRole="button"
+            disabled={!onOpenDiagnostics}
+            delayLongPress={600}
+            onLongPress={onOpenDiagnostics}
+          >
+            <Text style={styles.eyebrow}>FRAMEWISE</Text>
+          </Pressable>
           <Text style={styles.title}>选择一个构图模版</Text>
           <Text style={styles.subtitle}>让取景框替你守住画面的秩序。</Text>
         </View>

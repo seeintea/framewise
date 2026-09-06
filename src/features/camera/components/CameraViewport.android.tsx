@@ -18,11 +18,14 @@ import type {
 
 type NativeCameraViewportProps = Omit<
   CameraViewportProps,
-  'onCameraReady' | 'onCapabilitiesChanged' | 'onMountError'
+  'onCameraReady' | 'onCapabilitiesChanged' | 'onLog' | 'onMountError'
 > & {
   onCameraReady: (event: NativeSyntheticEvent<Record<string, never>>) => void;
   onCapabilitiesChanged: (
     event: NativeSyntheticEvent<CameraCapabilities>,
+  ) => void;
+  onLog: (
+    event: NativeSyntheticEvent<Parameters<CameraViewportProps['onLog']>[0]>,
   ) => void;
   onMountError: (event: NativeSyntheticEvent<{ message: string }>) => void;
 };
@@ -43,7 +46,7 @@ export const CameraViewport = forwardRef<
   CameraViewportHandle,
   CameraViewportProps
 >(function CameraViewport(
-  { onCameraReady, onCapabilitiesChanged, onMountError, ...viewProps },
+  { onCameraReady, onCapabilitiesChanged, onLog, onMountError, ...viewProps },
   ref,
 ) {
   const nativeRef = useRef<NativeCameraViewportHandle>(null);
@@ -72,6 +75,7 @@ export const CameraViewport = forwardRef<
       onCapabilitiesChanged={({ nativeEvent }) =>
         onCapabilitiesChanged(nativeEvent)
       }
+      onLog={({ nativeEvent }) => onLog(nativeEvent)}
       onMountError={({ nativeEvent }) => onMountError(nativeEvent.message)}
       ref={nativeRef}
     />

@@ -9,6 +9,8 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
@@ -45,6 +47,8 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
+private const val LOG_TAG = "FramewiseCamera"
+
 @SuppressLint("ViewConstructor")
 class FramewiseCameraView(
   context: Context,
@@ -53,6 +57,7 @@ class FramewiseCameraView(
   private val onCameraReady by EventDispatcher<Unit>()
   private val onMountError by EventDispatcher<Map<String, String>>()
   private val onCapabilitiesChanged by EventDispatcher<Map<String, Any?>>()
+  private val onLog by EventDispatcher<Map<String, Any?>>()
   private val mainExecutor = ContextCompat.getMainExecutor(context)
   private val captureInProgress = AtomicBoolean(false)
   private val cameraScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -81,6 +86,7 @@ class FramewiseCameraView(
 
   init {
     addView(previewView)
+    Log.i(LOG_TAG, "camera.view_created")
   }
 
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -160,6 +166,15 @@ class FramewiseCameraView(
   }
 
   fun recreateCamera() {
+    emitLog(
+      "debug",
+      "camera.create_requested",
+      mapOf(
+        "shouldCreateCamera" to shouldCreateCamera,
+        "isBinding" to isBinding,
+        "isDestroyed" to isDestroyed
+      )
+    )
     cameraScope.launch {
       createCamera()
     }
@@ -167,12 +182,22 @@ class FramewiseCameraView(
 
   private suspend fun createCamera() {
     if (isDestroyed || isBinding || !shouldCreateCamera) {
+      emitLog(
+        "debug",
+        "camera.create_skipped",
+        mapOf(
+          "shouldCreateCamera" to shouldCreateCamera,
+          "isBinding" to isBinding,
+          "isDestroyed" to isDestroyed
+        )
+      )
       return
     }
     shouldCreateCamera = false
 
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
       shouldCreateCamera = true
+      emitLog("error", "camera.permission_missing")
       emitMountError("没有相机权限")
       return
     }
@@ -190,9 +215,17 @@ class FramewiseCameraView(
     val targetFacing = requestedFacing
     val targetLensId = requestedLensId
     try {
+      val providerWaitStartedAt = SystemClock.elapsedRealtime()
+      emitLog("info", "camera.provider_wait_started")
       val provider = ProcessCameraProvider.awaitInstance(context)
+      emitLog(
+        "info",
+        "camera.provider_ready",
+        mapOf("elapsedMs" to SystemClock.elapsedRealtime() - providerWaitStartedAt)
+      )
       if (isDestroyed) {
         isBinding = false
+        emitLog("debug", "camera.create_cancelled")
         return
       }
 
@@ -222,6 +255,17 @@ class FramewiseCameraView(
         .setTargetRotation(targetRotation)
         .build()
 
+      val bindStartedAt = SystemClock.elapsedRealtime()
+      emitLog(
+        "info",
+        "camera.bind_started",
+        mapOf(
+          "facing" to facingName(targetFacing),
+          "lensId" to targetLensId,
+          "previewWidth" to previewView.width,
+          "previewHeight" to previewView.height
+        )
+      )
       provider.unbindAll()
       val nextCamera = provider.bindToLifecycle(
         currentActivity,
@@ -235,6 +279,15 @@ class FramewiseCameraView(
       imageCapture = nextImageCapture
       boundFacing = targetFacing
       boundLensId = getCameraId(nextCamera.cameraInfo)
+      emitLog(
+        "info",
+        "camera.bind_completed",
+        mapOf(
+          "elapsedMs" to SystemClock.elapsedRealtime() - bindStartedAt,
+          "facing" to facingName(targetFacing),
+          "lensId" to boundLensId
+        )
+      )
       observeCameraState(nextCamera.cameraInfo)
       isBinding = false
       setZoomRatio(requestedZoomRatio)
@@ -248,13 +301,30 @@ class FramewiseCameraView(
     } catch (error: Exception) {
       isBinding = false
       shouldCreateCamera = true
+      emitLog(
+        "error",
+        "camera.create_failed",
+        mapOf(
+          "errorType" to error.javaClass.simpleName,
+          "message" to error.message
+        )
+      )
       emitMountError(error.message ?: "相机启动失败")
     }
   }
 
   private fun observeCameraState(cameraInfo: CameraInfo) {
     cameraInfo.cameraState.observe(currentActivity) { state ->
+      emitLog(
+        if (state.error == null) "info" else "error",
+        "camera.state_changed",
+        mapOf(
+          "state" to state.type.name,
+          "errorCode" to state.error?.code
+        )
+      )
       if (state.type == CameraState.Type.OPEN) {
+        emitLog("info", "camera.ready_emitted")
         onCameraReady(Unit)
       }
     }
@@ -313,6 +383,11 @@ class FramewiseCameraView(
 
     val captureLensId = getCameraId(activeCamera.cameraInfo)
     val captureZoomRatio = activeCamera.cameraInfo.zoomState.value?.zoomRatio ?: requestedZoomRatio
+    emitLog(
+      "info",
+      "camera.capture_started",
+      mapOf("lensId" to captureLensId, "zoomRatio" to captureZoomRatio)
+    )
     val outputFile = File.createTempFile("framewise-", ".jpg", appContext.cacheDirectory)
     val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
 
@@ -323,6 +398,16 @@ class FramewiseCameraView(
         override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
           captureInProgress.set(false)
           val (width, height) = readImageDimensions(outputFile)
+          emitLog(
+            "info",
+            "camera.capture_completed",
+            mapOf(
+              "width" to width,
+              "height" to height,
+              "lensId" to captureLensId,
+              "zoomRatio" to captureZoomRatio
+            )
+          )
           promise.resolve(
             mapOf(
               "uri" to Uri.fromFile(outputFile).toString(),
@@ -337,6 +422,14 @@ class FramewiseCameraView(
         override fun onError(exception: ImageCaptureException) {
           captureInProgress.set(false)
           outputFile.delete()
+          emitLog(
+            "error",
+            "camera.capture_failed",
+            mapOf(
+              "errorCode" to exception.imageCaptureError,
+              "message" to exception.message
+            )
+          )
           promise.reject("E_CAPTURE_FAILED", exception.message ?: "拍照失败", exception)
         }
       }
@@ -344,6 +437,7 @@ class FramewiseCameraView(
   }
 
   fun cleanup() {
+    emitLog("info", "camera.cleanup")
     isDestroyed = true
     cameraScope.cancel()
     unbindUseCases()
@@ -462,5 +556,32 @@ class FramewiseCameraView(
 
   private fun emitMountError(message: String) {
     onMountError(mapOf("message" to message))
+  }
+
+  private fun facingName(facing: Int) =
+    if (facing == CameraSelector.LENS_FACING_FRONT) "front" else "back"
+
+  private fun emitLog(
+    level: String,
+    event: String,
+    data: Map<String, Any?> = emptyMap()
+  ) {
+    val message = "$event $data"
+    when (level) {
+      "error" -> Log.e(LOG_TAG, message)
+      "warn" -> Log.w(LOG_TAG, message)
+      "debug" -> Log.d(LOG_TAG, message)
+      else -> Log.i(LOG_TAG, message)
+    }
+
+    onLog(
+      mapOf(
+        "timestampMs" to System.currentTimeMillis(),
+        "level" to level,
+        "scope" to "native-camera",
+        "event" to event,
+        "data" to data
+      )
+    )
   }
 }
