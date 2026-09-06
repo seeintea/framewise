@@ -85,6 +85,26 @@ class FramewiseCameraView(
   private var shouldCreateCamera = true
 
   init {
+    previewView.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
+      override fun onChildViewRemoved(parent: View?, child: View?) = Unit
+
+      override fun onChildViewAdded(parent: View?, child: View?) {
+        emitLog(
+          "debug",
+          "camera.preview_child_added",
+          mapOf(
+            "childType" to child?.javaClass?.simpleName,
+            "width" to measuredWidth,
+            "height" to measuredHeight
+          )
+        )
+        parent?.measure(
+          MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
+          MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
+        )
+        parent?.layout(0, 0, parent.measuredWidth, parent.measuredHeight)
+      }
+    })
     addView(previewView)
     Log.i(LOG_TAG, "camera.view_created")
   }
