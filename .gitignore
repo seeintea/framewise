@@ -14,6 +14,8 @@ expo-env.d.ts
 .kotlin/
 modules/*/android/.gradle/
 modules/*/android/build/
+archive/modules/*/android/.gradle/
+archive/modules/*/android/build/
 *.orig.*
 *.jks
 *.p8
