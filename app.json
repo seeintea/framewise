@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "framewise",
+    "name": "Framewise",
     "slug": "framewise",
     "version": "1.0.0",
     "platforms": ["ios", "android"],
@@ -9,7 +9,10 @@
     "scheme": "framewise",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -55,6 +58,9 @@
         }
       ]
     ],
+    "locales": {
+      "zh-Hans": "./locales/zh-Hans.json"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
