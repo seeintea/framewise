@@ -3,5 +3,4 @@ node_modules/
 dist/
 web-build/
 package-lock.json
-assets/expo.icon/
 archive/
