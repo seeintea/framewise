@@ -1,16 +1,15 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Building2,
-  Camera,
-  Check,
   Coffee,
   Image as ImageIcon,
   MountainSnow,
-  Sparkles,
   UserRound,
   type LucideIcon,
 } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Header } from './Header';
 
 type QuickEntryProps = {
   title: string;
@@ -117,167 +116,107 @@ function RecommendationRow({ title, backgrounds }: RecommendationRowProps) {
 
 export function GuidesScreen() {
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <View style={styles.headerHintRow}>
-              <Sparkles color="#D48545" size={12} strokeWidth={1.8} />
-              <Text style={styles.headerHint}>随手定格眼前的美好</Text>
-            </View>
-            <Text style={styles.title}>今天想拍什么？</Text>
-          </View>
-          <View style={styles.cameraBadge}>
-            <Camera color="#60725E" size={17} strokeWidth={1.8} />
-            <Text style={styles.cameraLabel}>开相机</Text>
-          </View>
-        </View>
+    <View style={styles.screen}>
+      <LinearGradient
+        colors={['#E3EAF4', '#F0F4F8', '#FAFAFB']}
+        locations={[0, 0.48, 1]}
+        pointerEvents="none"
+        style={styles.topGradient}
+      />
 
-        <View style={styles.quickGrid}>
-          <QuickEntry
-            backgroundColor="#FEF2EB"
-            borderColor="#F5DED0"
-            description="单人 · 合照"
-            focus="top"
-            icon={UserRound}
-            iconColor="#D87956"
-            title="拍人物"
-          />
-          <QuickEntry
-            backgroundColor="#EDF4EC"
-            borderColor="#D8E5D5"
-            description="山川 · 湖海 · 日落"
-            focus="right"
-            icon={MountainSnow}
-            iconColor="#5C7E59"
-            title="拍风景"
-          />
-          <QuickEntry
-            backgroundColor="#EAF2F8"
-            borderColor="#D6E3EB"
-            description="街道 · 楼宇 · 地标"
-            focus="center"
-            icon={Building2}
-            iconColor="#4C7895"
-            title="拍建筑"
-          />
-          <QuickEntry
-            backgroundColor="#FFF5E2"
-            borderColor="#FAE8C9"
-            description="美食 · 花草 · 小物"
-            focus="bottom"
-            icon={Coffee}
-            iconColor="#C28735"
-            title="拍静物"
-          />
-        </View>
-
-        <View style={styles.tipCard}>
-          <View style={styles.tipIcon}>
-            <Check color="#FFFFFF" size={15} strokeWidth={3} />
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <Header />
+          <View style={styles.quickGrid}>
+            <QuickEntry
+              backgroundColor="#FEF2EB"
+              borderColor="#F5DED0"
+              description="单人 · 合照"
+              focus="top"
+              icon={UserRound}
+              iconColor="#D87956"
+              title="拍人物"
+            />
+            <QuickEntry
+              backgroundColor="#EDF4EC"
+              borderColor="#D8E5D5"
+              description="山川 · 湖海 · 日落"
+              focus="right"
+              icon={MountainSnow}
+              iconColor="#5C7E59"
+              title="拍风景"
+            />
+            <QuickEntry
+              backgroundColor="#EAF2F8"
+              borderColor="#D6E3EB"
+              description="街道 · 楼宇 · 地标"
+              focus="center"
+              icon={Building2}
+              iconColor="#4C7895"
+              title="拍建筑"
+            />
+            <QuickEntry
+              backgroundColor="#FFF5E2"
+              borderColor="#FAE8C9"
+              description="美食 · 花草 · 小物"
+              focus="bottom"
+              icon={Coffee}
+              iconColor="#C28735"
+              title="拍静物"
+            />
           </View>
-          <View style={styles.tipCopy}>
-            <Text style={styles.tipTitle}>拍摄时可随时调整</Text>
-            <Text style={styles.tipDescription}>
-              引导线只帮助构图，不会出现在最终照片中。
+
+          <View style={styles.inspirationHeading}>
+            <Text style={styles.inspirationTitle}>找点构图灵感</Text>
+            <Text style={styles.inspirationSubtitle}>
+              左右滑动，看看不同的画面
             </Text>
           </View>
-        </View>
 
-        <View style={styles.inspirationHeading}>
-          <Text style={styles.inspirationTitle}>找点构图灵感</Text>
-          <Text style={styles.inspirationSubtitle}>
-            左右滑动，看看不同的画面
-          </Text>
-        </View>
-
-        <RecommendationRow
-          backgrounds={['#E9F0E5', '#F6EBDD', '#E4EEF4']}
-          title="在风景里留个影"
-        />
-        <RecommendationRow
-          backgrounds={['#E5EFF5', '#F1E8DC', '#E7EEE6']}
-          title="走到街角，拍一张"
-        />
-        <RecommendationRow
-          backgrounds={['#F6ECD8', '#F2E6DF', '#E6EFE9']}
-          title="记录喜欢的事物"
-        />
-        <RecommendationRow
-          backgrounds={['#E3EDF5', '#EBE8F2', '#F3E8DC']}
-          title="遇到好看的天空"
-        />
-      </ScrollView>
-    </SafeAreaView>
+          <RecommendationRow
+            backgrounds={['#E9F0E5', '#F6EBDD', '#E4EEF4']}
+            title="在风景里留个影"
+          />
+          <RecommendationRow
+            backgrounds={['#E5EFF5', '#F1E8DC', '#E7EEE6']}
+            title="走到街角，拍一张"
+          />
+          <RecommendationRow
+            backgrounds={['#F6ECD8', '#F2E6DF', '#E6EFE9']}
+            title="记录喜欢的事物"
+          />
+          <RecommendationRow
+            backgrounds={['#E3EDF5', '#EBE8F2', '#F3E8DC']}
+            title="遇到好看的天空"
+          />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    height: '100%',
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF9F5',
   },
   content: {
-    paddingTop: 18,
+    paddingTop: 16,
     paddingBottom: 132,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 22,
-  },
-  headerCopy: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  headerHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 5,
-  },
-  headerHint: {
-    color: '#536251',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '500',
-    letterSpacing: 0.2,
-  },
-  title: {
-    color: '#171A18',
-    fontSize: 31,
-    lineHeight: 38,
-    fontWeight: '700',
-    letterSpacing: -0.8,
-  },
-  cameraBadge: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E1E3DD',
-    borderRadius: 22,
-    shadowColor: '#465046',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  cameraLabel: {
-    color: '#4D524E',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '500',
-    letterSpacing: -0.1,
+    gap: 12,
   },
   quickGrid: {
     flexDirection: 'row',
@@ -389,31 +328,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.045,
     shadowRadius: 9,
     elevation: 1,
-  },
-  tipIcon: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#71806E',
-    borderRadius: 14,
-  },
-  tipCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  tipTitle: {
-    color: '#333833',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-    letterSpacing: 0.05,
-  },
-  tipDescription: {
-    color: '#747970',
-    fontSize: 11,
-    lineHeight: 16,
-    letterSpacing: 0.05,
   },
   inspirationHeading: {
     paddingHorizontal: 20,

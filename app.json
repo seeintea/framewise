@@ -54,6 +54,27 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "DingTalk_JinBU",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/DingTalk-JinBuTi.ttf",
+                    "weight": 400
+                  }
+                ]
+              }
+            ]
+          },
+          "ios": {
+            "fonts": ["./assets/fonts/DingTalk-JinBuTi.ttf"]
+          }
+        }
       ]
     ],
     "experiments": {
