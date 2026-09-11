@@ -1,17 +1,17 @@
 # Framewise 工程指南
 
-Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而可逆，并以当前实际存在的 Swift 代码和 Xcode 工程配置为准。不要把 `plans/` 中规划的模块或 `archive/` 中的历史实现视为已经迁移完成。
+Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而可逆，并以当前实际存在的 Swift 代码和 Xcode 工程配置为准。不要把 `plans/` 中规划的模块或 Git 历史中的旧实现视为已经迁移完成。
 
 ## 事实依据
 
-- 做出假设前，先检查当前 Swift 代码、`Framewise.xcodeproj` 和对应 target 的 build settings。
+- 做出假设前，先检查当前 Swift 代码、`ios/Framewise.xcodeproj` 和对应 target 的 build settings。
 - `plans/` 记录产品与架构方向，只作为上下文，不代表相关功能已经实现。
-- `archive/` 保存旧版验证代码与构图数据。在对应能力完成原生迁移前，不要删除、直接引用或把它加入原生 target。
+- React Native 归档与早期 SwiftUI 翻译保留在提交 `5d1a630`。需要阅读时，从该提交创建独立 worktree；不要把旧代码恢复或复制到当前工作树，除非用户明确要求迁移其中的具体能力。
 - 使用新的 Apple 平台 API 前，阅读对应系统版本的 Apple Developer Documentation，并确认 availability。
 
 ## 运行环境与依赖
 
-- 项目使用 Xcode 26，当前最低部署版本为 iOS 18。
+- 项目使用 Xcode 26，当前最低部署版本为 iOS 26。
 - 应用 UI 使用 SwiftUI；只有 SwiftUI 无法合理满足相机预览、高频绘制或系统能力接入时才使用 UIKit、AVFoundation、Vision、Core ML 或 Metal。
 - 优先使用 Apple 系统框架。只有平台能力无法合理提供所需功能时才新增第三方依赖。
 - 如需第三方 Swift 依赖，优先使用 Swift Package Manager，并提交 `Package.resolved`；不要引入 CocoaPods、Carthage 或其他依赖管理器。
@@ -28,12 +28,12 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 
 ## 项目边界
 
-- `Framewise/App/` 负责应用入口、根导航和全局组合。
-- 产品功能放在 `Framewise/Features/<Feature>/`，功能之间不要直接共享彼此的内部实现。
-- 跨功能导航放在 `Framewise/Navigation/`。
-- 后续真正跨 feature 的领域能力直接放在 `Framewise/` 下职责明确的目录，例如 `CameraEngine/`、`VisionEngine/`、`CompositionEngine/` 和 `Persistence/`；不要创建笼统的 `Shared/`。
+- `ios/Framewise/` 是 iOS 应用源码和运行时资源的根目录。
+- 应用入口、根导航和全局组合放在 `ios/Framewise/App/`；产品功能放在 `ios/Framewise/Features/<Feature>/`。
+- 跨功能导航放在 `ios/Framewise/Navigation/`。
+- 后续真正跨 feature 的领域能力放在 `ios/Framewise/` 下职责明确的目录，例如 `CameraEngine/`、`VisionEngine/`、`CompositionEngine/` 和 `Persistence/`；不要创建笼统的 `Shared/`。
 - Feature 和领域模块不得依赖 App 层。
-- 相机、视觉和构图属于后续独立迁移范围。没有明确需求时，不要根据 `archive/` 提前建立空模块或抽象层。
+- 相机、视觉和构图属于后续独立迁移范围。没有明确需求时，不要根据历史实现提前建立空模块或抽象层。
 - 保持可序列化的构图模板数据独立于 SwiftUI View、相机 runtime 对象和屏幕像素值。
 
 ## SwiftUI 实现风格
@@ -47,9 +47,9 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 
 ## 资源与本地化
 
-- App 运行时资源放在 `Framewise/Resources/`，图片优先使用 Asset Catalog。
-- `design/` 保存设计源文件和历史导出物，不加入应用 target，也不从运行时代码直接读取。
-- 默认显示名称为 `Framewise`，简体中文显示名称通过 `zh-Hans.lproj/InfoPlist.strings` 配置为“蒙版相机”。
+- App 运行时资源放在 `ios/Framewise/Assets.xcassets/`。
+- `assets/` 保存品牌源文件和历史导出物，不加入应用 target，也不从运行时代码直接读取。
+- 默认显示名称为 `Framewise`。新增本地化名称时使用 Xcode 支持的本地化资源，不在 build settings 中为不同语言复制 target。
 - 新增面向用户的文本时使用可本地化的 SwiftUI 字符串，不在业务逻辑中拼接不可本地化文案。
 
 ## 代码质量与验证
@@ -60,7 +60,7 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 
   ```bash
   xcodebuild \
-    -project Framewise.xcodeproj \
+    -project ios/Framewise.xcodeproj \
     -scheme Framewise \
     -destination 'generic/platform=iOS Simulator' \
     CODE_SIGNING_ALLOWED=NO \
