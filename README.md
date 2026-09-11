@@ -1,49 +1,42 @@
 # Framewise
 
-Framewise 是一款帮助用户完成照片构图的相机应用。
+Framewise 是一款帮助用户完成照片构图的原生 iOS 相机应用。
 
 用户可以选择预设的构图模板，并在实时相机画面上通过可视化引导线调整人物、主体和留白的位置。引导层只参与拍摄预览，不会出现在最终照片中。
 
-构图模板使用归一化坐标描述几何，因此同一套数据既可以渲染模板缩略图，也可以映射到不同尺寸的相机视口。模板的语义和几何与具体渲染实现分离，为后续扩展更多画幅和构图类型保留空间。
+项目正在从已经完成产品验证的 Expo / React Native 原型迁移到原生 iOS。当前原生工程已经包含首页、搜索、我的和悬浮 Tab 导航；相机、构图与本地 AI 等核心能力将在后续独立迁移。
 
-## 技术栈
+## 开发环境
 
-- Expo SDK 57、React Native 0.86 与 TypeScript
-- Expo Router
-- React Native Skia
-- ESLint 与 Expo 官方规则
-- Prettier 与 OXC parser
-- lint-staged 与 simple-git-hooks
+- Xcode 26
+- iOS 18 或更高版本
+- SwiftUI
 
-## 开发
+用 Xcode 打开 `Framewise.xcodeproj`，选择 `Framewise` scheme 和目标设备后运行。
 
-项目仅使用 npm，要求 Node.js 22.22.1 或更高版本。为避免 pnpm 在本项目 Windows 打包中出现的路径过长问题，不要使用 pnpm、Yarn 或 Bun；只维护 `package-lock.json`。
+命令行编译检查：
 
 ```bash
-npm install
-npm start
+xcodebuild \
+  -project Framewise.xcodeproj \
+  -scheme Framewise \
+  -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 ```
 
-常用命令：
+## 仓库结构
 
-```bash
-npm run ios          # 启动 iOS 原生开发构建
-npm run android      # 启动 Android 原生开发构建
-npm run build:local:ios      # 使用 preview 配置在本机打包 iOS 预览包
-npm run build:local:android  # 使用 preview 配置在本机打包 Android 预览包
-npm run format       # 格式化项目文件
-npm run lint         # 运行 Expo ESLint
-npm run typecheck    # 运行 TypeScript 类型检查
-npm run check        # 运行格式、lint 和类型检查
-npm run check:android # 生成 Android 工程并检查原生相机的 Kotlin 编译与 Android Lint
+```text
+Framewise/            原生 iOS 应用代码与运行时资源
+Framewise.xcodeproj/  Xcode 工程
+archive/              原型阶段的历史实现与待迁移能力
+design/               品牌和设计源素材，不加入应用 target
+plans/                产品、验证与架构讨论记录
 ```
 
-提交代码时，pre-commit hook 会通过 lint-staged 自动格式化并检查暂存文件。
+`archive/` 和 `plans/` 只作为迁移依据。当前原生应用不直接编译或依赖其中的代码。
 
-`check:android` 会排除 `react-native-worklets` 当前会导致 Android Lint 分析器崩溃的依赖任务，但仍会完整执行 `framewise-camera` 自身的 Kotlin 编译和 Lint 报告。该检查比 `npm run check` 慢，不放入 pre-commit。
+## License
 
-## 设计文档
-
-- [应用架构](./plans/architecture.md)
-- [模板数据结构](./plans/template-data-model.md)
-- [Skia 渲染指南](./plans/skia-rendering-guide.md)
+Framewise 使用 [MIT License](./LICENSE)。
