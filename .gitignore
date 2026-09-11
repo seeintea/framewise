@@ -1,51 +1,28 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Xcode
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
 
-# dependencies
-node_modules/
-.pnpm-store/
+# Swift Package Manager
+.build/
+.swiftpm/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-modules/*/android/.gradle/
-modules/*/android/build/
-archive/modules/*/android/.gradle/
-archive/modules/*/android/build/
-*.orig.*
+# Signing and secrets
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.pem
+.env*.local
 
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# Tooling
+.idea/
+*.orig.*
 
 # macOS
 .DS_Store
-*.pem
-
-# IDE
-.idea/
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-example
-
-# generated native folders
-/ios
-/android
