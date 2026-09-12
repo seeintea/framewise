@@ -6,13 +6,31 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D6CFB2D330541D7100BFE527 /* DingTalk JinBuTi.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		D6CFB2C530541D6E00BFE527 /* Framewise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Framewise.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */ = {isa = PBXFileReference; lastKnownFileType = file.ttf; path = "DingTalk JinBuTi.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D6CFB2D630541D7100BFE527 /* Exceptions for "Framewise" folder in "Framewise" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/Info.plist,
+			);
+			target = D6CFB2C430541D6E00BFE527 /* Framewise */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D6CFB2C730541D6E00BFE527 /* Framewise */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D6CFB2D630541D7100BFE527 /* Exceptions for "Framewise" folder in "Framewise" target */,
+			);
 			path = Framewise;
 			sourceTree = "<group>";
 		};
@@ -33,6 +51,7 @@
 			isa = PBXGroup;
 			children = (
 				D6CFB2C730541D6E00BFE527 /* Framewise */,
+				D6CFB2D530541D7100BFE527 /* Shared Fonts */,
 				D6CFB2C630541D6E00BFE527 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +62,15 @@
 				D6CFB2C530541D6E00BFE527 /* Framewise.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D6CFB2D530541D7100BFE527 /* Shared Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */,
+			);
+			name = "Shared Fonts";
+			path = ../shared/fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -110,6 +138,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6CFB2D330541D7100BFE527 /* DingTalk JinBuTi.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +285,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Framewise/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Framewise;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -268,7 +298,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
@@ -302,6 +332,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Framewise/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Framewise;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -314,7 +345,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;

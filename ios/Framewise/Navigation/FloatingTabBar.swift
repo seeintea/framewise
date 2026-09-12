@@ -100,35 +100,35 @@ struct FloatingTabBar: View {
         }
     }
 
+    @ViewBuilder
     private var searchButton: some View {
-        Button(action: onSearch) {
-            Image("TabSearch")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 29, height: 29)
-                .foregroundStyle(Color(uiColor: .systemGray))
-                .frame(width: 56, height: 56)
-                .contentShape(.circle)
-        }
-        .buttonStyle(SearchButtonStyle())
-        .tabBarSurface()
-        .accessibilityLabel("搜索")
-    }
-}
-
-private struct SearchButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background {
-                if configuration.isPressed {
-                    Circle().fill(Color(uiColor: .systemGray5))
-                        .padding(4)
-                }
+        if #available(iOS 26.0, *) {
+            Button(action: onSearch) {
+                searchButtonLabel
+                    .frame(width: 42, height: 42)
+                    .contentShape(.circle)
             }
-            .foregroundStyle(
-                configuration.isPressed
-                    ? Color.primary : Color(uiColor: .systemGray)
-            )
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .accessibilityLabel("搜索")
+        } else {
+            Button(action: onSearch) {
+                searchButtonLabel
+                    .frame(width: 56, height: 56)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .tabBarSurface()
+            .accessibilityLabel("搜索")
+        }
+    }
+
+    private var searchButtonLabel: some View {
+        Image("TabSearch")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 29, height: 29)
+            .foregroundStyle(Color(uiColor: .systemGray))
     }
 }
 
