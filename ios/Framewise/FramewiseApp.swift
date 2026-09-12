@@ -23,17 +23,17 @@ private enum AppRoute: Hashable {
 struct AppRootView: View {
     @State private var path: [AppRoute] = []
 
-        var body: some View {
-            NavigationStack(path: $path) {
-                MainTabView {
-                    path.append(.search)
-                }
-                .navigationDestination(for: AppRoute.self) { route in
-                    switch route {
-                    case .search:
-                        SearchView()
-                    }
+    var body: some View {
+        NavigationStack(path: $path) {
+            MainTabView {
+                path.append(.search)
+            }
+            .navigationDestination(for: AppRoute.self) { route in
+                switch route {
+                case .search:
+                    SearchView()
                 }
             }
         }
+    }
 }

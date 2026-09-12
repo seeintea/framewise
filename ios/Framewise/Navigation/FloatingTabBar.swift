@@ -12,6 +12,7 @@ struct FloatingTabBar: View {
     let onSearch: () -> Void
 
     @Namespace private var selectionAnimation
+    @Namespace private var selectionGlass
 
     var body: some View {
         Group {
@@ -40,8 +41,7 @@ struct FloatingTabBar: View {
                 tabButton(tab)
             }
         }
-        .padding(.horizontal, 8)
-        .frame(height: 56)
+        .padding(3)
         .tabBarSurface()
     }
 
@@ -52,18 +52,25 @@ struct FloatingTabBar: View {
             }
         } label: {
             VStack(spacing: 1.5) {
-                Image(systemName: tab.systemImage)
-                    .font(.system(size: 20, weight: .regular))
+                Image(tab.imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
                 Text(tab.title)
-                    .font(.system(size: 10, weight: selection == tab ? .semibold : .medium))
+                    .font(
+                        .system(
+                            size: 10,
+                            weight: selection == tab ? .semibold : .medium
+                        )
+                    )
             }
-            .foregroundStyle(selection == tab ? Color.primary : Color(uiColor: .systemGray))
+            .foregroundStyle(
+                selection == tab ? Color.primary : Color(uiColor: .systemGray)
+            )
             .frame(width: 92, height: 50)
             .background {
                 if selection == tab {
-                    Capsule()
-                        .fill(Color(uiColor: .systemGray5))
-                        .matchedGeometryEffect(id: "selection", in: selectionAnimation)
+                    selectionBackground
                 }
             }
             .contentShape(.rect)
@@ -73,10 +80,32 @@ struct FloatingTabBar: View {
         .accessibilityAddTraits(selection == tab ? .isSelected : [])
     }
 
+    @ViewBuilder
+    private var selectionBackground: some View {
+        if #available(iOS 26.0, *) {
+            Color.clear
+                .glassEffect(.clear.interactive(), in: .capsule)
+                .glassEffectID("selection", in: selectionGlass)
+                .matchedGeometryEffect(
+                    id: "selection",
+                    in: selectionAnimation
+                )
+        } else {
+            Capsule()
+                .fill(Color(uiColor: .systemGray5))
+                .matchedGeometryEffect(
+                    id: "selection",
+                    in: selectionAnimation
+                )
+        }
+    }
+
     private var searchButton: some View {
         Button(action: onSearch) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 29, weight: .light))
+            Image("TabSearch")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 29, height: 29)
                 .foregroundStyle(Color(uiColor: .systemGray))
                 .frame(width: 56, height: 56)
                 .contentShape(.circle)
@@ -96,13 +125,16 @@ private struct SearchButtonStyle: ButtonStyle {
                         .padding(4)
                 }
             }
-            .foregroundStyle(configuration.isPressed ? Color.primary : Color(uiColor: .systemGray))
+            .foregroundStyle(
+                configuration.isPressed
+                    ? Color.primary : Color(uiColor: .systemGray)
+            )
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
-    func tabBarSurface() -> some View {
+    fileprivate func tabBarSurface() -> some View {
         if #available(iOS 26.0, *) {
             glassEffect(.regular, in: .capsule)
         } else {

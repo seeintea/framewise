@@ -8,28 +8,27 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selection = MainTab.guides
+    @State private var selection = MainTab.guide
 
     let onSearch: () -> Void
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            FloatingTabBar(selection: $selection, onSearch: onSearch)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-        }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-        .toolbar(.hidden, for: .navigationBar)
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                FloatingTabBar(selection: $selection, onSearch: onSearch)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            .toolbar(.hidden, for: .navigationBar)
     }
 
     @ViewBuilder
     private var content: some View {
         switch selection {
-        case .guides:
-            GuidesView()
+        case .guide:
+            GuideView()
         case .settings:
             SettingsView()
         }
@@ -37,24 +36,24 @@ struct MainTabView: View {
 }
 
 enum MainTab: Hashable, CaseIterable {
-    case guides
+    case guide
     case settings
 
     var title: LocalizedStringKey {
         switch self {
-        case .guides:
+        case .guide:
             "模版"
         case .settings:
             "设置"
         }
     }
 
-    var systemImage: String {
+    var imageName: String {
         switch self {
-        case .guides:
-            "rectangle.on.rectangle"
+        case .guide:
+            "TabGuide"
         case .settings:
-            "hand.thumbsup"
+            "TabSetting"
         }
     }
 }
