@@ -7,17 +7,21 @@
 
 import SwiftUI
 
+private let quickCaptureTemplateId = "b6fb0923-8f41-420c-a403-c21be035065e"
+
 private let landscapeSamplePreviews = [
     GuidePreview(
         id: "vae-2024-06-01-1",
         imageURL: URL(
-            string: "https://seeintea.github.io/static/images/photos/vae-2024-06-01.webp"
+            string:
+                "https://seeintea.github.io/static/images/photos/vae-2024-06-01.webp"
         )
     ),
     GuidePreview(
         id: "vae-2024-06-01-2",
         imageURL: URL(
-            string: "https://seeintea.github.io/static/images/photos/vae-2024-06-01.webp"
+            string:
+                "https://seeintea.github.io/static/images/photos/vae-2024-06-01.webp"
         )
     ),
 ]
@@ -26,19 +30,22 @@ private let portraitSamplePreviews = [
     GuidePreview(
         id: "keong-saik-rd-2024-04-22-1",
         imageURL: URL(
-            string: "https://seeintea.github.io/static/images/photos/keong-saik-rd-2024-04-22.webp"
+            string:
+                "https://seeintea.github.io/static/images/photos/keong-saik-rd-2024-04-22.webp"
         )
     ),
     GuidePreview(
         id: "keong-saik-rd-2024-04-22-2",
         imageURL: URL(
-            string: "https://seeintea.github.io/static/images/photos/keong-saik-rd-2024-04-22.webp"
+            string:
+                "https://seeintea.github.io/static/images/photos/keong-saik-rd-2024-04-22.webp"
         )
     ),
     GuidePreview(
         id: "keong-saik-rd-2024-04-22-3",
         imageURL: URL(
-            string: "https://seeintea.github.io/static/images/photos/keong-saik-rd-2024-04-22.webp"
+            string:
+                "https://seeintea.github.io/static/images/photos/keong-saik-rd-2024-04-22.webp"
         )
     ),
 ]
@@ -48,7 +55,8 @@ struct GuideView: View {
 
     let onCameraRequest: (CameraTemplateRequest) -> Void
 
-    init(onCameraRequest: @escaping (CameraTemplateRequest) -> Void = { _ in }) {
+    init(onCameraRequest: @escaping (CameraTemplateRequest) -> Void = { _ in })
+    {
         self.onCameraRequest = onCameraRequest
     }
 
@@ -79,17 +87,15 @@ struct GuideView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 GuideHeader {
-                    let templateId = CompositionTemplateIdentifier.classicRuleOfThirds
-
                     onCameraRequest(
                         CameraTemplateRequest(
-                            templateIds: [templateId],
-                            initialTemplateId: templateId
+                            templateIds: [quickCaptureTemplateId],
+                            initialTemplateId: quickCaptureTemplateId
                         )
                     )
                 }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
 
                 GuideQuickView()
                     .padding(.horizontal, 16)
@@ -178,7 +184,6 @@ extension Color {
         )
     }
 }
-
 
 #Preview {
     GuideView()

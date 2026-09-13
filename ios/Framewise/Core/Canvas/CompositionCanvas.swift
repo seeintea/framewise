@@ -9,21 +9,53 @@ import SwiftUI
 
 struct CompositionCanvas: View {
     let variant: CompositionTemplateVariant
+    var annotationTextById: [String: String] = [:]
+    var showsAnnotations = true
     var color = Color(red: 1, green: 212.0 / 255.0, blue: 0)
     var lineWidth: CGFloat = 0.5
     var dash: [CGFloat] = [8, 6]
 
     var body: some View {
-        Canvas { context, size in
-            let drawingRect = CGRect(origin: .zero, size: size)
+        ZStack {
+            Canvas { context, size in
+                let drawingRect = CGRect(origin: .zero, size: size)
 
-            for element in variant.elements {
-                context.stroke(
-                    path(for: element.shape, in: drawingRect),
-                    with: .color(color),
-                    style: strokeStyle(for: element.shape)
-                )
+                for element in variant.elements {
+                    context.stroke(
+                        path(for: element.shape, in: drawingRect),
+                        with: .color(color),
+                        style: strokeStyle(for: element.shape)
+                    )
+                }
             }
+
+            GeometryReader { proxy in
+                let drawingRect = CGRect(origin: .zero, size: proxy.size)
+                let shortSide = min(proxy.size.width, proxy.size.height)
+                let fontSize = max(shortSide * 0.035, 7)
+
+                ForEach(variant.annotations ?? []) { annotation in
+                    if let text = annotationTextById[annotation.id] {
+                        Text(text)
+                            .font(.system(size: fontSize, weight: .light))
+                            .foregroundStyle(color)
+                            .multilineTextAlignment(.center)
+                            .frame(
+                                width: annotation.maxWidth.map {
+                                    CGFloat($0) * proxy.size.width
+                                }
+                            )
+                            .position(
+                                CanvasGeometry.point(
+                                    annotation.position,
+                                    in: drawingRect
+                                )
+                            )
+                    }
+                }
+            }
+            .opacity(showsAnnotations ? 1 : 0)
+            .animation(.easeOut(duration: 0.25), value: showsAnnotations)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

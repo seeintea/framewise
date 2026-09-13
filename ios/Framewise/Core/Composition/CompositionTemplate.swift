@@ -10,7 +10,6 @@ import Foundation
 struct CompositionTemplate: Decodable, Equatable, Identifiable, Sendable {
     let schemaVersion: Int
     let id: String
-    let key: String
     let defaultVariantId: String
     let variants: [CompositionTemplateVariant]
 
@@ -22,7 +21,6 @@ struct CompositionTemplate: Decodable, Equatable, Identifiable, Sendable {
 struct CompositionTemplateVariant: Decodable, Equatable, Identifiable, Sendable
 {
     let id: String
-    let key: String
     let aspectRatio: CompositionAspectRatio
     let elements: [CompositionElement]
     let annotations: [CompositionAnnotationAnchor]?
@@ -62,6 +60,21 @@ struct CompositionAnnotationAnchor: Decodable, Equatable, Identifiable, Sendable
         case position
         case maxWidth
     }
+}
+
+struct CompositionTemplateLocalization: Decodable, Equatable, Sendable {
+    let schemaVersion: Int
+    let locale: String
+    let templateId: String
+    let title: String
+    let description: String
+    let variants: [CompositionVariantLocalization]
+}
+
+struct CompositionVariantLocalization: Decodable, Equatable, Sendable {
+    let variantId: String
+    let instruction: String
+    let annotations: [String: String]?
 }
 
 struct NormalizedPoint: Decodable, Equatable, Sendable {

@@ -27,6 +27,8 @@ struct AppRootView: View {
     }
 
     @State private var path: [AppRoute] = []
+    @AppStorage(AppSettingKey.showsCameraAnnotationsOnEntry)
+    private var showsCameraAnnotationsOnEntry = true
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -55,7 +57,14 @@ struct AppRootView: View {
            request.templateIds.contains(request.initialTemplateId),
            let template = catalog.template(id: request.initialTemplateId),
            let variant = template.defaultVariant {
-            CameraView(variant: variant)
+            CameraScreen(
+                variant: variant,
+                annotationTextById: catalog.annotationTextById(
+                    templateId: template.id,
+                    variantId: variant.id
+                ),
+                showsAnnotationsOnEntry: showsCameraAnnotationsOnEntry
+            )
         } else {
             ZStack {
                 Color.black

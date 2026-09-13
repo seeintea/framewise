@@ -31,7 +31,7 @@ struct MainTabView: View {
         case .guide:
             GuideView(onCameraRequest: onCameraRequest)
         case .settings:
-            SettingsView()
+            SettingView()
         }
     }
 }
