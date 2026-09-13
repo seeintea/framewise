@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "centered-subject-3x4",
+  "aspectRatio": {
+    "width": 3,
+    "height": 4
+  },
+  "elements": [
+    {
+      "id": "subject-area",
+      "type": "subject",
+      "shape": {
+        "type": "circle",
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.3
+      }
+    }
+  ],
+  "annotations": [
+    {
+      "id": "subject-label",
+      "position": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  ]
+}
