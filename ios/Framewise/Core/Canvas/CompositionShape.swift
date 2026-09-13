@@ -69,7 +69,10 @@ extension CompositionShape: Decodable {
             )
         case .rect:
             self = try .rect(
-                bounds: container.decode(NormalizedBounds.self, forKey: .bounds),
+                bounds: container.decode(
+                    NormalizedBounds.self,
+                    forKey: .bounds
+                ),
                 cornerRadius: container.decodeIfPresent(
                     Double.self,
                     forKey: .cornerRadius

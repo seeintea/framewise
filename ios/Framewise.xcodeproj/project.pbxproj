@@ -8,11 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		D6CFB2D330541D7100BFE527 /* DingTalk JinBuTi.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */; };
+		D6CFB2D730541D7100BFE527 /* Templates in Resources */ = {isa = PBXBuildFile; fileRef = D6CFB2D830541D7100BFE527 /* Templates */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		D6CFB2C530541D6E00BFE527 /* Framewise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Framewise.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */ = {isa = PBXFileReference; lastKnownFileType = file.ttf; path = "DingTalk JinBuTi.ttf"; sourceTree = "<group>"; };
+		D6CFB2D830541D7100BFE527 /* Templates */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Templates; path = ../composition/templates; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -52,6 +54,7 @@
 			children = (
 				D6CFB2C730541D6E00BFE527 /* Framewise */,
 				D6CFB2D530541D7100BFE527 /* Design System Fonts */,
+				D6CFB2D830541D7100BFE527 /* Templates */,
 				D6CFB2C630541D6E00BFE527 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -70,7 +73,7 @@
 				D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */,
 			);
 			name = "Design System Fonts";
-			path = ../design-system/fonts;
+			path = "../design-system/fonts";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -139,6 +142,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D6CFB2D330541D7100BFE527 /* DingTalk JinBuTi.ttf in Resources */,
+				D6CFB2D730541D7100BFE527 /* Templates in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -46,6 +46,12 @@ private let portraitSamplePreviews = [
 struct GuideView: View {
     @Environment(\.colorScheme) private var colorScheme
 
+    let onCameraRequest: (CameraTemplateRequest) -> Void
+
+    init(onCameraRequest: @escaping (CameraTemplateRequest) -> Void = { _ in }) {
+        self.onCameraRequest = onCameraRequest
+    }
+
     private let recommendations: [RecommendationContent] = [
         RecommendationContent(
             title: "在风景里留个影",
@@ -72,7 +78,16 @@ struct GuideView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                GuideHeader()
+                GuideHeader {
+                    let templateId = CompositionTemplateIdentifier.classicRuleOfThirds
+
+                    onCameraRequest(
+                        CameraTemplateRequest(
+                            templateIds: [templateId],
+                            initialTemplateId: templateId
+                        )
+                    )
+                }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
 

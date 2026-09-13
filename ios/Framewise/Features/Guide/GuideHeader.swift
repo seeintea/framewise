@@ -8,7 +8,11 @@
 import SwiftUI
 
 struct GuideHeader: View {
-    let onCameraTap: () -> Void = {}
+    let onCameraTap: () -> Void
+
+    init(onCameraTap: @escaping () -> Void = {}) {
+        self.onCameraTap = onCameraTap
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {

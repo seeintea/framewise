@@ -10,6 +10,7 @@ import SwiftUI
 struct MainTabView: View {
     @State private var selection = MainTab.guide
 
+    let onCameraRequest: (CameraTemplateRequest) -> Void
     let onSearch: () -> Void
 
     var body: some View {
@@ -28,7 +29,7 @@ struct MainTabView: View {
     private var content: some View {
         switch selection {
         case .guide:
-            GuideView()
+            GuideView(onCameraRequest: onCameraRequest)
         case .settings:
             SettingsView()
         }

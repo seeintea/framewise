@@ -38,7 +38,7 @@ struct CompositionCanvas: View {
             return path
 
         case .circle(let center, let radius),
-             .dashedCircle(let center, let radius):
+            .dashedCircle(let center, let radius):
             let resolvedCenter = CanvasGeometry.point(center, in: rect)
             let resolvedRadius = CanvasGeometry.length(radius, in: rect)
             return Path(
@@ -70,68 +70,4 @@ struct CompositionCanvas: View {
             dash: shape.isDashed ? dash : []
         )
     }
-}
-
-#Preview("Composition canvas") {
-    ZStack {
-        Color.black
-
-        CompositionCanvas(variant: .canvasPreview)
-    }
-    .frame(width: 300, height: 400)
-}
-
-private extension CompositionTemplateVariant {
-    static let canvasPreview = CompositionTemplateVariant(
-        id: "canvas-preview-3x4",
-        aspectRatio: CompositionAspectRatio(width: 3, height: 4),
-        elements: [
-            CompositionElement(
-                id: "horizon",
-                type: .horizon,
-                shape: .line(
-                    start: NormalizedPoint(x: 0.08, y: 0.66),
-                    end: NormalizedPoint(x: 0.92, y: 0.66)
-                )
-            ),
-            CompositionElement(
-                id: "axis",
-                type: .safeLine,
-                shape: .dashedLine(
-                    start: NormalizedPoint(x: 0.5, y: 0.1),
-                    end: NormalizedPoint(x: 0.5, y: 0.9)
-                )
-            ),
-            CompositionElement(
-                id: "subject-anchor",
-                type: .subject,
-                shape: .dashedCircle(
-                    center: NormalizedPoint(x: 0.5, y: 0.36),
-                    radius: 0.08
-                )
-            ),
-            CompositionElement(
-                id: "vanishing-point",
-                type: .subject,
-                shape: .circle(
-                    center: NormalizedPoint(x: 0.5, y: 0.66),
-                    radius: 0.02
-                )
-            ),
-            CompositionElement(
-                id: "subject-area",
-                type: .subject,
-                shape: .rect(
-                    bounds: NormalizedBounds(
-                        x: 0.28,
-                        y: 0.2,
-                        width: 0.44,
-                        height: 0.66
-                    ),
-                    cornerRadius: 0.03
-                )
-            )
-        ],
-        annotations: nil
-    )
 }
