@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "34e35f2a-0222-4a35-a97a-d11e6281c2fd",
+  "title": "城市水岸倒影",
+  "description": "适合近距离拍摄滨水建筑，让建筑与水中倒影形成上下呼应。",
+  "variants": [
+    {
+      "variantId": "071a8890-a81c-41e4-b62c-be7c602be3f0",
+      "instruction": "让水岸线略高于画面中央，并完整保留建筑与倒影上下呼应",
+      "annotations": {
+        "scene-label": "景物",
+        "reflection-label": "倒影"
+      }
+    }
+  ]
+}

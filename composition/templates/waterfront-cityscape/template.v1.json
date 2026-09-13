@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "id": "267004dd-2994-4a61-8f5d-243087bbd9ab",
+  "key": "waterfront-cityscape",
+  "defaultVariantId": "54a90fcd-e0e1-4401-b5ea-c03873ff0e80",
+  "variants": [
+    {
+      "id": "54a90fcd-e0e1-4401-b5ea-c03873ff0e80",
+      "key": "waterfront-cityscape-16x9",
+      "aspectRatio": {
+        "width": 16,
+        "height": 9
+      },
+      "elements": [
+        {
+          "key": "skyline-limit",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.42
+            },
+            "end": {
+              "x": 1,
+              "y": 0.42
+            }
+          }
+        },
+        {
+          "key": "waterline",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.68
+            },
+            "end": {
+              "x": 1,
+              "y": 0.68
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "sky-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.21
+          }
+        },
+        {
+          "key": "shore-subject-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.55
+          }
+        },
+        {
+          "key": "water-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.84
+          }
+        }
+      ]
+    },
+    {
+      "id": "278868d3-aedc-4d03-a6a2-fabd11b0975f",
+      "key": "waterfront-cityscape-4x3",
+      "aspectRatio": {
+        "width": 4,
+        "height": 3
+      },
+      "elements": [
+        {
+          "key": "skyline-limit",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.4
+            },
+            "end": {
+              "x": 1,
+              "y": 0.4
+            }
+          }
+        },
+        {
+          "key": "waterline",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.68
+            },
+            "end": {
+              "x": 1,
+              "y": 0.68
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "sky-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.2
+          }
+        },
+        {
+          "key": "shore-subject-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.54
+          }
+        },
+        {
+          "key": "water-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.84
+          }
+        }
+      ]
+    }
+  ]
+}

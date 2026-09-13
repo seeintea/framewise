@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "34e35f2a-0222-4a35-a97a-d11e6281c2fd",
+  "key": "city-waterfront-reflection",
+  "defaultVariantId": "071a8890-a81c-41e4-b62c-be7c602be3f0",
+  "variants": [
+    {
+      "id": "071a8890-a81c-41e4-b62c-be7c602be3f0",
+      "key": "city-waterfront-reflection-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "building-top-limit",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0,
+              "y": 0.14
+            },
+            "end": {
+              "x": 1,
+              "y": 0.14
+            }
+          }
+        },
+        {
+          "key": "waterline",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.46
+            },
+            "end": {
+              "x": 1,
+              "y": 0.46
+            }
+          }
+        },
+        {
+          "key": "reflection-bottom-limit",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0,
+              "y": 0.78
+            },
+            "end": {
+              "x": 1,
+              "y": 0.78
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "scene-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.3
+          }
+        },
+        {
+          "key": "reflection-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.62
+          }
+        }
+      ]
+    }
+  ]
+}

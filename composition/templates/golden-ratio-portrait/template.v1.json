@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "55984728-74ab-4035-85e8-9ddbe1d40907",
+  "key": "golden-ratio-portrait",
+  "defaultVariantId": "232a563d-a624-499e-8afb-785fdc74c6c2",
+  "variants": [
+    {
+      "id": "232a563d-a624-499e-8afb-785fdc74c6c2",
+      "key": "golden-ratio-portrait-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "subject-area",
+          "type": "subject",
+          "shape": {
+            "type": "rect",
+            "bounds": {
+              "x": 0.338,
+              "y": 0.5,
+              "width": 0.36,
+              "height": 0.48
+            },
+            "cornerRadius": 0.02
+          }
+        },
+        {
+          "key": "golden-ratio-line",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0.618,
+              "y": 0.5
+            },
+            "end": {
+              "x": 0.618,
+              "y": 0.98
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "person-label",
+          "position": {
+            "x": 0.518,
+            "y": 0.46
+          }
+        },
+        {
+          "key": "arm-guidance",
+          "position": {
+            "x": 0.82,
+            "y": 0.74
+          },
+          "maxWidth": 0.15
+        }
+      ]
+    }
+  ]
+}

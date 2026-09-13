@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "4a8bfa7d-c25d-491b-a54b-62b842d16fad",
+  "title": "对称构图",
+  "description": "适合建筑正面、门窗、通道和居中人物等左右对称的场景。",
+  "variants": [
+    {
+      "variantId": "90ab4f83-2b72-483e-923d-9e729778b438",
+      "instruction": "让场景的对称中轴贴合虚线，保持左右画面平衡"
+    }
+  ]
+}

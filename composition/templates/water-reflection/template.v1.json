@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "id": "756c958d-f0d5-47b3-a5c8-935d0abe6bdc",
+  "key": "water-reflection",
+  "defaultVariantId": "a83c64f8-d328-4cc8-a45c-b93aa4d5d5e8",
+  "variants": [
+    {
+      "id": "a83c64f8-d328-4cc8-a45c-b93aa4d5d5e8",
+      "key": "water-reflection-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "sky-line",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.2
+            },
+            "end": {
+              "x": 1,
+              "y": 0.2
+            }
+          }
+        },
+        {
+          "key": "reflection-line",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0,
+              "y": 0.6
+            },
+            "end": {
+              "x": 1,
+              "y": 0.6
+            }
+          }
+        },
+        {
+          "key": "triangle-upper-edge",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 1,
+              "y": 0.2
+            },
+            "end": {
+              "x": 0.28,
+              "y": 0.6
+            }
+          }
+        },
+        {
+          "key": "triangle-lower-edge",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0.28,
+              "y": 0.6
+            },
+            "end": {
+              "x": 1,
+              "y": 1
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "sky-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.1
+          }
+        },
+        {
+          "key": "subject-label",
+          "position": {
+            "x": 0.78,
+            "y": 0.43
+          }
+        },
+        {
+          "key": "reflection-label",
+          "position": {
+            "x": 0.78,
+            "y": 0.77
+          }
+        }
+      ]
+    }
+  ]
+}

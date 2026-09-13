@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "5022692a-4b22-450c-9613-551c5c6f578e",
+  "key": "gaze-space",
+  "defaultVariantId": "25cae826-6a53-434a-be0e-1d89712a96ed",
+  "variants": [
+    {
+      "id": "25cae826-6a53-434a-be0e-1d89712a96ed",
+      "key": "gaze-space-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "subject-anchor",
+          "type": "subject",
+          "shape": {
+            "type": "dashed-circle",
+            "center": {
+              "x": 0.333,
+              "y": 0.42
+            },
+            "radius": 0.055
+          }
+        },
+        {
+          "key": "gaze-line",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0.4,
+              "y": 0.42
+            },
+            "end": {
+              "x": 0.9,
+              "y": 0.42
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "subject-label",
+          "position": {
+            "x": 0.333,
+            "y": 0.32
+          }
+        },
+        {
+          "key": "gaze-space-label",
+          "position": {
+            "x": 0.66,
+            "y": 0.36
+          }
+        }
+      ]
+    }
+  ]
+}

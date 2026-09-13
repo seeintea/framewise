@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "ec778063-cb9a-481c-9777-7df457017e57",
+  "key": "modern-architecture-corner",
+  "defaultVariantId": "9065a030-13ec-4cd5-b454-6169e1566246",
+  "variants": [
+    {
+      "id": "9065a030-13ec-4cd5-b454-6169e1566246",
+      "key": "modern-architecture-corner-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "corner-anchor",
+          "type": "subject",
+          "shape": {
+            "type": "dashed-circle",
+            "center": {
+              "x": 0.46,
+              "y": 0.24
+            },
+            "radius": 0.025
+          }
+        },
+        {
+          "key": "left-roof-guide",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.48
+            },
+            "end": {
+              "x": 0.46,
+              "y": 0.24
+            }
+          }
+        },
+        {
+          "key": "right-roof-guide",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0.46,
+              "y": 0.24
+            },
+            "end": {
+              "x": 1,
+              "y": 0.48
+            }
+          }
+        },
+        {
+          "key": "vertical-corner-axis",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0.46,
+              "y": 0.24
+            },
+            "end": {
+              "x": 0.46,
+              "y": 1
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "corner-label",
+          "position": {
+            "x": 0.46,
+            "y": 0.19
+          }
+        },
+        {
+          "key": "roof-line-label",
+          "position": {
+            "x": 0.76,
+            "y": 0.29
+          }
+        },
+        {
+          "key": "corner-axis-label",
+          "position": {
+            "x": 0.58,
+            "y": 0.65
+          }
+        }
+      ]
+    }
+  ]
+}

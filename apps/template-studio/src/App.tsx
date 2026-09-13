@@ -2,27 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { App as AntdApp, ConfigProvider, Tag } from "antd";
 import { PreviewWorkspace } from "./components/PreviewWorkspace";
 import { TemplateSidebar } from "./components/TemplateSidebar";
-import { demoCatalog } from "./demoCatalog";
-import type { AspectRatio } from "./types";
+import { templateCatalog } from "./templateCatalog";
 
 export function App() {
   const [query, setQuery] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState(
-    demoCatalog[0]?.id ?? "",
+    templateCatalog[0]?.id ?? "",
   );
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
-    demoCatalog[0]?.defaultSize ?? "3:4",
+  const [selectedVariantId, setSelectedVariantId] = useState(
+    templateCatalog[0]?.defaultVariantId ?? "",
   );
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const visibleTemplates = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (!normalizedQuery) {
-      return demoCatalog;
+      return templateCatalog;
     }
 
-    return demoCatalog.filter((template) =>
-      [template.title, template.id, template.description]
+    return templateCatalog.filter((template) =>
+      [template.title, template.key, template.id, template.description]
         .join(" ")
         .toLocaleLowerCase()
         .includes(normalizedQuery),
@@ -30,8 +29,16 @@ export function App() {
   }, [query]);
 
   const selectedTemplate =
-    demoCatalog.find((template) => template.id === selectedTemplateId) ??
-    demoCatalog[0];
+    templateCatalog.find((template) => template.id === selectedTemplateId) ??
+    templateCatalog[0];
+  const selectedVariant =
+    selectedTemplate?.variants.find(
+      (variant) => variant.id === selectedVariantId,
+    ) ??
+    selectedTemplate?.variants.find(
+      (variant) => variant.id === selectedTemplate.defaultVariantId,
+    ) ??
+    selectedTemplate?.variants[0];
 
   useEffect(
     () => () => {
@@ -42,12 +49,12 @@ export function App() {
     [imageUrl],
   );
 
-  if (!selectedTemplate) {
-    return <p className="p-6">缺少 UI 演示模板。</p>;
+  if (!selectedTemplate || !selectedVariant) {
+    return <p className="p-6">没有可预览的模板数据。</p>;
   }
 
   function selectTemplate(templateId: string) {
-    const nextTemplate = demoCatalog.find(
+    const nextTemplate = templateCatalog.find(
       (template) => template.id === templateId,
     );
     if (!nextTemplate) {
@@ -55,11 +62,12 @@ export function App() {
     }
 
     setSelectedTemplateId(nextTemplate.id);
-    setAspectRatio((currentSize) =>
-      nextTemplate.availableSizes.includes(currentSize)
-        ? currentSize
-        : nextTemplate.defaultSize,
+    const matchingVariant = nextTemplate.variants.find(
+      (variant) =>
+        variant.aspectRatio.width === selectedVariant.aspectRatio.width &&
+        variant.aspectRatio.height === selectedVariant.aspectRatio.height,
     );
+    setSelectedVariantId(matchingVariant?.id ?? nextTemplate.defaultVariantId);
   }
 
   function selectImage(file: File | null) {
@@ -88,8 +96,8 @@ export function App() {
         },
       }}
     >
-      <AntdApp className="min-h-screen">
-        <div className="grid min-h-screen grid-rows-[58px_1fr] bg-[#f5f5f1] text-[#1b1d19]">
+      <AntdApp className="h-screen overflow-hidden">
+        <div className="grid h-screen grid-rows-[58px_minmax(0,1fr)] overflow-hidden bg-[#f5f5f1] text-[#1b1d19]">
           <header className="flex items-center justify-between gap-6 border-b border-[#d5d6ce] bg-[#fbfbf8] px-5">
             <div className="flex min-w-0 items-center gap-2.5 text-sm">
               <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddec47] font-bold text-[#171916]">
@@ -101,11 +109,11 @@ export function App() {
               </span>
             </div>
             <Tag className="m-0 font-mono text-[10px] uppercase tracking-wider max-sm:hidden">
-              UI scaffold · demo data
+              {templateCatalog.length} templates · composition data
             </Tag>
           </header>
 
-          <main className="grid min-h-0 grid-cols-[300px_minmax(0,1fr)] max-md:grid-cols-1">
+          <main className="grid min-h-0 grid-cols-[300px_minmax(0,1fr)] overflow-hidden max-md:grid-cols-1 max-md:overflow-y-auto">
             <TemplateSidebar
               templates={visibleTemplates}
               selectedTemplateId={selectedTemplate.id}
@@ -115,9 +123,9 @@ export function App() {
             />
             <PreviewWorkspace
               template={selectedTemplate}
-              aspectRatio={aspectRatio}
+              variant={selectedVariant}
               imageUrl={imageUrl}
-              onAspectRatioChange={setAspectRatio}
+              onVariantChange={setSelectedVariantId}
               onImageChange={selectImage}
             />
           </main>

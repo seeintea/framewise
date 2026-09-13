@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "960c8201-f885-4450-bae9-1c5826c668af",
+  "key": "leading-lines-depth",
+  "defaultVariantId": "8003c64a-8a09-4e20-a986-f87a55f1fb1b",
+  "variants": [
+    {
+      "id": "8003c64a-8a09-4e20-a986-f87a55f1fb1b",
+      "key": "leading-lines-depth-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "horizon-guide",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0.2,
+              "y": 0.5
+            },
+            "end": {
+              "x": 0.8,
+              "y": 0.5
+            }
+          }
+        },
+        {
+          "key": "left-leading-line",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0.08,
+              "y": 1
+            },
+            "end": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        },
+        {
+          "key": "right-leading-line",
+          "type": "safe-line",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0.92,
+              "y": 1
+            },
+            "end": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        },
+        {
+          "key": "vanishing-point",
+          "type": "subject",
+          "shape": {
+            "type": "circle",
+            "center": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "radius": 0.025
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "vanishing-point-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.45
+          }
+        },
+        {
+          "key": "leading-lines-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.78
+          }
+        }
+      ]
+    }
+  ]
+}

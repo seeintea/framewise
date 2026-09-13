@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "47fe4965-1910-46bb-969a-92842882bcf2",
+  "key": "environmental-portrait",
+  "defaultVariantId": "338a26e6-ca19-4410-ab56-653f7e45a150",
+  "variants": [
+    {
+      "id": "338a26e6-ca19-4410-ab56-653f7e45a150",
+      "key": "environmental-portrait-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "face-anchor",
+          "type": "subject",
+          "shape": {
+            "type": "dashed-circle",
+            "center": {
+              "x": 0.667,
+              "y": 0.3
+            },
+            "radius": 0.035
+          }
+        },
+        {
+          "key": "body-axis",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0.667,
+              "y": 0.335
+            },
+            "end": {
+              "x": 0.667,
+              "y": 0.9
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "face-label",
+          "position": {
+            "x": 0.78,
+            "y": 0.3
+          }
+        },
+        {
+          "key": "environment-label",
+          "position": {
+            "x": 0.28,
+            "y": 0.52
+          }
+        }
+      ]
+    }
+  ]
+}

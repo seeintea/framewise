@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "id": "2bc182f7-c970-4a0e-a15a-02ecb77a229b",
+  "key": "landscape-accent",
+  "defaultVariantId": "adcb30ff-951b-4af1-a884-85cf8f266177",
+  "variants": [
+    {
+      "id": "adcb30ff-951b-4af1-a884-85cf8f266177",
+      "key": "landscape-accent-4x3",
+      "aspectRatio": {
+        "width": 4,
+        "height": 3
+      },
+      "elements": [
+        {
+          "key": "left-horizon",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.667
+            },
+            "end": {
+              "x": 0.62,
+              "y": 0.667
+            }
+          }
+        },
+        {
+          "key": "right-horizon",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0.714,
+              "y": 0.667
+            },
+            "end": {
+              "x": 1,
+              "y": 0.667
+            }
+          }
+        },
+        {
+          "key": "subject-anchor",
+          "type": "subject",
+          "shape": {
+            "type": "dashed-circle",
+            "center": {
+              "x": 0.667,
+              "y": 0.667
+            },
+            "radius": 0.035
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "environment-label",
+          "position": {
+            "x": 0.33,
+            "y": 0.43
+          }
+        },
+        {
+          "key": "subject-label",
+          "position": {
+            "x": 0.667,
+            "y": 0.57
+          }
+        }
+      ]
+    }
+  ]
+}

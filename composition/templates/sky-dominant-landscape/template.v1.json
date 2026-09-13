@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "c28341d8-2d56-458b-9008-5969284968ba",
+  "key": "sky-dominant-landscape",
+  "defaultVariantId": "18e1ae8b-4bd6-4f95-a6f0-dcca79716e61",
+  "variants": [
+    {
+      "id": "18e1ae8b-4bd6-4f95-a6f0-dcca79716e61",
+      "key": "sky-dominant-landscape-4x3",
+      "aspectRatio": {
+        "width": 4,
+        "height": 3
+      },
+      "elements": [
+        {
+          "key": "low-horizon",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.667
+            },
+            "end": {
+              "x": 1,
+              "y": 0.667
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "sky-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.333
+          }
+        },
+        {
+          "key": "ground-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.835
+          }
+        }
+      ]
+    }
+  ]
+}

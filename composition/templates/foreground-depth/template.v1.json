@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "5aa983db-8730-4307-b18f-88ffe4735206",
+  "key": "foreground-depth",
+  "defaultVariantId": "b73a4f43-1ba4-41f8-9fc7-46fc2467a540",
+  "variants": [
+    {
+      "id": "b73a4f43-1ba4-41f8-9fc7-46fc2467a540",
+      "key": "foreground-depth-4x3",
+      "aspectRatio": {
+        "width": 4,
+        "height": 3
+      },
+      "elements": [
+        {
+          "key": "high-horizon",
+          "type": "horizon",
+          "shape": {
+            "type": "line",
+            "start": {
+              "x": 0,
+              "y": 0.333
+            },
+            "end": {
+              "x": 1,
+              "y": 0.333
+            }
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "distance-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.165
+          }
+        },
+        {
+          "key": "foreground-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.667
+          }
+        }
+      ]
+    }
+  ]
+}

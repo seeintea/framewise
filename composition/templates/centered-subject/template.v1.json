@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "80ac5355-c807-4e28-8784-4d7c464be337",
+  "key": "centered-subject",
+  "defaultVariantId": "c1510f9a-8b08-4ece-b593-9be75ce916ec",
+  "variants": [
+    {
+      "id": "c1510f9a-8b08-4ece-b593-9be75ce916ec",
+      "key": "centered-subject-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "subject-area",
+          "type": "subject",
+          "shape": {
+            "type": "circle",
+            "center": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "radius": 0.3
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "subject-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "da835acd-4c39-42cd-9c03-72f503d26cdc",
+      "key": "centered-subject-1x1",
+      "aspectRatio": {
+        "width": 1,
+        "height": 1
+      },
+      "elements": [
+        {
+          "key": "subject-area",
+          "type": "subject",
+          "shape": {
+            "type": "circle",
+            "center": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "radius": 0.3
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "key": "subject-label",
+          "position": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      ]
+    }
+  ]
+}

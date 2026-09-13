@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "80ac5355-c807-4e28-8784-4d7c464be337",
+  "title": "中心主体",
+  "description": "用于展示主体，建议选择纯净、不过于杂乱的背景。",
+  "variants": [
+    {
+      "variantId": "c1510f9a-8b08-4ece-b593-9be75ce916ec",
+      "instruction": "将主体置于画面中心的圆内",
+      "annotations": {
+        "subject-label": "主体"
+      }
+    },
+    {
+      "variantId": "da835acd-4c39-42cd-9c03-72f503d26cdc",
+      "instruction": "将主体置于画面中心的圆内",
+      "annotations": {
+        "subject-label": "主体"
+      }
+    }
+  ]
+}

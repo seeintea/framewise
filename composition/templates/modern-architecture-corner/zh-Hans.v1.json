@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "ec778063-cb9a-481c-9777-7df457017e57",
+  "title": "现代建筑折角",
+  "description": "适合玻璃幕墙和重复立面的现代建筑，突出棱角与向上延伸感。",
+  "variants": [
+    {
+      "variantId": "9065a030-13ec-4cd5-b454-6169e1566246",
+      "instruction": "将建筑最高转角对准圆圈，使主棱线贴合中轴，两侧顶部轮廓沿斜线展开",
+      "annotations": {
+        "corner-label": "顶部转角",
+        "roof-line-label": "顶部轮廓",
+        "corner-axis-label": "建筑棱线"
+      }
+    }
+  ]
+}

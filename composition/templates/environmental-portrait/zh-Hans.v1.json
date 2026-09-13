@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "47fe4965-1910-46bb-969a-92842882bcf2",
+  "title": "环境人像",
+  "description": "适合旅行和街拍，在突出人物的同时保留周围环境信息。",
+  "variants": [
+    {
+      "variantId": "338a26e6-ca19-4410-ab56-653f7e45a150",
+      "instruction": "将面部对准圆圈，身体沿竖线展开，并在左侧保留环境",
+      "annotations": {
+        "face-label": "面部",
+        "environment-label": "环境"
+      }
+    }
+  ]
+}

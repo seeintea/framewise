@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "4a8bfa7d-c25d-491b-a54b-62b842d16fad",
+  "key": "symmetrical-composition",
+  "defaultVariantId": "90ab4f83-2b72-483e-923d-9e729778b438",
+  "variants": [
+    {
+      "id": "90ab4f83-2b72-483e-923d-9e729778b438",
+      "key": "symmetrical-composition-3x4",
+      "aspectRatio": {
+        "width": 3,
+        "height": 4
+      },
+      "elements": [
+        {
+          "key": "symmetry-axis",
+          "type": "safe-line",
+          "shape": {
+            "type": "dashed-line",
+            "start": {
+              "x": 0.5,
+              "y": 0.1
+            },
+            "end": {
+              "x": 0.5,
+              "y": 0.9
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

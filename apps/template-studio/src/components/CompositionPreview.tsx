@@ -1,10 +1,9 @@
 import type { CSSProperties } from "react";
-import type { AspectRatio, WorkbenchTemplate } from "../types";
+import type { WorkbenchVariant } from "../types";
 import { GuideOverlay } from "./GuideOverlay";
 
 type CompositionPreviewProps = {
-  template: WorkbenchTemplate;
-  aspectRatio: AspectRatio;
+  variant: WorkbenchVariant;
   imageUrl: string | null;
 };
 
@@ -15,30 +14,24 @@ const orientationWidths = {
 } as const;
 
 export function CompositionPreview({
-  template,
-  aspectRatio,
+  variant,
   imageUrl,
 }: CompositionPreviewProps) {
-  const [width, height] = aspectRatio.split(":").map(Number);
+  const { width, height } = variant.aspectRatio;
   const orientation =
     width === height ? "square" : width > height ? "landscape" : "portrait";
   const stageStyle = {
-    aspectRatio: aspectRatio.replace(":", " / "),
+    aspectRatio: `${width} / ${height}`,
     ...(imageUrl ? { backgroundImage: `url("${imageUrl}")` } : {}),
   } as CSSProperties;
 
   return (
     <div className={`${orientationWidths[orientation]} text-center`}>
       <div
-        className="image-stage relative w-full overflow-hidden rounded-lg bg-[#1b211c] bg-cover bg-center shadow-[0_22px_60px_rgba(25,29,23,0.2)]"
+        className="image-stage relative w-full overflow-hidden rounded-lg bg-black bg-cover bg-center shadow-[0_22px_60px_rgba(25,29,23,0.2)]"
         style={stageStyle}
       >
-        <div className="demo-scene absolute inset-0 overflow-hidden" aria-hidden="true">
-          <span className="demo-sun" />
-          <span className="demo-subject" />
-          <span className="demo-ground" />
-        </div>
-        <GuideOverlay guide={template.previewGuide} aspectRatio={aspectRatio} />
+        <GuideOverlay variant={variant} />
       </div>
     </div>
   );

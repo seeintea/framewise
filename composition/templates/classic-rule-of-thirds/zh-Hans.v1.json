@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "b6fb0923-8f41-420c-a403-c21be035065e",
+  "title": "经典三分法",
+  "description": "通用九宫格参考，适合自由安排主体、地平线和环境空间。",
+  "variants": [
+    {
+      "variantId": "71cc08f7-75d2-4975-b27f-e1d2e48b4c24",
+      "instruction": "将主体放在九宫格交点附近，并沿三分线安排画面"
+    }
+  ]
+}

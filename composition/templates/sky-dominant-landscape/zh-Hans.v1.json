@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "c28341d8-2d56-458b-9008-5969284968ba",
+  "title": "天空主导",
+  "description": "适合云层、晚霞和辽阔天空，让天空成为画面的主要内容。",
+  "variants": [
+    {
+      "variantId": "18e1ae8b-4bd6-4f95-a6f0-dcca79716e61",
+      "instruction": "将地平线贴合下方三分线，为天空保留约三分之二画面",
+      "annotations": {
+        "sky-label": "天空",
+        "ground-label": "地景"
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "756c958d-f0d5-47b3-a5c8-935d0abe6bdc",
+  "title": "水面倒影",
+  "description": "适合天空与平静水面构成的倒影场景，突出右侧视觉重心。",
+  "variants": [
+    {
+      "variantId": "a83c64f8-d328-4cc8-a45c-b93aa4d5d5e8",
+      "instruction": "让天空占画面上方五分之一，使倒影沿中部水平线延展，并将主体收在右侧三角区域内",
+      "annotations": {
+        "sky-label": "天空",
+        "subject-label": "主体",
+        "reflection-label": "倒影"
+      }
+    }
+  ]
+}

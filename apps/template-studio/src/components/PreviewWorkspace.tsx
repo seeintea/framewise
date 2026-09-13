@@ -1,26 +1,30 @@
 import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
 import { Button, Segmented, Space, Typography, Upload } from "antd";
-import type { AspectRatio, WorkbenchTemplate } from "../types";
+import {
+  formatAspectRatio,
+  type WorkbenchTemplate,
+  type WorkbenchVariant,
+} from "../types";
 import { CompositionPreview } from "./CompositionPreview";
 
 type PreviewWorkspaceProps = {
   template: WorkbenchTemplate;
-  aspectRatio: AspectRatio;
+  variant: WorkbenchVariant;
   imageUrl: string | null;
-  onAspectRatioChange: (aspectRatio: AspectRatio) => void;
+  onVariantChange: (variantId: string) => void;
   onImageChange: (file: File | null) => void;
 };
 
 export function PreviewWorkspace({
   template,
-  aspectRatio,
+  variant,
   imageUrl,
-  onAspectRatioChange,
+  onVariantChange,
   onImageChange,
 }: PreviewWorkspaceProps) {
   return (
     <section
-      className="grid min-w-0 grid-rows-[auto_1fr] bg-[#dfdfd8]"
+      className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-[#dfdfd8]"
       aria-label="模板预览工作区"
     >
       <header className="flex min-h-18 items-center justify-between gap-6 border-b border-[#d5d6ce] bg-[#fbfbf8] px-5 py-3 max-lg:flex-col max-lg:items-start">
@@ -43,9 +47,12 @@ export function PreviewWorkspace({
             </Typography.Text>
             <Segmented
               aria-label="当前模板尺寸"
-              options={template.availableSizes}
-              value={aspectRatio}
-              onChange={(value) => onAspectRatioChange(value as AspectRatio)}
+              options={template.variants.map((item) => ({
+                label: formatAspectRatio(item.aspectRatio),
+                value: item.id,
+              }))}
+              value={variant.id}
+              onChange={onVariantChange}
               size="large"
             />
           </Space>
@@ -75,18 +82,17 @@ export function PreviewWorkspace({
         </div>
       </header>
 
-      <div className="preview-surface grid min-h-140 place-items-center p-8 max-md:min-h-120 max-md:p-4">
+      <div className="preview-surface grid min-h-0 place-items-center overflow-auto p-8 max-md:min-h-120 max-md:p-4">
         <div className="grid w-full place-items-center">
           <CompositionPreview
-            template={template}
-            aspectRatio={aspectRatio}
+            variant={variant}
             imageUrl={imageUrl}
           />
           <Typography.Text
             type="secondary"
             className="mt-3.5! font-mono! text-[11px]!"
           >
-            当前 UI 演示：{template.id}-{aspectRatio.replace(":", "x")}
+            {template.key} · {variant.key}
           </Typography.Text>
         </div>
       </div>

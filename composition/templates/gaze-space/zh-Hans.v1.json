@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "5022692a-4b22-450c-9613-551c5c6f578e",
+  "title": "视线留白",
+  "description": "适合侧脸、行走人物和运动主体，为朝向一侧保留延展空间。",
+  "variants": [
+    {
+      "variantId": "25cae826-6a53-434a-be0e-1d89712a96ed",
+      "instruction": "将主体放在圆圈附近，让视线或运动方向沿虚线延伸",
+      "annotations": {
+        "subject-label": "主体",
+        "gaze-space-label": "视线空间"
+      }
+    }
+  ]
+}

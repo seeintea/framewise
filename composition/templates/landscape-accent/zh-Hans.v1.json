@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "2bc182f7-c970-4a0e-a15a-02ecb77a229b",
+  "title": "风景点睛",
+  "description": "适合用人物、树木或建筑为大面积风景增加明确视觉落点。",
+  "variants": [
+    {
+      "variantId": "adcb30ff-951b-4af1-a884-85cf8f266177",
+      "instruction": "让地平线贴合下方三分位置，并将小主体对准圆圈",
+      "annotations": {
+        "environment-label": "环境",
+        "subject-label": "小主体"
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "267004dd-2994-4a61-8f5d-243087bbd9ab",
+  "title": "滨水城市",
+  "description": "适合拍摄天空、建筑与水面共同构成的现代滨水城市景观，也适用于远山、低山与湖面的组合。",
+  "variants": [
+    {
+      "variantId": "54a90fcd-e0e1-4401-b5ea-c03873ff0e80",
+      "instruction": "将建筑控制在两条线之间，为天空和水面保留空间",
+      "annotations": {
+        "sky-label": "天空",
+        "shore-subject-label": "岸上景物",
+        "water-label": "水面"
+      }
+    },
+    {
+      "variantId": "278868d3-aedc-4d03-a6a2-fabd11b0975f",
+      "instruction": "将建筑控制在两条线之间，为天空和水面保留空间",
+      "annotations": {
+        "sky-label": "天空",
+        "shore-subject-label": "岸上景物",
+        "water-label": "水面"
+      }
+    }
+  ]
+}

@@ -1,13 +1,57 @@
 # Composition templates
 
-This directory contains platform-neutral composition template resources shared by
-iOS and Android.
+This directory contains the platform-neutral composition template data shared by
+iOS, Android, and Template Studio. It does not contain platform runtime objects
+or UI implementation details.
 
-- `templates.v1.json` contains stable identifiers, aspect ratios, normalized
-  geometry, and annotation anchors. It must not contain user-facing copy.
-- `descriptions/<locale>.v1.json` contains localized titles, descriptions,
-  instructions, and annotation text, referenced by the same stable identifiers.
+## Layout
+
+Each template is an independent directory named with its stable, human-readable
+key:
+
+```text
+templates/
+└── centered-subject/
+    ├── template.v1.json
+    └── zh-Hans.v1.json
+```
+
+- `template.v1.json` contains template identity, the default variant, every
+  aspect-ratio variant, normalized geometry, and annotation anchors.
+- `<locale>.v1.json` contains the localized title, description, variant
+  instructions, and annotation text.
+- Variants remain nested in their template because they do not have an
+  independent authoring lifecycle.
+
+## Identity
+
+Templates and variants use lowercase UUID v4 strings as stable entity IDs. Their
+previous semantic identifiers are retained as `key` values for directory names,
+logs, tests, and authoring. Element and annotation identifiers are local semantic
+`key` values because they remain part of the variant geometry document.
+
+UUIDs are generated once and must not change when copy, geometry, filenames, or
+template keys are edited. A localization references its template and variants by
+UUID.
+
+## Images
+
+Image integration is not implemented yet. When images are added, filenames are
+derived directly from the entity they represent:
+
+```text
+images/
+├── templates/<template-uuid>.webp
+└── variants/<variant-uuid>.webp
+```
+
+A missing image is valid. Template-level images represent catalog covers, while
+aspect-ratio-specific previews use the variant ID. JSON does not store redundant
+local image paths while this relationship remains one-to-one.
+
+## Geometry
 
 Coordinates, radii, bounds, corner radii, and annotation widths are normalized to
-the `0...1` range. Presentation metadata such as categories, preview images, and
-display order does not belong in either template document.
+the `0...1` range. User-facing copy must not appear in `template.v1.json`.
+Presentation metadata such as categories and collection ordering is outside the
+current template schema.

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templateId": "55984728-74ab-4035-85e8-9ddbe1d40907",
+  "title": "黄金分割人像",
+  "description": "适合小腿以上的人像，让人物落在画面右侧的黄金分割位置，并保留左侧环境。",
+  "variants": [
+    {
+      "variantId": "232a563d-a624-499e-8afb-785fdc74c6c2",
+      "instruction": "将人物置于圆角矩形内，使面部边缘贴近黄金分割线",
+      "annotations": {
+        "person-label": "人物",
+        "arm-guidance": "手臂保持在框内"
+      }
+    }
+  ]
+}
