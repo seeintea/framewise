@@ -51,7 +51,7 @@
 			isa = PBXGroup;
 			children = (
 				D6CFB2C730541D6E00BFE527 /* Framewise */,
-				D6CFB2D530541D7100BFE527 /* Shared Fonts */,
+				D6CFB2D530541D7100BFE527 /* Design System Fonts */,
 				D6CFB2C630541D6E00BFE527 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,13 +64,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		D6CFB2D530541D7100BFE527 /* Shared Fonts */ = {
+		D6CFB2D530541D7100BFE527 /* Design System Fonts */ = {
 			isa = PBXGroup;
 			children = (
 				D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */,
 			);
-			name = "Shared Fonts";
-			path = ../shared/fonts;
+			name = "Design System Fonts";
+			path = ../design-system/fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

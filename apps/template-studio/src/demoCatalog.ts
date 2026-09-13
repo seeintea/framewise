@@ -1,6 +1,6 @@
 import type { WorkbenchTemplate } from "./types";
 
-// UI-only fixtures. The workbench intentionally does not read shared/composition yet.
+// UI-only fixtures. Template Studio intentionally does not read composition yet.
 export const demoCatalog: WorkbenchTemplate[] = [
   {
     id: "centered-subject",

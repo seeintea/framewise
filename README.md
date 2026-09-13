@@ -28,11 +28,12 @@ xcodebuild \
 ## 仓库结构
 
 ```text
-ios/       原生 iOS 应用代码、运行时资源和 Xcode 工程
-android/   预留的 Android 工程目录
-assets/    品牌与设计源素材，不加入应用 target
-plans/     产品、验证与架构讨论记录
-tools/     仓库内开发与模板检验工具
+ios/            原生 iOS 应用代码、运行时资源和 Xcode 工程
+android/        Android 工程与平台专属资源
+apps/           独立应用，包括模板预览与后续编辑工具
+composition/    平台无关的构图模板数据
+design-system/  跨平台字体、图标和品牌源文件
+plans/          产品、验证与架构讨论记录
 ```
 
 `plans/` 只作为产品和迁移依据，不代表对应能力已经实现。历史代码不保留在当前工作树中。

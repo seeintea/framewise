@@ -29,6 +29,9 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 ## 项目边界
 
 - `ios/Framewise/` 是 iOS 应用源码和运行时资源的根目录。
+- `apps/template-studio/` 是模板预览与后续编辑工具，不属于任一移动平台。
+- `composition/` 保存平台无关的构图模板数据，不依赖 SwiftUI、React 或平台 runtime 类型。
+- `design-system/` 保存跨平台 UI 的字体、SVG 图标和品牌源文件，是这些视觉资产的唯一来源。
 - 应用入口、根导航和全局组合放在 `ios/Framewise/App/`；产品功能放在 `ios/Framewise/Features/<Feature>/`。
 - 跨功能导航放在 `ios/Framewise/Navigation/`。
 - 后续真正跨 feature 的领域能力放在 `ios/Framewise/` 下职责明确的目录，例如 `CameraEngine/`、`VisionEngine/`、`CompositionEngine/` 和 `Persistence/`；不要创建笼统的 `Shared/`。
@@ -47,8 +50,9 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 
 ## 资源与本地化
 
-- App 运行时资源放在 `ios/Framewise/Assets.xcassets/`。
-- `assets/` 保存品牌源文件和历史导出物，不加入应用 target，也不从运行时代码直接读取。
+- iOS 的资源包装放在 `ios/Framewise/Assets.xcassets/`；共享 UI 图标的 imageset 可以链接到 `design-system/icons/` 中的唯一 SVG 源文件。
+- Android 专属的 adaptive icon、monochrome icon 和启动资源放在 `android/`，后续随 Android 工程迁入对应的 `res/` 目录。
+- 字体、自定义 UI 图标和品牌源文件由 `design-system/` 统一管理；平台工程负责引用或转换，不各自维护独立设计源。
 - 默认显示名称为 `Framewise`。新增本地化名称时使用 Xcode 支持的本地化资源，不在 build settings 中为不同语言复制 target。
 - 新增面向用户的文本时使用可本地化的 SwiftUI 字符串，不在业务逻辑中拼接不可本地化文案。
 

@@ -1,4 +1,4 @@
-# Framewise Template Workbench
+# Framewise Template Studio
 
 Desktop-first UI scaffold for browsing composition templates and previewing their
 available sizes against a shared reference image.
@@ -8,12 +8,12 @@ Tailwind CSS for layout, responsive behavior, and local visual composition. This
 keeps the scaffold suitable for growing into a template editor later.
 
 The current implementation deliberately uses fixtures from `src/demoCatalog.ts`.
-It does not read, validate, or modify anything in `shared/composition` yet.
+It does not read, validate, or modify anything in `composition` yet.
 
 ## Run
 
 ```bash
-cd tools/template-workbench
+cd apps/template-studio
 npm install
 npm run dev
 ```

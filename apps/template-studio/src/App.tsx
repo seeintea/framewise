@@ -97,7 +97,7 @@ export function App() {
               </span>
               <strong className="font-semibold">Framewise</strong>
               <span className="text-[#74786f] max-sm:hidden">
-                / Template Workbench
+                / Template Studio
               </span>
             </div>
             <Tag className="m-0 font-mono text-[10px] uppercase tracking-wider max-sm:hidden">
