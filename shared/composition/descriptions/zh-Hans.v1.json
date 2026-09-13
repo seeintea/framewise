@@ -1,0 +1,316 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-Hans",
+  "templates": [
+    {
+      "id": "classic-rule-of-thirds",
+      "title": "经典三分法",
+      "description": "通用九宫格参考，适合自由安排主体、地平线和环境空间。",
+      "variants": [
+        {
+          "id": "classic-rule-of-thirds-3x4",
+          "instruction": "将主体放在九宫格交点附近，并沿三分线安排画面"
+        }
+      ]
+    },
+    {
+      "id": "environmental-portrait",
+      "title": "环境人像",
+      "description": "适合旅行和街拍，在突出人物的同时保留周围环境信息。",
+      "variants": [
+        {
+          "id": "environmental-portrait-3x4",
+          "instruction": "将面部对准圆圈，身体沿竖线展开，并在左侧保留环境",
+          "annotations": [
+            {
+              "id": "face-label",
+              "text": "面部"
+            },
+            {
+              "id": "environment-label",
+              "text": "环境"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaze-space",
+      "title": "视线留白",
+      "description": "适合侧脸、行走人物和运动主体，为朝向一侧保留延展空间。",
+      "variants": [
+        {
+          "id": "gaze-space-3x4",
+          "instruction": "将主体放在圆圈附近，让视线或运动方向沿虚线延伸",
+          "annotations": [
+            {
+              "id": "subject-label",
+              "text": "主体"
+            },
+            {
+              "id": "gaze-space-label",
+              "text": "视线空间"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sky-dominant-landscape",
+      "title": "天空主导",
+      "description": "适合云层、晚霞和辽阔天空，让天空成为画面的主要内容。",
+      "variants": [
+        {
+          "id": "sky-dominant-landscape-4x3",
+          "instruction": "将地平线贴合下方三分线，为天空保留约三分之二画面",
+          "annotations": [
+            {
+              "id": "sky-label",
+              "text": "天空"
+            },
+            {
+              "id": "ground-label",
+              "text": "地景"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "foreground-depth",
+      "title": "前景纵深",
+      "description": "适合道路、花田和岸边等具有纹理或引导感的近景。",
+      "variants": [
+        {
+          "id": "foreground-depth-4x3",
+          "instruction": "将地平线贴合上方三分线，让前景占据约三分之二画面",
+          "annotations": [
+            {
+              "id": "distance-label",
+              "text": "远景"
+            },
+            {
+              "id": "foreground-label",
+              "text": "前景"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "landscape-accent",
+      "title": "风景点睛",
+      "description": "适合用人物、树木或建筑为大面积风景增加明确视觉落点。",
+      "variants": [
+        {
+          "id": "landscape-accent-4x3",
+          "instruction": "让地平线贴合下方三分位置，并将小主体对准圆圈",
+          "annotations": [
+            {
+              "id": "environment-label",
+              "text": "环境"
+            },
+            {
+              "id": "subject-label",
+              "text": "小主体"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "centered-subject",
+      "title": "中心主体",
+      "description": "用于展示主体，建议选择纯净、不过于杂乱的背景。",
+      "variants": [
+        {
+          "id": "centered-subject-3x4",
+          "instruction": "将主体置于画面中心的圆内",
+          "annotations": [
+            {
+              "id": "subject-label",
+              "text": "主体"
+            }
+          ]
+        },
+        {
+          "id": "centered-subject-1x1",
+          "instruction": "将主体置于画面中心的圆内",
+          "annotations": [
+            {
+              "id": "subject-label",
+              "text": "主体"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "city-waterfront-reflection",
+      "title": "城市水岸倒影",
+      "description": "适合近距离拍摄滨水建筑，让建筑与水中倒影形成上下呼应。",
+      "variants": [
+        {
+          "id": "city-waterfront-reflection-3x4",
+          "instruction": "让水岸线略高于画面中央，并完整保留建筑与倒影上下呼应",
+          "annotations": [
+            {
+              "id": "scene-label",
+              "text": "景物"
+            },
+            {
+              "id": "reflection-label",
+              "text": "倒影"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "golden-ratio-portrait",
+      "title": "黄金分割人像",
+      "description": "适合小腿以上的人像，让人物落在画面右侧的黄金分割位置，并保留左侧环境。",
+      "variants": [
+        {
+          "id": "golden-ratio-portrait-3x4",
+          "instruction": "将人物置于圆角矩形内，使面部边缘贴近黄金分割线",
+          "annotations": [
+            {
+              "id": "person-label",
+              "text": "人物"
+            },
+            {
+              "id": "arm-guidance",
+              "text": "手臂保持在框内"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "leading-lines-depth",
+      "title": "纵深引导",
+      "description": "适合道路、走廊和建筑通道等具有明显透视延伸的场景。",
+      "variants": [
+        {
+          "id": "leading-lines-depth-3x4",
+          "instruction": "让道路或建筑边缘沿引导线延伸，并在圆点附近汇聚",
+          "annotations": [
+            {
+              "id": "vanishing-point-label",
+              "text": "汇聚点"
+            },
+            {
+              "id": "leading-lines-label",
+              "text": "线条延伸"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modern-architecture-corner",
+      "title": "现代建筑折角",
+      "description": "适合玻璃幕墙和重复立面的现代建筑，突出棱角与向上延伸感。",
+      "variants": [
+        {
+          "id": "modern-architecture-corner-3x4",
+          "instruction": "将建筑最高转角对准圆圈，使主棱线贴合中轴，两侧顶部轮廓沿斜线展开",
+          "annotations": [
+            {
+              "id": "corner-label",
+              "text": "顶部转角"
+            },
+            {
+              "id": "roof-line-label",
+              "text": "顶部轮廓"
+            },
+            {
+              "id": "corner-axis-label",
+              "text": "建筑棱线"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "symmetrical-composition",
+      "title": "对称构图",
+      "description": "适合建筑正面、门窗、通道和居中人物等左右对称的场景。",
+      "variants": [
+        {
+          "id": "symmetrical-composition-3x4",
+          "instruction": "让场景的对称中轴贴合虚线，保持左右画面平衡"
+        }
+      ]
+    },
+    {
+      "id": "waterfront-cityscape",
+      "title": "滨水城市",
+      "description": "适合拍摄天空、建筑与水面共同构成的现代滨水城市景观，也适用于远山、低山与湖面的组合。",
+      "variants": [
+        {
+          "id": "waterfront-cityscape-16x9",
+          "instruction": "将建筑控制在两条线之间，为天空和水面保留空间",
+          "annotations": [
+            {
+              "id": "sky-label",
+              "text": "天空"
+            },
+            {
+              "id": "shore-subject-label",
+              "text": "岸上景物"
+            },
+            {
+              "id": "water-label",
+              "text": "水面"
+            }
+          ]
+        },
+        {
+          "id": "waterfront-cityscape-4x3",
+          "instruction": "将建筑控制在两条线之间，为天空和水面保留空间",
+          "annotations": [
+            {
+              "id": "sky-label",
+              "text": "天空"
+            },
+            {
+              "id": "shore-subject-label",
+              "text": "岸上景物"
+            },
+            {
+              "id": "water-label",
+              "text": "水面"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "water-reflection",
+      "title": "水面倒影",
+      "description": "适合天空与平静水面构成的倒影场景，突出右侧视觉重心。",
+      "variants": [
+        {
+          "id": "water-reflection-3x4",
+          "instruction": "让天空占画面上方五分之一，使倒影沿中部水平线延展，并将主体收在右侧三角区域内",
+          "annotations": [
+            {
+              "id": "sky-label",
+              "text": "天空"
+            },
+            {
+              "id": "subject-label",
+              "text": "主体"
+            },
+            {
+              "id": "reflection-label",
+              "text": "倒影"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

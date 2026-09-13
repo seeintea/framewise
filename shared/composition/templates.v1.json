@@ -1,0 +1,991 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "id": "classic-rule-of-thirds",
+      "variants": [
+        {
+          "id": "classic-rule-of-thirds-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "left-third-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0.333,
+                  "y": 0
+                },
+                "end": {
+                  "x": 0.333,
+                  "y": 1
+                }
+              }
+            },
+            {
+              "id": "right-third-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0.667,
+                  "y": 0
+                },
+                "end": {
+                  "x": 0.667,
+                  "y": 1
+                }
+              }
+            },
+            {
+              "id": "top-third-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.333
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.333
+                }
+              }
+            },
+            {
+              "id": "bottom-third-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.667
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.667
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "environmental-portrait",
+      "variants": [
+        {
+          "id": "environmental-portrait-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "face-anchor",
+              "type": "subject",
+              "shape": {
+                "type": "dashed-circle",
+                "center": {
+                  "x": 0.667,
+                  "y": 0.3
+                },
+                "radius": 0.035
+              }
+            },
+            {
+              "id": "body-axis",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0.667,
+                  "y": 0.335
+                },
+                "end": {
+                  "x": 0.667,
+                  "y": 0.9
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "face-label",
+              "position": {
+                "x": 0.78,
+                "y": 0.3
+              }
+            },
+            {
+              "id": "environment-label",
+              "position": {
+                "x": 0.28,
+                "y": 0.52
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaze-space",
+      "variants": [
+        {
+          "id": "gaze-space-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "subject-anchor",
+              "type": "subject",
+              "shape": {
+                "type": "dashed-circle",
+                "center": {
+                  "x": 0.333,
+                  "y": 0.42
+                },
+                "radius": 0.055
+              }
+            },
+            {
+              "id": "gaze-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0.4,
+                  "y": 0.42
+                },
+                "end": {
+                  "x": 0.9,
+                  "y": 0.42
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "subject-label",
+              "position": {
+                "x": 0.333,
+                "y": 0.32
+              }
+            },
+            {
+              "id": "gaze-space-label",
+              "position": {
+                "x": 0.66,
+                "y": 0.36
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sky-dominant-landscape",
+      "variants": [
+        {
+          "id": "sky-dominant-landscape-4x3",
+          "aspectRatio": {
+            "width": 4,
+            "height": 3
+          },
+          "elements": [
+            {
+              "id": "low-horizon",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.667
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.667
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "sky-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.333
+              }
+            },
+            {
+              "id": "ground-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.835
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "foreground-depth",
+      "variants": [
+        {
+          "id": "foreground-depth-4x3",
+          "aspectRatio": {
+            "width": 4,
+            "height": 3
+          },
+          "elements": [
+            {
+              "id": "high-horizon",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.333
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.333
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "distance-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.165
+              }
+            },
+            {
+              "id": "foreground-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.667
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "landscape-accent",
+      "variants": [
+        {
+          "id": "landscape-accent-4x3",
+          "aspectRatio": {
+            "width": 4,
+            "height": 3
+          },
+          "elements": [
+            {
+              "id": "left-horizon",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.667
+                },
+                "end": {
+                  "x": 0.62,
+                  "y": 0.667
+                }
+              }
+            },
+            {
+              "id": "right-horizon",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0.714,
+                  "y": 0.667
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.667
+                }
+              }
+            },
+            {
+              "id": "subject-anchor",
+              "type": "subject",
+              "shape": {
+                "type": "dashed-circle",
+                "center": {
+                  "x": 0.667,
+                  "y": 0.667
+                },
+                "radius": 0.035
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "environment-label",
+              "position": {
+                "x": 0.33,
+                "y": 0.43
+              }
+            },
+            {
+              "id": "subject-label",
+              "position": {
+                "x": 0.667,
+                "y": 0.57
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "centered-subject",
+      "variants": [
+        {
+          "id": "centered-subject-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "subject-area",
+              "type": "subject",
+              "shape": {
+                "type": "circle",
+                "center": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "radius": 0.3
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "subject-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              }
+            }
+          ]
+        },
+        {
+          "id": "centered-subject-1x1",
+          "aspectRatio": {
+            "width": 1,
+            "height": 1
+          },
+          "elements": [
+            {
+              "id": "subject-area",
+              "type": "subject",
+              "shape": {
+                "type": "circle",
+                "center": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "radius": 0.3
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "subject-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "city-waterfront-reflection",
+      "variants": [
+        {
+          "id": "city-waterfront-reflection-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "building-top-limit",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0,
+                  "y": 0.14
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.14
+                }
+              }
+            },
+            {
+              "id": "waterline",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.46
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.46
+                }
+              }
+            },
+            {
+              "id": "reflection-bottom-limit",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0,
+                  "y": 0.78
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.78
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "scene-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.3
+              }
+            },
+            {
+              "id": "reflection-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.62
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "golden-ratio-portrait",
+      "variants": [
+        {
+          "id": "golden-ratio-portrait-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "subject-area",
+              "type": "subject",
+              "shape": {
+                "type": "rect",
+                "bounds": {
+                  "x": 0.338,
+                  "y": 0.5,
+                  "width": 0.36,
+                  "height": 0.48
+                },
+                "cornerRadius": 0.02
+              }
+            },
+            {
+              "id": "golden-ratio-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0.618,
+                  "y": 0.5
+                },
+                "end": {
+                  "x": 0.618,
+                  "y": 0.98
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "person-label",
+              "position": {
+                "x": 0.518,
+                "y": 0.46
+              }
+            },
+            {
+              "id": "arm-guidance",
+              "position": {
+                "x": 0.82,
+                "y": 0.74
+              },
+              "maxWidth": 0.15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "leading-lines-depth",
+      "variants": [
+        {
+          "id": "leading-lines-depth-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "horizon-guide",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0.2,
+                  "y": 0.5
+                },
+                "end": {
+                  "x": 0.8,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "id": "left-leading-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0.08,
+                  "y": 1
+                },
+                "end": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "id": "right-leading-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0.92,
+                  "y": 1
+                },
+                "end": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "id": "vanishing-point",
+              "type": "subject",
+              "shape": {
+                "type": "circle",
+                "center": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "radius": 0.025
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "vanishing-point-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.45
+              }
+            },
+            {
+              "id": "leading-lines-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.78
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modern-architecture-corner",
+      "variants": [
+        {
+          "id": "modern-architecture-corner-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "corner-anchor",
+              "type": "subject",
+              "shape": {
+                "type": "dashed-circle",
+                "center": {
+                  "x": 0.46,
+                  "y": 0.24
+                },
+                "radius": 0.025
+              }
+            },
+            {
+              "id": "left-roof-guide",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.48
+                },
+                "end": {
+                  "x": 0.46,
+                  "y": 0.24
+                }
+              }
+            },
+            {
+              "id": "right-roof-guide",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0.46,
+                  "y": 0.24
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.48
+                }
+              }
+            },
+            {
+              "id": "vertical-corner-axis",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0.46,
+                  "y": 0.24
+                },
+                "end": {
+                  "x": 0.46,
+                  "y": 1
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "corner-label",
+              "position": {
+                "x": 0.46,
+                "y": 0.19
+              }
+            },
+            {
+              "id": "roof-line-label",
+              "position": {
+                "x": 0.76,
+                "y": 0.29
+              }
+            },
+            {
+              "id": "corner-axis-label",
+              "position": {
+                "x": 0.58,
+                "y": 0.65
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "symmetrical-composition",
+      "variants": [
+        {
+          "id": "symmetrical-composition-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "symmetry-axis",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0.5,
+                  "y": 0.1
+                },
+                "end": {
+                  "x": 0.5,
+                  "y": 0.9
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "waterfront-cityscape",
+      "variants": [
+        {
+          "id": "waterfront-cityscape-16x9",
+          "aspectRatio": {
+            "width": 16,
+            "height": 9
+          },
+          "elements": [
+            {
+              "id": "skyline-limit",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.42
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.42
+                }
+              }
+            },
+            {
+              "id": "waterline",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.68
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.68
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "sky-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.21
+              }
+            },
+            {
+              "id": "shore-subject-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.55
+              }
+            },
+            {
+              "id": "water-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.84
+              }
+            }
+          ]
+        },
+        {
+          "id": "waterfront-cityscape-4x3",
+          "aspectRatio": {
+            "width": 4,
+            "height": 3
+          },
+          "elements": [
+            {
+              "id": "skyline-limit",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.4
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.4
+                }
+              }
+            },
+            {
+              "id": "waterline",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.68
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.68
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "sky-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.2
+              }
+            },
+            {
+              "id": "shore-subject-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.54
+              }
+            },
+            {
+              "id": "water-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.84
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "water-reflection",
+      "variants": [
+        {
+          "id": "water-reflection-3x4",
+          "aspectRatio": {
+            "width": 3,
+            "height": 4
+          },
+          "elements": [
+            {
+              "id": "sky-line",
+              "type": "horizon",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0,
+                  "y": 0.2
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.2
+                }
+              }
+            },
+            {
+              "id": "reflection-line",
+              "type": "safe-line",
+              "shape": {
+                "type": "dashed-line",
+                "start": {
+                  "x": 0,
+                  "y": 0.6
+                },
+                "end": {
+                  "x": 1,
+                  "y": 0.6
+                }
+              }
+            },
+            {
+              "id": "triangle-upper-edge",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 1,
+                  "y": 0.2
+                },
+                "end": {
+                  "x": 0.28,
+                  "y": 0.6
+                }
+              }
+            },
+            {
+              "id": "triangle-lower-edge",
+              "type": "safe-line",
+              "shape": {
+                "type": "line",
+                "start": {
+                  "x": 0.28,
+                  "y": 0.6
+                },
+                "end": {
+                  "x": 1,
+                  "y": 1
+                }
+              }
+            }
+          ],
+          "annotations": [
+            {
+              "id": "sky-label",
+              "position": {
+                "x": 0.5,
+                "y": 0.1
+              }
+            },
+            {
+              "id": "subject-label",
+              "position": {
+                "x": 0.78,
+                "y": 0.43
+              }
+            },
+            {
+              "id": "reflection-label",
+              "position": {
+                "x": 0.78,
+                "y": 0.77
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

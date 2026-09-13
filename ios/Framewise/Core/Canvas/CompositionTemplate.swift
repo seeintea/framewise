@@ -1,0 +1,58 @@
+//
+//  CompositionTemplate.swift
+//  Framewise
+//
+
+import Foundation
+
+struct CompositionTemplateDocument: Decodable, Equatable, Sendable {
+    let schemaVersion: Int
+    let templates: [CompositionTemplate]
+}
+
+struct CompositionTemplate: Decodable, Equatable, Identifiable, Sendable {
+    let id: String
+    let variants: [CompositionTemplateVariant]
+}
+
+struct CompositionTemplateVariant: Decodable, Equatable, Identifiable, Sendable {
+    let id: String
+    let aspectRatio: CompositionAspectRatio
+    let elements: [CompositionElement]
+    let annotations: [CompositionAnnotationAnchor]?
+}
+
+struct CompositionAspectRatio: Decodable, Equatable, Sendable {
+    let width: Double
+    let height: Double
+}
+
+struct CompositionElement: Decodable, Equatable, Identifiable, Sendable {
+    let id: String
+    let type: CompositionElementRole
+    let shape: CompositionShape
+}
+
+enum CompositionElementRole: String, Decodable, Equatable, Sendable {
+    case subject
+    case horizon
+    case safeLine = "safe-line"
+}
+
+struct CompositionAnnotationAnchor: Decodable, Equatable, Identifiable, Sendable {
+    let id: String
+    let position: NormalizedPoint
+    let maxWidth: Double?
+}
+
+struct NormalizedPoint: Decodable, Equatable, Sendable {
+    let x: Double
+    let y: Double
+}
+
+struct NormalizedBounds: Decodable, Equatable, Sendable {
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+}
