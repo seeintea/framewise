@@ -28,4 +28,5 @@ struct SettingView: View {
 enum AppSettingKey {
     static let showsCameraAnnotationsOnEntry =
         "camera.showsAnnotationsOnEntry"
+    static let isLivePhotoEnabled = "camera.isLivePhotoEnabled"
 }

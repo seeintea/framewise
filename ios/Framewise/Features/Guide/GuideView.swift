@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-private let quickCaptureTemplateId = "b6fb0923-8f41-420c-a403-c21be035065e"
+private let quickCaptureTemplateId = "5aa983db-8730-4307-b18f-88ffe4735206"
 
 private let landscapeSamplePreviews = [
     GuidePreview(

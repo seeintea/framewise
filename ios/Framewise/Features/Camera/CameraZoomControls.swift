@@ -8,25 +8,26 @@
 import SwiftUI
 
 struct CameraZoomControls: View {
-    @Binding var selectedZoom: Double
-
-    private let zoomOptions = [0.5, 1.0, 2.0]
+    let zoomFactors: [Double]
+    let selectedZoomFactor: Double
+    let isEnabled: Bool
+    let onSelectZoomFactor: (Double) -> Void
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(zoomOptions, id: \.self) { zoom in
+            ForEach(zoomFactors, id: \.self) { zoom in
                 Button {
-                    selectedZoom = zoom
+                    onSelectZoomFactor(zoom)
                 } label: {
                     Text(zoomLabel(for: zoom))
                         .font(.system(size: 14, weight: .light))
                         .monospacedDigit()
                         .foregroundStyle(
-                            selectedZoom == zoom ? Color.yellow : .white
+                            isSelected(zoom) ? Color.yellow : .white
                         )
                         .frame(width: 36, height: 36)
                         .background {
-                            if selectedZoom == zoom {
+                            if isSelected(zoom) {
                                 Circle()
                                     .fill(
                                         Color(
@@ -40,15 +41,23 @@ struct CameraZoomControls: View {
                         }
                 }
                 .buttonStyle(CameraControlButtonStyle())
+                .disabled(!isEnabled)
                 .accessibilityLabel("相机缩放 \(zoomLabel(for: zoom))")
                 .accessibilityAddTraits(
-                    selectedZoom == zoom ? .isSelected : []
+                    isSelected(zoom) ? .isSelected : []
                 )
             }
         }
     }
 
     private func zoomLabel(for zoom: Double) -> String {
-        zoom == zoom.rounded() ? "\(Int(zoom))×" : "\(zoom.formatted())×"
+        let value = zoom.formatted(
+            .number.precision(.fractionLength(0...1))
+        )
+        return "\(value)×"
+    }
+
+    private func isSelected(_ zoom: Double) -> Bool {
+        abs(selectedZoomFactor - zoom) < 0.01
     }
 }

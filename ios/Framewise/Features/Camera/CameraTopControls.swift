@@ -8,17 +8,34 @@
 import SwiftUI
 
 struct CameraTopControls: ToolbarContent {
-    @Binding var isFlashEnabled: Bool
+    let isLivePhotoEnabled: Bool
+    let isLivePhotoControlEnabled: Bool
+    let onToggleLivePhoto: () -> Void
+    let isFlashEnabled: Bool
+    let isFlashAvailable: Bool
+    let onToggleFlash: () -> Void
     @Binding var areAnnotationsVisible: Bool
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
-            Button {
-                isFlashEnabled.toggle()
-            } label: {
+            Button(action: onToggleLivePhoto) {
+                Image(
+                    systemName: isLivePhotoEnabled
+                        ? "livephoto"
+                        : "livephoto.slash"
+                )
+            }
+            .tint(isLivePhotoEnabled ? .yellow : .white)
+            .disabled(!isLivePhotoControlEnabled)
+            .accessibilityLabel(
+                isLivePhotoEnabled ? "关闭实况照片" : "打开实况照片"
+            )
+
+            Button(action: onToggleFlash) {
                 Image(systemName: isFlashEnabled ? "bolt.fill" : "bolt.slash")
             }
             .tint(isFlashEnabled ? .yellow : .white)
+            .disabled(!isFlashAvailable)
             .accessibilityLabel(isFlashEnabled ? "关闭闪光灯" : "打开闪光灯")
 
             Button {

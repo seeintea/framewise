@@ -8,7 +8,11 @@
 import SwiftUI
 
 struct CameraCaptureControls: View {
-    @Binding var isFrontFacing: Bool
+    let isFrontFacing: Bool
+    let isCaptureEnabled: Bool
+    let canSwitchCamera: Bool
+    let onCapture: () -> Void
+    let onSwitchCamera: () -> Void
 
     var body: some View {
         actionControls
@@ -36,11 +40,13 @@ struct CameraCaptureControls: View {
                     }
             }
             .buttonStyle(CameraControlButtonStyle())
+            .disabled(true)
+            .opacity(0.45)
             .accessibilityLabel("打开相册")
 
             Spacer()
 
-            Button(action: {}) {
+            Button(action: onCapture) {
                 ZStack {
                     Circle()
                         .fill(.white.opacity(0.58))
@@ -56,13 +62,13 @@ struct CameraCaptureControls: View {
                 }
             }
             .buttonStyle(CameraControlButtonStyle())
+            .disabled(!isCaptureEnabled)
+            .opacity(isCaptureEnabled ? 1 : 0.45)
             .accessibilityLabel("拍照")
 
             Spacer()
 
-            Button {
-                isFrontFacing.toggle()
-            } label: {
+            Button(action: onSwitchCamera) {
                 Image(systemName: "arrow.triangle.2.circlepath.camera")
                     .font(.system(size: 27, weight: .light))
                     .foregroundStyle(.white)
@@ -78,6 +84,8 @@ struct CameraCaptureControls: View {
                     .rotationEffect(isFrontFacing ? .degrees(180) : .zero)
             }
             .buttonStyle(CameraControlButtonStyle())
+            .disabled(!canSwitchCamera)
+            .opacity(canSwitchCamera ? 1 : 0.45)
             .accessibilityLabel("切换前后摄像头")
         }
         .frame(height: 90)

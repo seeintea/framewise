@@ -15,6 +15,7 @@
 		D6CFB2C530541D6E00BFE527 /* Framewise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Framewise.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6CFB2D430541D7100BFE527 /* DingTalk JinBuTi.ttf */ = {isa = PBXFileReference; lastKnownFileType = file.ttf; path = "DingTalk JinBuTi.ttf"; sourceTree = "<group>"; };
 		D6CFB2D830541D7100BFE527 /* Templates */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Templates; path = ../composition/templates; sourceTree = "<group>"; };
+		D6CFB2D930541D7100BFE527 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -53,6 +54,7 @@
 			isa = PBXGroup;
 			children = (
 				D6CFB2C730541D6E00BFE527 /* Framewise */,
+				D6CFB2DA30541D7100BFE527 /* Config */,
 				D6CFB2D530541D7100BFE527 /* Design System Fonts */,
 				D6CFB2D830541D7100BFE527 /* Templates */,
 				D6CFB2C630541D6E00BFE527 /* Products */,
@@ -74,6 +76,14 @@
 			);
 			name = "Design System Fonts";
 			path = "../design-system/fonts";
+			sourceTree = "<group>";
+		};
+		D6CFB2DA30541D7100BFE527 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				D6CFB2D930541D7100BFE527 /* Signing.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -279,6 +289,7 @@
 		};
 		D6CFB2D130541D7100BFE527 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D6CFB2D930541D7100BFE527 /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -326,6 +337,7 @@
 		};
 		D6CFB2D230541D7100BFE527 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D6CFB2D930541D7100BFE527 /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

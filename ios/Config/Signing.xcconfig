@@ -1,0 +1,3 @@
+// Developer-specific signing settings stay in Signing.local.xcconfig.
+// Example: DEVELOPMENT_TEAM = ABCDE12345
+#include? "Signing.local.xcconfig"

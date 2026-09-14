@@ -16,6 +16,7 @@ xcuserdata/
 .swiftpm/
 
 # Signing and secrets
+*.local.xcconfig
 *.jks
 *.p8
 *.p12
