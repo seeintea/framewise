@@ -8,6 +8,9 @@
 > 基线：以当前 Xcode 工程配置为准，最低支持 iOS 18.0；使用 Xcode 26 构建。
 >
 > 关系：本计划承接 [iOS 单模板相机链路](./ios-single-template-camera-flow.md)，只实现相机能力，不继续打磨当前 Camera UI。
+>
+> 性能讨论：启动、快门、输出处理和 UI 感知延迟记录见
+> [iOS 相机性能与感知延迟](./ios-camera-performance.md)。
 
 ## 1. 阶段目标
 
