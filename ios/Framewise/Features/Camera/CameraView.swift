@@ -36,12 +36,21 @@ struct CameraView: View {
                     CameraPreview(
                         session: cameraModel.session,
                         position: cameraModel.capabilities.position,
+                        zoomFactor:
+                            cameraModel.capabilities.selectedZoomFactor,
+                        minimumZoomFactor:
+                            cameraModel.capabilities.minimumZoomFactor,
+                        maximumZoomFactor:
+                            cameraModel.capabilities.maximumZoomFactor,
+                        isZoomEnabled:
+                            cameraModel.state == .ready,
                         onFocus: { previewPoint, devicePoint in
                             cameraModel.focus(
                                 previewPoint: previewPoint,
                                 devicePoint: devicePoint
                             )
                         },
+                        onZoomFactorChanged: cameraModel.updateZoomFactor,
                         onCaptureRotationAngleChanged:
                             cameraModel.updateCaptureRotationAngle
                     )

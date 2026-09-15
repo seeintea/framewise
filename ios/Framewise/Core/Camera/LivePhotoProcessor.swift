@@ -27,6 +27,9 @@ actor LivePhotoProcessor {
             )
         case .livePhoto(let photoData, let pairedVideoURL):
             let processedMovieURL = Self.makeProcessedMovieURL()
+            defer {
+                try? FileManager.default.removeItem(at: pairedVideoURL)
+            }
 
             do {
                 let processedPhotoData = try processPhotoData(
@@ -38,7 +41,6 @@ actor LivePhotoProcessor {
                     outputURL: processedMovieURL,
                     targetAspectRatio: targetAspectRatio
                 )
-                try? FileManager.default.removeItem(at: pairedVideoURL)
 
                 return .livePhoto(
                     photoData: processedPhotoData,

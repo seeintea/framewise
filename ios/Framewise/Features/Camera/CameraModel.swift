@@ -56,12 +56,14 @@ final class CameraModel: ObservableObject {
     private let photoLibraryWriter: PhotoLibraryWriter
     private var cancellables: Set<AnyCancellable> = []
     private var captureTask: Task<Void, Never>?
+    private var zoomTask: Task<Void, Never>?
     private var confirmationTask: Task<Void, Never>?
     private var focusFeedbackTask: Task<Void, Never>?
     private var lifecycleGeneration = 0
     private var shouldRun = false
     private var prefersLivePhoto: Bool
     private var captureRotationAngle: Double?
+    private var pendingZoomFactor: Double?
 
     init(
         captureService: CameraCaptureService = CameraCaptureService(),
@@ -119,7 +121,7 @@ final class CameraModel: ObservableObject {
                 return
             }
 
-            await prepareLivePhotoForStart(generation: generation)
+            try await prepareLivePhotoForStart(generation: generation)
             guard isCurrent(generation) else {
                 return
             }
@@ -178,8 +180,10 @@ final class CameraModel: ObservableObject {
             return
         }
 
+        let pendingZoomTask = zoomTask
         state = .capturing
         captureTask = Task { [weak self] in
+            await pendingZoomTask?.value
             await self?.captureAndSavePhoto(
                 outputAspectRatio: outputAspectRatio
             )
@@ -187,7 +191,9 @@ final class CameraModel: ObservableObject {
     }
 
     func toggleFlash() {
-        guard state == .ready, capabilities.isFlashAvailable else {
+        guard state == .ready,
+              captureTask == nil,
+              capabilities.isFlashAvailable else {
             return
         }
 
@@ -202,38 +208,65 @@ final class CameraModel: ObservableObject {
         }
 
         let generation = lifecycleGeneration
+        let pendingZoomTask = zoomTask
         state = .configuring
 
         Task { [weak self] in
+            await pendingZoomTask?.value
             await self?.performCameraSwitch(generation: generation)
         }
     }
 
     func selectZoomFactor(_ factor: Double) {
         guard state == .ready,
+              captureTask == nil,
               capabilities.zoomFactors.contains(where: {
                   abs($0 - factor) < 0.01
               }) else {
             return
         }
 
-        let generation = lifecycleGeneration
-        Task { [weak self] in
-            await self?.applyZoomFactor(factor, generation: generation)
+        queueZoomFactor(factor)
+    }
+
+    func updateZoomFactor(_ factor: Double) {
+        guard state == .ready, captureTask == nil else {
+            return
         }
+
+        let clampedFactor = min(
+            max(factor, capabilities.minimumZoomFactor),
+            capabilities.maximumZoomFactor
+        )
+        queueZoomFactor(clampedFactor)
     }
 
     func focus(previewPoint: CGPoint, devicePoint: CGPoint) {
-        guard state == .ready, capabilities.isFocusPointAvailable else {
+        guard state == .ready,
+              captureTask == nil,
+              capabilities.isFocusPointAvailable else {
             return
         }
 
         focusFeedbackTask?.cancel()
         focusPoint = previewPoint
         let generation = lifecycleGeneration
+        let pendingZoomTask = zoomTask
 
         Task { [weak self] in
-            try? await self?.captureService.focusAndExpose(at: devicePoint)
+            await pendingZoomTask?.value
+            guard let self else {
+                return
+            }
+
+            guard let newCapabilities = try? await self.captureService
+                .focusAndExpose(at: devicePoint),
+                  self.isCurrent(generation),
+                  self.state == .ready,
+                  self.captureTask == nil else {
+                return
+            }
+            self.capabilities = newCapabilities
         }
 
         focusFeedbackTask = Task { [weak self] in
@@ -252,6 +285,7 @@ final class CameraModel: ObservableObject {
 
     func selectExposureBias(_ bias: Double) {
         guard state == .ready,
+              captureTask == nil,
               capabilities.isExposureBiasAvailable else {
             return
         }
@@ -289,8 +323,10 @@ final class CameraModel: ObservableObject {
         )
 
         let generation = lifecycleGeneration
+        let pendingZoomTask = zoomTask
         state = .configuring
         Task { [weak self] in
+            await pendingZoomTask?.value
             await self?.applyLivePhotoPreference(
                 shouldEnable,
                 generation: generation
@@ -347,9 +383,9 @@ final class CameraModel: ObservableObject {
         }
     }
 
-    private func prepareLivePhotoForStart(generation: Int) async {
+    private func prepareLivePhotoForStart(generation: Int) async throws {
         guard prefersLivePhoto else {
-            _ = await captureService.setLivePhotoCaptureEnabled(false)
+            _ = try await captureService.setLivePhotoCaptureEnabled(false)
             isLivePhotoEnabled = false
             livePhotoIssue = nil
             return
@@ -364,24 +400,24 @@ final class CameraModel: ObservableObject {
 
         switch authorizationStatus {
         case .authorized:
-            let isEnabled = await captureService
+            let isEnabled = try await captureService
                 .setLivePhotoCaptureEnabled(true)
             isLivePhotoEnabled = isEnabled
             livePhotoIssue = isEnabled ? nil : .unsupported
         case .denied:
-            _ = await captureService.setLivePhotoCaptureEnabled(false)
+            _ = try await captureService.setLivePhotoCaptureEnabled(false)
             isLivePhotoEnabled = false
             livePhotoIssue = .microphoneDenied
         case .restricted:
-            _ = await captureService.setLivePhotoCaptureEnabled(false)
+            _ = try await captureService.setLivePhotoCaptureEnabled(false)
             isLivePhotoEnabled = false
             livePhotoIssue = .microphoneRestricted
         case .notDetermined:
-            _ = await captureService.setLivePhotoCaptureEnabled(false)
+            _ = try await captureService.setLivePhotoCaptureEnabled(false)
             isLivePhotoEnabled = false
             livePhotoIssue = .microphoneDenied
         @unknown default:
-            _ = await captureService.setLivePhotoCaptureEnabled(false)
+            _ = try await captureService.setLivePhotoCaptureEnabled(false)
             isLivePhotoEnabled = false
             livePhotoIssue = .microphoneRestricted
         }
@@ -391,8 +427,30 @@ final class CameraModel: ObservableObject {
         _ shouldEnable: Bool,
         generation: Int
     ) async {
+        do {
+            try await applyLivePhotoPreferenceValue(
+                shouldEnable,
+                generation: generation
+            )
+        } catch let error as CameraError {
+            guard isCurrent(generation) else {
+                return
+            }
+            state = .failed(error)
+        } catch {
+            guard isCurrent(generation) else {
+                return
+            }
+            state = .failed(.runtimeError(error.localizedDescription))
+        }
+    }
+
+    private func applyLivePhotoPreferenceValue(
+        _ shouldEnable: Bool,
+        generation: Int
+    ) async throws {
         guard shouldEnable else {
-            _ = await captureService.setLivePhotoCaptureEnabled(false)
+            _ = try await captureService.setLivePhotoCaptureEnabled(false)
             guard isCurrent(generation) else {
                 return
             }
@@ -412,7 +470,7 @@ final class CameraModel: ObservableObject {
 
         switch authorizationStatus {
         case .authorized:
-            let isEnabled = await captureService
+            let isEnabled = try await captureService
                 .setLivePhotoCaptureEnabled(true)
             guard isCurrent(generation) else {
                 return
@@ -504,26 +562,48 @@ final class CameraModel: ObservableObject {
         }
     }
 
-    private func applyZoomFactor(
-        _ factor: Double,
-        generation: Int
-    ) async {
-        do {
-            let newCapabilities = try await captureService.setZoomFactor(factor)
-            guard isCurrent(generation), state == .ready else {
+    private func queueZoomFactor(_ factor: Double) {
+        pendingZoomFactor = factor
+        guard zoomTask == nil else {
+            return
+        }
+
+        let generation = lifecycleGeneration
+        zoomTask = Task { [weak self] in
+            await self?.applyPendingZoomFactors(generation: generation)
+        }
+    }
+
+    private func applyPendingZoomFactors(generation: Int) async {
+        defer {
+            zoomTask = nil
+        }
+
+        while let factor = pendingZoomFactor {
+            pendingZoomFactor = nil
+
+            do {
+                let newCapabilities = try await captureService
+                    .setZoomFactor(factor)
+                guard isCurrent(generation),
+                      state == .ready,
+                      captureTask == nil else {
+                    return
+                }
+                capabilities = newCapabilities
+            } catch let error as CameraError {
+                guard isCurrent(generation), state == .ready else {
+                    return
+                }
+                state = .failed(error)
+                return
+            } catch {
+                guard isCurrent(generation), state == .ready else {
+                    return
+                }
+                state = .failed(.runtimeError(error.localizedDescription))
                 return
             }
-            capabilities = newCapabilities
-        } catch let error as CameraError {
-            guard isCurrent(generation), state == .ready else {
-                return
-            }
-            state = .failed(error)
-        } catch {
-            guard isCurrent(generation), state == .ready else {
-                return
-            }
-            state = .failed(.runtimeError(error.localizedDescription))
         }
     }
 
@@ -547,7 +627,7 @@ final class CameraModel: ObservableObject {
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.handleInterruptionEnded()
+                await self?.handleInterruptionEnded()
             }
         }
         .store(in: &cancellables)
@@ -564,7 +644,7 @@ final class CameraModel: ObservableObject {
             let errorDescription = error?.localizedDescription
 
             Task { @MainActor [weak self] in
-                self?.handleRuntimeError(
+                await self?.handleRuntimeError(
                     code: errorCode,
                     description: errorDescription
                 )
@@ -581,36 +661,30 @@ final class CameraModel: ObservableObject {
         state = .interrupted
     }
 
-    private func handleInterruptionEnded() {
+    private func handleInterruptionEnded() async {
         guard shouldRun else {
             return
         }
 
-        Task {
-            await start()
-        }
+        await start()
     }
 
     private func handleRuntimeError(
         code: AVError.Code?,
         description: String?
-    ) {
+    ) async {
         guard shouldRun else {
             return
         }
 
         if code == .mediaServicesWereReset {
-            Task {
-                await start()
-            }
+            await start()
             return
         }
 
         state = .failed(
             .runtimeError(description ?? "未知相机错误")
         )
-        Task {
-            await captureService.stop()
-        }
+        await captureService.stop()
     }
 }

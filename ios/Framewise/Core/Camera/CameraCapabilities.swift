@@ -17,6 +17,8 @@ struct CameraCapabilities: Sendable {
     let canSwitchCamera: Bool
     let zoomFactors: [Double]
     let selectedZoomFactor: Double
+    let minimumZoomFactor: Double
+    let maximumZoomFactor: Double
     let isFlashAvailable: Bool
     let isFocusPointAvailable: Bool
     let minimumExposureBias: Double
@@ -32,6 +34,8 @@ struct CameraCapabilities: Sendable {
         canSwitchCamera: false,
         zoomFactors: [],
         selectedZoomFactor: 1,
+        minimumZoomFactor: 1,
+        maximumZoomFactor: 1,
         isFlashAvailable: false,
         isFocusPointAvailable: false,
         minimumExposureBias: 0,

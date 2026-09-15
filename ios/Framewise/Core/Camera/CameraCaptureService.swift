@@ -79,7 +79,7 @@ actor CameraCaptureService {
         session.stopRunning()
     }
 
-    func setLivePhotoCaptureEnabled(_ isEnabled: Bool) -> Bool {
+    func setLivePhotoCaptureEnabled(_ isEnabled: Bool) throws -> Bool {
         guard isConfigured else {
             return false
         }
@@ -116,6 +116,9 @@ actor CameraCaptureService {
 
         if wasRunning {
             session.startRunning()
+            guard session.isRunning else {
+                throw CameraError.cannotStartSession
+            }
         }
 
         return photoOutput.isLivePhotoCaptureEnabled
@@ -203,7 +206,7 @@ actor CameraCaptureService {
         return currentCapabilities()
     }
 
-    func focusAndExpose(at devicePoint: CGPoint) throws {
+    func focusAndExpose(at devicePoint: CGPoint) throws -> CameraCapabilities {
         guard let device = videoInput?.device else {
             throw CameraError.captureNotReady
         }
@@ -234,9 +237,20 @@ actor CameraCaptureService {
                     device.exposureMode = .autoExpose
                 }
             }
+
+            let neutralExposureBias = min(
+                max(Float.zero, device.minExposureTargetBias),
+                device.maxExposureTargetBias
+            )
+            device.setExposureTargetBias(
+                neutralExposureBias,
+                completionHandler: nil
+            )
         } catch {
             throw CameraError.runtimeError(error.localizedDescription)
         }
+
+        return currentCapabilities()
     }
 
     func setExposureBias(_ bias: Double) throws -> CameraCapabilities {
@@ -442,6 +456,12 @@ actor CameraCaptureService {
             zoomFactors: zoomFactors,
             selectedZoomFactor: Self.roundedZoomFactor(
                 Double(device.videoZoomFactor * multiplier)
+            ),
+            minimumZoomFactor: Double(
+                device.minAvailableVideoZoomFactor * multiplier
+            ),
+            maximumZoomFactor: Double(
+                device.maxAvailableVideoZoomFactor * multiplier
             ),
             isFlashAvailable: device.hasFlash
                 && photoOutput.supportedFlashModes.contains(.on),
