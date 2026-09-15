@@ -163,6 +163,10 @@ struct CompositionCatalog: Sendable {
         templatesById[id]
     }
 
+    func localization(templateId: String) -> CompositionTemplateLocalization? {
+        localizationsByTemplateId[templateId]
+    }
+
     func annotationTextById(
         templateId: String,
         variantId: String

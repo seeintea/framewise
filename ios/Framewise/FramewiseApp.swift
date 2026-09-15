@@ -43,11 +43,29 @@ struct AppRootView: View {
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .search:
-                    SearchView()
+                    searchDestination()
                 case .camera(let request):
                     cameraDestination(for: request)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func searchDestination() -> some View {
+        if case .success(let catalog) = Self.compositionCatalog {
+            SearchView(
+                catalog: catalog,
+                onCameraRequest: { request in
+                    path.append(.camera(request))
+                }
+            )
+        } else {
+            ContentUnavailableView(
+                "无法加载模版",
+                systemImage: "square.grid.2x2",
+                description: Text("请稍后重试。")
+            )
         }
     }
 
