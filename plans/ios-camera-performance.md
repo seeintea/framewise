@@ -1,11 +1,11 @@
 # iOS 相机性能与感知延迟
 
-> 状态：问题记录与方案讨论，尚未进入实现。
+> 状态：阶段计时与首轮真机基线已完成；暂缓底层优化，后续优先推进 UI / 状态拆分。
 >
 > 创建时间：2026-09-14。
 >
 > 范围：原生 iOS 相机的启动、快门响应、照片处理与相册保存。本文不改变
-> `plans/ios-camera-module-phase-1.md` 的当前 M6 验收顺序。
+> `plans/ios-camera-module-phase-1.md` 中 M6 已完成的状态。
 
 ## 1. 问题背景
 
@@ -14,9 +14,9 @@
 1. 从进入 Camera 页面到相机可拍摄需要一定时间。
 2. 按下快门后，从捕获、裁切到保存完成需要一定时间，Live Photo 更明显。
 
-目前只有体感结论，尚无分阶段耗时数据。因此暂不直接判断瓶颈属于 AVFoundation
-启动、系统计算摄影、Framewise 输出处理还是 PhotoKit 保存，也暂不为了追求速度降低
-照片质量。
+阶段计时接入前只有体感结论，无法判断瓶颈属于 AVFoundation 启动、系统计算摄影、
+Framewise 输出处理还是 PhotoKit 保存。2026-09-15 已完成首轮真机采样，结果记录在
+4.3；当前仍不为了追求速度降低照片质量。
 
 需要分别看待：
 
@@ -116,6 +116,48 @@ AVFoundation 能力体现了以下设计方向：
 在决定实现前，为每次启动和拍摄记录同一单调时钟下的阶段时间。第一版只需开发日志或
 OSLog signpost，不上传用户数据。
 
+### 4.0 当前实现
+
+2026-09-15 已接入基于 `ContinuousClock` 与统一日志的阶段计时，不改变 capture session
+配置和现有拍摄状态流。日志 subsystem 为 `com.leviegu.framewise`，category 为
+`CameraPerformance`，每条记录均以 `camera_metric` 开头。
+
+启动阶段当前记录：
+
+- `camera_authorization`
+- `session_configuration`
+- `microphone_authorization`
+- `live_photo_configuration`
+- `session_start`
+- `camera_ready`
+
+拍摄阶段当前记录：
+
+- `shutter_response`
+- `sensor_capture`
+- `system_photo_processing`
+- `live_movie_capture`
+- `capture_delegate_total`
+- `photo_crop_and_encode`
+- `live_movie_crop_and_export`
+- `output_processing_total`
+- `photo_library_authorization`
+- `photo_library_save`
+- `photo_library_total`
+- `capture_pipeline_total`
+
+同一次拍摄通过 `operation_id` 关联，并记录 `capture_kind`、`outcome` 与毫秒耗时；日志
+不包含照片数据、文件路径或错误详情。可在 Xcode 控制台或 Console.app 中按
+`camera_metric` 过滤。
+
+当前保留 `CameraPerformance` 与全部 `camera_metric` 埋点，用于后续 UI / 状态拆分前后的
+同口径真机对比。完成复测并确认最终方案后再移除这些临时 logger；本轮不提前删除，也不把
+它们扩展为长期分析或数据上传能力。
+
+首帧时间尚未记录。`AVCaptureVideoPreviewLayer` 不提供可靠的首帧回调；为了不通过新增
+`AVCaptureVideoDataOutput` 改变待测管线，第一轮基线先使用 `session_start` 与
+`camera_ready`，首帧测量留到后续采用不会污染结果的方案。
+
 ### 4.1 启动指标
 
 | 指标 | 起点 | 终点 |
@@ -145,6 +187,66 @@ OSLog signpost，不上传用户数据。
 | 连拍间隔 | 第一次触摸快门 | 下一次快门真实可用 |
 
 测试至少区分普通照片、Live Photo、闪光灯、前后摄和 `3:4` / `4:3` 输出。
+
+### 4.3 2026-09-15 首轮真机基线
+
+本轮包含 5 次相机启动、5 张普通照片和 3 张 Live Photo。启动样本由首次进入和 4 次
+退出重进组成；拍摄指标使用中位数（P50），毫秒值四舍五入。样本量只用于确定下一步
+方向，不作为跨设备性能承诺，也不计算 P95。
+
+启动结果：
+
+| 指标 | 首次进入 | 重进 P50 | 结论 |
+| --- | ---: | ---: | --- |
+| `camera_ready` | 527 ms | 298 ms | 当前不是主要体感瓶颈 |
+| `session_start` | 466 ms | 275 ms | 占启动时间的大部分 |
+| `session_configuration` | 39 ms | 20 ms | 优化空间有限 |
+| `live_photo_configuration` | 21 ms | 3 ms | 优化空间有限 |
+
+普通照片结果：
+
+| 指标 | P50 |
+| --- | ---: |
+| `shutter_response` | 36 ms |
+| `sensor_capture` | 241 ms |
+| `system_photo_processing` | 379 ms |
+| `capture_delegate_total` | 621 ms |
+| `photo_crop_and_encode` | 115 ms |
+| `photo_library_total` | 100 ms |
+| `capture_pipeline_total` | 845 ms |
+
+普通照片的快门响应已经及时。当前 UI 会等待完整管线才恢复；若在 capture delegate 完成且
+底层 readiness 恢复后释放拍摄状态，把裁切与 PhotoKit 保存移入受限后台队列，典型锁定
+时间可从约 845 ms 降至约 621 ms，理论减少约 215 ms（约 25%）。这只减少用户等待和
+连拍阻塞，不缩短照片最终保存完成的真实时间。
+
+Live Photo 结果：
+
+| 指标 | P50 |
+| --- | ---: |
+| `shutter_response` | 52 ms |
+| `sensor_capture` | 251 ms |
+| `system_photo_processing` | 439 ms |
+| `live_movie_capture` | 2,199 ms |
+| `capture_delegate_total` | 2,199 ms |
+| `photo_crop_and_encode` | 120 ms |
+| `live_movie_crop_and_export` | 330 ms |
+| `output_processing_total` | 451 ms |
+| `photo_library_total` | 123 ms |
+| `capture_pipeline_total` | 2,855 ms |
+
+Live Photo 的主要耗时是约 2.2 秒的系统 paired movie 捕获，不能在不改变产品语义的前提下
+直接消除。状态拆分可把典型锁定时间从约 2.86 秒降至约 2.2 秒，理论减少约 575 ms
+（约 20%）；后台仍需继续完成视频导出与相册保存。
+
+首张普通照片的裁切编码为 164 ms、PhotoKit 保存为 300 ms，随后分别稳定在约
+113～115 ms 和 86～103 ms。首张 Live Photo 的视频导出为 1,023 ms，随后两张约为
+327～330 ms。首笔冷路径存在预热空间，但只影响首张；当前不为此引入额外预热、内存占用
+或生命周期复杂度。
+
+控制台中的 PointerUI、Fig 和 `cannot add handler` 信息未与失败样本关联，不计入相机
+性能结论。`glassEffect() tried to update multiple times per frame` 属于 UI 更新警告，留在
+后续 UI 阶段定位。
 
 ## 5. 可讨论的底层优化方向
 
@@ -212,11 +314,20 @@ UI 只能缓解感知等待，不能掩盖失败、假成功或不可恢复的�
 
 建议后续按以下顺序推进：
 
-1. 增加阶段计时，不改变相机行为。
-2. 用真机记录冷启动、重进、普通照片和 Live Photo 的基线。
-3. 先拆分捕获反馈与后台保存状态，验证 UI 是否已经显著改善体感。
-4. 再根据数据选择启动预热、Responsive Capture、设置预热或编码优化。
+1. ~~增加阶段计时，不改变相机行为。~~ 已于 2026-09-15 完成。
+2. ~~用真机记录冷启动、重进、普通照片和 Live Photo 的基线。~~ 首轮基线已于
+   2026-09-15 完成。
+3. 后续相机阶段先拆分捕获反馈、输出处理与后台保存状态，并补充与真实 readiness 对齐的
+   快门可用性，验证 UI 是否显著改善体感。本轮不实施。
+4. 状态拆分后使用同一指标重新测量；只有数据仍显示不可接受的真实延迟时，再选择启动预热、
+   Responsive Capture、设置预热或编码优化。
 5. 完成连续拍摄、后台队列、内存压力和失败恢复验收后，才把优化视为完成。
+6. 最终方案完成并取得对比数据后，移除临时 `CameraPerformance` logger 和调用点；除非届时
+   出现明确的长期本地诊断需求。
+
+2026-09-15 决策：当前启动与快门响应已经足够快，普通照片和 Live Photo 均有约 20%～25%
+的锁定时间来自 Framewise 输出处理与 PhotoKit 保存。下一步选择 UI / 状态拆分，不继续
+死磕底层耗时；具体实现留到后续单独推进。
 
 当前不决定：
 

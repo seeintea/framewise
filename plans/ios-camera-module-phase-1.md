@@ -10,7 +10,8 @@
 > 关系：本计划承接 [iOS 单模板相机链路](./ios-single-template-camera-flow.md)，只实现相机能力，不继续打磨当前 Camera UI。
 >
 > 性能讨论：启动、快门、输出处理和 UI 感知延迟记录见
-> [iOS 相机性能与感知延迟](./ios-camera-performance.md)。
+> [iOS 相机性能与感知延迟](./ios-camera-performance.md)。阶段计时已于 2026-09-15
+> 接入，下一步使用真机采集基线。
 
 ## 1. 阶段目标
 

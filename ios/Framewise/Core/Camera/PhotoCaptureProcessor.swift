@@ -20,13 +20,40 @@ nonisolated final class PhotoCaptureProcessor: NSObject,
     private var photoData: Data?
     private var processedLivePhotoMovieURL: URL?
     private var processingError: CameraError?
+    private let performanceCapture: CameraPerformance.Capture
+    private var sensorCaptureTimer: CameraPerformance.Timer?
 
     init(
         livePhotoMovieURL: URL?,
+        performanceCapture: CameraPerformance.Capture,
         completion: @escaping Completion
     ) {
         requestedLivePhotoMovieURL = livePhotoMovieURL
+        self.performanceCapture = performanceCapture
         self.completion = completion
+    }
+
+    func photoOutput(
+        _ output: AVCapturePhotoOutput,
+        willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings
+    ) {
+        CameraPerformance.record(
+            "shutter_response",
+            timer: performanceCapture.requestTimer,
+            capture: performanceCapture
+        )
+    }
+
+    func photoOutput(
+        _ output: AVCapturePhotoOutput,
+        didCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings
+    ) {
+        CameraPerformance.record(
+            "sensor_capture",
+            timer: performanceCapture.requestTimer,
+            capture: performanceCapture
+        )
+        sensorCaptureTimer = CameraPerformance.startTimer()
     }
 
     func photoOutput(
@@ -34,6 +61,8 @@ nonisolated final class PhotoCaptureProcessor: NSObject,
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: (any Error)?
     ) {
+        recordPhotoProcessing(outcome: error == nil ? "success" : "failure")
+
         if let error {
             processingError = .captureFailed(error.localizedDescription)
             return
@@ -56,11 +85,22 @@ nonisolated final class PhotoCaptureProcessor: NSObject,
         error: (any Error)?
     ) {
         if let error {
+            CameraPerformance.record(
+                "live_movie_capture",
+                timer: performanceCapture.requestTimer,
+                capture: performanceCapture,
+                outcome: "failure"
+            )
             processingError = .captureFailed(error.localizedDescription)
             return
         }
 
         processedLivePhotoMovieURL = outputFileURL
+        CameraPerformance.record(
+            "live_movie_capture",
+            timer: performanceCapture.requestTimer,
+            capture: performanceCapture
+        )
     }
 
     func photoOutput(
@@ -69,14 +109,18 @@ nonisolated final class PhotoCaptureProcessor: NSObject,
         error: (any Error)?
     ) {
         if let error {
+            recordCaptureDelegateCompletion(outcome: "failure")
             finish(.failure(.captureFailed(error.localizedDescription)))
         } else if let processingError {
+            recordCaptureDelegateCompletion(outcome: "failure")
             finish(.failure(processingError))
         } else if let photoData,
                   requestedLivePhotoMovieURL == nil {
+            recordCaptureDelegateCompletion()
             finish(.success(.photo(photoData)))
         } else if let photoData,
                   let processedLivePhotoMovieURL {
+            recordCaptureDelegateCompletion()
             finish(
                 .success(
                     .livePhoto(
@@ -86,8 +130,29 @@ nonisolated final class PhotoCaptureProcessor: NSObject,
                 )
             )
         } else {
+            recordCaptureDelegateCompletion(outcome: "failure")
             finish(.failure(.photoDataUnavailable))
         }
+    }
+
+    private func recordPhotoProcessing(outcome: String = "success") {
+        CameraPerformance.record(
+            "system_photo_processing",
+            timer: sensorCaptureTimer ?? performanceCapture.requestTimer,
+            capture: performanceCapture,
+            outcome: outcome
+        )
+    }
+
+    private func recordCaptureDelegateCompletion(
+        outcome: String = "success"
+    ) {
+        CameraPerformance.record(
+            "capture_delegate_total",
+            timer: performanceCapture.requestTimer,
+            capture: performanceCapture,
+            outcome: outcome
+        )
     }
 
     private func finish(

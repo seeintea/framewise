@@ -14,17 +14,39 @@ actor LivePhotoProcessor {
 
     func process(
         _ capture: CameraCaptureResult,
-        targetAspectRatio: Double
+        targetAspectRatio: Double,
+        performanceCapture: CameraPerformance.Capture
     ) async throws -> CameraCaptureResult {
+        let processingTimer = CameraPerformance.startTimer()
+        var outcome = "success"
+        defer {
+            CameraPerformance.record(
+                "output_processing_total",
+                timer: processingTimer,
+                capture: performanceCapture,
+                outcome: outcome
+            )
+        }
+
         guard targetAspectRatio > 0 else {
+            outcome = "failure"
             throw CameraError.processingFailed("无效的输出画幅比例。")
         }
 
         switch capture {
         case .photo(let data):
-            return .photo(
-                try processPhotoData(data, targetAspectRatio: targetAspectRatio)
-            )
+            do {
+                return .photo(
+                    try processPhotoData(
+                        data,
+                        targetAspectRatio: targetAspectRatio,
+                        performanceCapture: performanceCapture
+                    )
+                )
+            } catch {
+                outcome = "failure"
+                throw error
+            }
         case .livePhoto(let photoData, let pairedVideoURL):
             let processedMovieURL = Self.makeProcessedMovieURL()
             defer {
@@ -34,12 +56,14 @@ actor LivePhotoProcessor {
             do {
                 let processedPhotoData = try processPhotoData(
                     photoData,
-                    targetAspectRatio: targetAspectRatio
+                    targetAspectRatio: targetAspectRatio,
+                    performanceCapture: performanceCapture
                 )
                 try await processMovie(
                     at: pairedVideoURL,
                     outputURL: processedMovieURL,
-                    targetAspectRatio: targetAspectRatio
+                    targetAspectRatio: targetAspectRatio,
+                    performanceCapture: performanceCapture
                 )
 
                 return .livePhoto(
@@ -47,6 +71,7 @@ actor LivePhotoProcessor {
                     pairedVideoURL: processedMovieURL
                 )
             } catch {
+                outcome = "failure"
                 try? FileManager.default.removeItem(at: processedMovieURL)
                 if let cameraError = error as? CameraError {
                     throw cameraError
@@ -58,14 +83,27 @@ actor LivePhotoProcessor {
 
     private func processPhotoData(
         _ data: Data,
-        targetAspectRatio: Double
+        targetAspectRatio: Double,
+        performanceCapture: CameraPerformance.Capture
     ) throws -> Data {
+        let timer = CameraPerformance.startTimer()
+        var outcome = "success"
+        defer {
+            CameraPerformance.record(
+                "photo_crop_and_encode",
+                timer: timer,
+                capture: performanceCapture,
+                outcome: outcome
+            )
+        }
+
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let sourceType = CGImageSourceGetType(source),
               let image = CIImage(
                   data: data,
                   options: [.applyOrientationProperty: true]
               ) else {
+            outcome = "failure"
             throw CameraError.processingFailed("无法读取相机照片。")
         }
 
@@ -86,6 +124,7 @@ actor LivePhotoProcessor {
             croppedImage,
             from: croppedImage.extent
         ) else {
+            outcome = "failure"
             throw CameraError.processingFailed("无法生成裁切后的照片。")
         }
 
@@ -96,6 +135,7 @@ actor LivePhotoProcessor {
             1,
             nil
         ) else {
+            outcome = "failure"
             throw CameraError.processingFailed("无法创建照片输出。")
         }
 
@@ -113,6 +153,7 @@ actor LivePhotoProcessor {
         )
 
         guard CGImageDestinationFinalize(destination) else {
+            outcome = "failure"
             throw CameraError.processingFailed("照片编码失败。")
         }
 
@@ -120,6 +161,35 @@ actor LivePhotoProcessor {
     }
 
     private func processMovie(
+        at inputURL: URL,
+        outputURL: URL,
+        targetAspectRatio: Double,
+        performanceCapture: CameraPerformance.Capture
+    ) async throws {
+        let timer = CameraPerformance.startTimer()
+        var outcome = "success"
+        defer {
+            CameraPerformance.record(
+                "live_movie_crop_and_export",
+                timer: timer,
+                capture: performanceCapture,
+                outcome: outcome
+            )
+        }
+
+        do {
+            try await processMovieContents(
+                at: inputURL,
+                outputURL: outputURL,
+                targetAspectRatio: targetAspectRatio
+            )
+        } catch {
+            outcome = "failure"
+            throw error
+        }
+    }
+
+    private func processMovieContents(
         at inputURL: URL,
         outputURL: URL,
         targetAspectRatio: Double

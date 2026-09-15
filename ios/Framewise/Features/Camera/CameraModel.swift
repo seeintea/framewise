@@ -84,27 +84,45 @@ final class CameraModel: ObservableObject {
         lifecycleGeneration += 1
         let generation = lifecycleGeneration
         shouldRun = true
+        let startupTimer = CameraPerformance.startTimer()
+        var startupOutcome = "cancelled"
+        defer {
+            CameraPerformance.record(
+                "camera_ready",
+                timer: startupTimer,
+                outcome: startupOutcome
+            )
+        }
 
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        let authorizationTimer = CameraPerformance.startTimer()
+        let authorizationStatus = await cameraAuthorizationStatus()
+        CameraPerformance.record(
+            "camera_authorization",
+            timer: authorizationTimer,
+            detail: Self.authorizationDetail(authorizationStatus)
+        )
+
+        guard isCurrent(generation) else {
+            return
+        }
+
+        switch authorizationStatus {
         case .authorized:
             break
-        case .notDetermined:
-            state = .requestingAuthorization
-            let isAuthorized = await AVCaptureDevice.requestAccess(for: .video)
-            guard isCurrent(generation) else {
-                return
-            }
-            guard isAuthorized else {
-                state = .failed(.authorizationDenied)
-                return
-            }
         case .denied:
+            startupOutcome = "failure"
             state = .failed(.authorizationDenied)
             return
         case .restricted:
+            startupOutcome = "failure"
             state = .failed(.authorizationRestricted)
             return
+        case .notDetermined:
+            startupOutcome = "failure"
+            state = .failed(.authorizationDenied)
+            return
         @unknown default:
+            startupOutcome = "failure"
             state = .failed(.authorizationRestricted)
             return
         }
@@ -116,32 +134,79 @@ final class CameraModel: ObservableObject {
         state = .configuring
 
         do {
-            capabilities = try await captureService.configure()
+            let configurationTimer = CameraPerformance.startTimer()
+            do {
+                capabilities = try await captureService.configure()
+                CameraPerformance.record(
+                    "session_configuration",
+                    timer: configurationTimer
+                )
+            } catch {
+                CameraPerformance.record(
+                    "session_configuration",
+                    timer: configurationTimer,
+                    outcome: "failure"
+                )
+                throw error
+            }
             guard isCurrent(generation) else {
                 return
             }
 
-            try await prepareLivePhotoForStart(generation: generation)
+            let livePhotoTimer = CameraPerformance.startTimer()
+            do {
+                try await prepareLivePhotoForStart(generation: generation)
+                CameraPerformance.record(
+                    "live_photo_configuration",
+                    timer: livePhotoTimer,
+                    detail: isLivePhotoEnabled ? "enabled" : "disabled"
+                )
+            } catch {
+                CameraPerformance.record(
+                    "live_photo_configuration",
+                    timer: livePhotoTimer,
+                    outcome: "failure"
+                )
+                throw error
+            }
             guard isCurrent(generation) else {
                 return
             }
 
-            try await captureService.start()
+            let sessionStartTimer = CameraPerformance.startTimer()
+            do {
+                try await captureService.start()
+                CameraPerformance.record(
+                    "session_start",
+                    timer: sessionStartTimer
+                )
+            } catch {
+                CameraPerformance.record(
+                    "session_start",
+                    timer: sessionStartTimer,
+                    outcome: "failure"
+                )
+                throw error
+            }
             guard isCurrent(generation) else {
                 await captureService.stop()
                 return
             }
 
             state = .ready
+            startupOutcome = "success"
         } catch CameraError.noCameraAvailable {
+            startupOutcome = "failure"
             if isCurrent(generation) {
                 state = .unavailable
             }
         } catch let error as CameraError {
+            startupOutcome = "failure"
             if isCurrent(generation) {
                 state = .failed(error)
             }
         } catch {
+            startupOutcome = "failure"
             if isCurrent(generation) {
                 state = .failed(.runtimeError(error.localizedDescription))
             }
@@ -181,11 +246,15 @@ final class CameraModel: ObservableObject {
         }
 
         let pendingZoomTask = zoomTask
+        let performanceCapture = CameraPerformance.startCapture(
+            isLivePhoto: isLivePhotoEnabled
+        )
         state = .capturing
         captureTask = Task { [weak self] in
             await pendingZoomTask?.value
             await self?.captureAndSavePhoto(
-                outputAspectRatio: outputAspectRatio
+                outputAspectRatio: outputAspectRatio,
+                performanceCapture: performanceCapture
             )
         }
     }
@@ -342,8 +411,18 @@ final class CameraModel: ObservableObject {
         shouldRun && lifecycleGeneration == generation
     }
 
-    private func captureAndSavePhoto(outputAspectRatio: Double) async {
+    private func captureAndSavePhoto(
+        outputAspectRatio: Double,
+        performanceCapture: CameraPerformance.Capture
+    ) async {
+        var outcome = "success"
         defer {
+            CameraPerformance.record(
+                "capture_pipeline_total",
+                timer: performanceCapture.requestTimer,
+                capture: performanceCapture,
+                outcome: outcome
+            )
             captureTask = nil
             activeCaptureIsLivePhoto = false
         }
@@ -353,7 +432,8 @@ final class CameraModel: ObservableObject {
             let capturedResult = try await captureService.capturePhoto(
                 isLivePhotoEnabled: activeCaptureIsLivePhoto,
                 isFlashEnabled: isFlashEnabled,
-                rotationAngle: captureRotationAngle
+                rotationAngle: captureRotationAngle,
+                performanceCapture: performanceCapture
             )
             if state == .capturing {
                 state = .saving
@@ -361,9 +441,13 @@ final class CameraModel: ObservableObject {
 
             let result = try await livePhotoProcessor.process(
                 capturedResult,
-                targetAspectRatio: outputAspectRatio
+                targetAspectRatio: outputAspectRatio,
+                performanceCapture: performanceCapture
             )
-            try await photoLibraryWriter.save(result)
+            try await photoLibraryWriter.save(
+                result,
+                performanceCapture: performanceCapture
+            )
 
             guard state == .saving else {
                 return
@@ -373,10 +457,12 @@ final class CameraModel: ObservableObject {
             lastSavedCaptureWasLivePhoto = result.isLivePhoto
             showSaveConfirmation()
         } catch let error as CameraError {
+            outcome = "failure"
             if state == .capturing || state == .saving {
                 state = .failed(error)
             }
         } catch {
+            outcome = "failure"
             if state == .capturing || state == .saving {
                 state = .failed(.captureFailed(error.localizedDescription))
             }
@@ -498,14 +584,54 @@ final class CameraModel: ObservableObject {
     private func microphoneAuthorizationStatus() async
         -> AVAuthorizationStatus
     {
+        let timer = CameraPerformance.startTimer()
         let currentStatus = AVCaptureDevice.authorizationStatus(for: .audio)
         guard currentStatus == .notDetermined else {
+            CameraPerformance.record(
+                "microphone_authorization",
+                timer: timer,
+                detail: Self.authorizationDetail(currentStatus)
+            )
             return currentStatus
         }
 
         state = .requestingMicrophoneAuthorization
         let isAuthorized = await AVCaptureDevice.requestAccess(for: .audio)
+        let status: AVAuthorizationStatus = isAuthorized ? .authorized : .denied
+        CameraPerformance.record(
+            "microphone_authorization",
+            timer: timer,
+            detail: Self.authorizationDetail(status)
+        )
+        return status
+    }
+
+    private func cameraAuthorizationStatus() async -> AVAuthorizationStatus {
+        let currentStatus = AVCaptureDevice.authorizationStatus(for: .video)
+        guard currentStatus == .notDetermined else {
+            return currentStatus
+        }
+
+        state = .requestingAuthorization
+        let isAuthorized = await AVCaptureDevice.requestAccess(for: .video)
         return isAuthorized ? .authorized : .denied
+    }
+
+    private static func authorizationDetail(
+        _ status: AVAuthorizationStatus
+    ) -> String {
+        switch status {
+        case .notDetermined:
+            "not_determined"
+        case .restricted:
+            "restricted"
+        case .denied:
+            "denied"
+        case .authorized:
+            "authorized"
+        @unknown default:
+            "unknown"
+        }
     }
 
     private func showSaveConfirmation() {

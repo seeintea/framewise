@@ -281,7 +281,8 @@ actor CameraCaptureService {
     func capturePhoto(
         isLivePhotoEnabled: Bool,
         isFlashEnabled: Bool,
-        rotationAngle: Double?
+        rotationAngle: Double?,
+        performanceCapture: CameraPerformance.Capture
     ) async throws -> CameraCaptureResult {
         guard isConfigured, session.isRunning else {
             throw CameraError.captureNotReady
@@ -319,7 +320,8 @@ actor CameraCaptureService {
         do {
             return try await withCheckedThrowingContinuation { continuation in
                 let processor = PhotoCaptureProcessor(
-                    livePhotoMovieURL: livePhotoMovieURL
+                    livePhotoMovieURL: livePhotoMovieURL,
+                    performanceCapture: performanceCapture
                 ) { [weak self] result in
                     continuation.resume(with: result)
 
