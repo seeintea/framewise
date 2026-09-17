@@ -14,18 +14,18 @@ struct CameraZoomControls: View {
     let onSelectZoomFactor: (Double) -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             ForEach(zoomFactors, id: \.self) { zoom in
                 Button {
                     onSelectZoomFactor(zoom)
                 } label: {
                     Text(zoomLabel(for: zoom))
-                        .font(.system(size: 14, weight: .light))
+                        .font(.system(size: 13, weight: .light))
                         .monospacedDigit()
                         .foregroundStyle(
                             isSelected(zoom) ? Color.yellow : .white
                         )
-                        .frame(width: 36, height: 36)
+                        .frame(width: 38, height: 38)
                         .background {
                             if isSelected(zoom) {
                                 Circle()
@@ -51,6 +51,13 @@ struct CameraZoomControls: View {
     }
 
     private func zoomLabel(for zoom: Double) -> String {
+        if isSelected(zoom), !isPresetZoomSelected {
+            let value = selectedZoomFactor.formatted(
+                .number.precision(.fractionLength(0...1))
+            )
+            return "\(value)×"
+        }
+
         let value = zoom.formatted(
             .number.precision(.fractionLength(0...1))
         )
@@ -58,6 +65,42 @@ struct CameraZoomControls: View {
     }
 
     private func isSelected(_ zoom: Double) -> Bool {
-        abs(selectedZoomFactor - zoom) < 0.01
+        guard let zoomIndex = zoomFactors.firstIndex(of: zoom) else {
+            return false
+        }
+
+        return zoomIndex == selectedZoomIndex
+    }
+
+    private var isPresetZoomSelected: Bool {
+        zoomFactors.contains {
+            abs(selectedZoomFactor - $0) < 0.01
+        }
+    }
+
+    private var selectedZoomIndex: Int? {
+        guard !zoomFactors.isEmpty else {
+            return nil
+        }
+
+        if let exactIndex = zoomFactors.firstIndex(where: {
+            abs(selectedZoomFactor - $0) < 0.01
+        }) {
+            return exactIndex
+        }
+
+        if let nextIndex = zoomFactors.firstIndex(where: {
+            selectedZoomFactor < $0
+        }) {
+            return max(nextIndex - 1, 0)
+        }
+
+        return zoomFactors.count - 1
+    }
+}
+
+#Preview("Camera Debug") {
+    NavigationStack {
+        CameraDebugView()
     }
 }

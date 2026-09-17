@@ -68,12 +68,22 @@ struct CameraView: View {
                     .allowsHitTesting(false)
 
                     if let focusPoint = cameraModel.focusPoint {
-                        Circle()
-                            .stroke(.yellow, lineWidth: 1.5)
-                            .frame(width: 64, height: 64)
-                            .position(focusPoint)
-                            .allowsHitTesting(false)
-                            .transition(.opacity.combined(with: .scale))
+                        CameraFocusExposureControl(
+                            focusPoint: focusPoint,
+                            minimumExposureBias:
+                                cameraModel.capabilities.minimumExposureBias,
+                            maximumExposureBias:
+                                cameraModel.capabilities.maximumExposureBias,
+                            selectedExposureBias:
+                                cameraModel.capabilities.selectedExposureBias,
+                            isExposureEnabled:
+                                cameraModel.state == .ready
+                                && cameraModel.capabilities
+                                    .isExposureBiasAvailable,
+                            onSelectExposureBias:
+                                cameraModel.selectExposureBias
+                        )
+                            .transition(.opacity)
                     }
 
                     cameraStatusOverlay
@@ -100,20 +110,6 @@ struct CameraView: View {
         .ignoresSafeArea()
         .overlay(alignment: .bottom) {
             VStack(spacing: 4) {
-                if cameraModel.capabilities.isExposureBiasAvailable {
-                    CameraExposureControl(
-                        minimumBias:
-                            cameraModel.capabilities.minimumExposureBias,
-                        maximumBias:
-                            cameraModel.capabilities.maximumExposureBias,
-                        selectedBias:
-                            cameraModel.capabilities.selectedExposureBias,
-                        isEnabled: cameraModel.state == .ready,
-                        onSelectBias: cameraModel.selectExposureBias
-                    )
-                    .frame(maxWidth: 300)
-                }
-
                 if cameraModel.capabilities.zoomFactors.count > 1 {
                     CameraZoomControls(
                         zoomFactors: cameraModel.capabilities.zoomFactors,
@@ -124,9 +120,7 @@ struct CameraView: View {
                     )
                 }
 
-                CameraCaptureControls(
-                    isFrontFacing:
-                        cameraModel.capabilities.position == .front,
+                CameraBottomControls(
                     isCaptureEnabled: cameraModel.state == .ready,
                     canSwitchCamera:
                         cameraModel.capabilities.canSwitchCamera,
@@ -142,7 +136,7 @@ struct CameraView: View {
             .safeAreaPadding(.bottom, 18)
         }
         .toolbar {
-            CameraTopControls(
+            CameraToolbarControls(
                 isLivePhotoEnabled: cameraModel.isLivePhotoEnabled,
                 isLivePhotoControlEnabled: cameraModel.state == .ready,
                 onToggleLivePhoto: cameraModel.toggleLivePhoto,

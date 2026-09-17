@@ -340,7 +340,7 @@ final class CameraModel: ObservableObject {
 
         focusFeedbackTask = Task { [weak self] in
             do {
-                try await Task.sleep(for: .seconds(1))
+                try await Task.sleep(for: .seconds(3))
             } catch {
                 return
             }
