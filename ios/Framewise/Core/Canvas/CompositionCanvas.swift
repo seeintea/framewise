@@ -11,7 +11,11 @@ struct CompositionCanvas: View {
     let variant: CompositionTemplateVariant
     var annotationTextById: [String: String] = [:]
     var showsAnnotations = true
-    var color = Color(red: 1, green: 212.0 / 255.0, blue: 0)
+    var color = Color(
+        red: 209.0 / 255.0,
+        green: 213.0 / 255.0,
+        blue: 220.0 / 255.0
+    )
     var lineWidth: CGFloat = 0.5
     var dash: [CGFloat] = [8, 6]
 
@@ -23,7 +27,7 @@ struct CompositionCanvas: View {
                 for element in variant.elements {
                     context.stroke(
                         path(for: element.shape, in: drawingRect),
-                        with: .color(color),
+                        with: .color(color.opacity(0.7)),
                         style: strokeStyle(for: element.shape)
                     )
                 }

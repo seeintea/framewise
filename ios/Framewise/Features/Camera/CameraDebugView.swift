@@ -12,7 +12,7 @@ struct CameraDebugView: View {
     @State private var isFlashEnabled = false
     @State private var areAnnotationsVisible = true
     @State private var isFrontFacing = false
-    @State private var selectedZoomFactor = 1.0
+    @State private var selectedZoomFactor = 24.5
     @State private var selectedExposureBias = 0.0
     @State private var showsCaptureFeedback = false
 
@@ -28,7 +28,9 @@ struct CameraDebugView: View {
                 CameraDebugPreview(
                     areAnnotationsVisible: areAnnotationsVisible,
                     isFrontFacing: isFrontFacing,
-                    selectedZoomFactor: selectedZoomFactor
+                    selectedZoomFactor: selectedZoomFactor,
+                    selectedExposureBias: selectedExposureBias,
+                    onSelectExposureBias: { selectedExposureBias = $0 }
                 )
                 .frame(width: previewSize.width, height: previewSize.height)
                 .clipped()
@@ -42,15 +44,6 @@ struct CameraDebugView: View {
         .ignoresSafeArea()
         .overlay(alignment: .bottom) {
             VStack(spacing: 4) {
-                CameraExposureControl(
-                    minimumBias: -2,
-                    maximumBias: 2,
-                    selectedBias: selectedExposureBias,
-                    isEnabled: true,
-                    onSelectBias: { selectedExposureBias = $0 }
-                )
-                .frame(maxWidth: 300)
-
                 CameraZoomControls(
                     zoomFactors: zoomFactors,
                     selectedZoomFactor: selectedZoomFactor,
@@ -58,8 +51,7 @@ struct CameraDebugView: View {
                     onSelectZoomFactor: { selectedZoomFactor = $0 }
                 )
 
-                CameraCaptureControls(
-                    isFrontFacing: isFrontFacing,
+                CameraBottomControls(
                     isCaptureEnabled: true,
                     canSwitchCamera: true,
                     onCapture: {
@@ -79,7 +71,7 @@ struct CameraDebugView: View {
         }
         .toolbar(.visible, for: .navigationBar)
         .toolbar {
-            CameraTopControls(
+            CameraToolbarControls(
                 isLivePhotoEnabled: isLivePhotoEnabled,
                 isLivePhotoControlEnabled: true,
                 onToggleLivePhoto: { isLivePhotoEnabled.toggle() },
@@ -107,7 +99,10 @@ struct CameraDebugView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(.black.opacity(0.74), in: RoundedRectangle(cornerRadius: 16))
+        .background(
+            .black.opacity(0.74),
+            in: RoundedRectangle(cornerRadius: 16)
+        )
     }
 
     private func previewSize(in availableSize: CGSize) -> CGSize {
@@ -132,6 +127,8 @@ private struct CameraDebugPreview: View {
     let areAnnotationsVisible: Bool
     let isFrontFacing: Bool
     let selectedZoomFactor: Double
+    let selectedExposureBias: Double
+    let onSelectExposureBias: (Double) -> Void
 
     var body: some View {
         ZStack {
@@ -161,6 +158,20 @@ private struct CameraDebugPreview: View {
                     .transition(.opacity)
             }
 
+            GeometryReader { proxy in
+                CameraFocusExposureControl(
+                    focusPoint: CGPoint(
+                        x: proxy.size.width / 2,
+                        y: proxy.size.height / 2
+                    ),
+                    minimumExposureBias: -2,
+                    maximumExposureBias: 2,
+                    selectedExposureBias: selectedExposureBias,
+                    isExposureEnabled: true,
+                    onSelectExposureBias: onSelectExposureBias
+                )
+            }
+
             VStack {
                 HStack {
                     Text("MOCK PREVIEW")
@@ -183,6 +194,13 @@ private struct CameraDebugPreview: View {
 }
 
 private struct CameraDebugGuide: View {
+
+    var color = Color(
+        red: 209.0 / 255.0,
+        green: 213.0 / 255.0,
+        blue: 220.0 / 255.0
+    ).opacity(0.7)
+
     var body: some View {
         GeometryReader { proxy in
             Path { path in
@@ -199,7 +217,7 @@ private struct CameraDebugGuide: View {
                     path.addLine(to: CGPoint(x: proxy.size.width, y: y))
                 }
             }
-            .stroke(.yellow, lineWidth: 0.5)
+            .stroke(color, lineWidth: 0.5)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
