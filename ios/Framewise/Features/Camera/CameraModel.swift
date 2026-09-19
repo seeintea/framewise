@@ -317,7 +317,6 @@ final class CameraModel: ObservableObject {
             return
         }
 
-        focusFeedbackTask?.cancel()
         focusPoint = previewPoint
         let generation = lifecycleGeneration
         let pendingZoomTask = zoomTask
@@ -338,18 +337,7 @@ final class CameraModel: ObservableObject {
             self.capabilities = newCapabilities
         }
 
-        focusFeedbackTask = Task { [weak self] in
-            do {
-                try await Task.sleep(for: .seconds(3))
-            } catch {
-                return
-            }
-
-            guard let self, self.isCurrent(generation) else {
-                return
-            }
-            self.focusPoint = nil
-        }
+        scheduleFocusFeedbackDismissal()
     }
 
     func selectExposureBias(_ bias: Double) {
@@ -375,8 +363,37 @@ final class CameraModel: ObservableObject {
         }
     }
 
+    func setExposureInteractionActive(_ isActive: Bool) {
+        guard focusPoint != nil else {
+            return
+        }
+
+        if isActive {
+            focusFeedbackTask?.cancel()
+        } else {
+            scheduleFocusFeedbackDismissal()
+        }
+    }
+
     func updateCaptureRotationAngle(_ angle: Double) {
         captureRotationAngle = angle
+    }
+
+    private func scheduleFocusFeedbackDismissal() {
+        focusFeedbackTask?.cancel()
+        let generation = lifecycleGeneration
+        focusFeedbackTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(3))
+            } catch {
+                return
+            }
+
+            guard let self, self.isCurrent(generation) else {
+                return
+            }
+            self.focusPoint = nil
+        }
     }
 
     func toggleLivePhoto() {

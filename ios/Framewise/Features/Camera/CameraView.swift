@@ -81,7 +81,9 @@ struct CameraView: View {
                                 && cameraModel.capabilities
                                     .isExposureBiasAvailable,
                             onSelectExposureBias:
-                                cameraModel.selectExposureBias
+                                cameraModel.selectExposureBias,
+                            onExposureInteractionChanged:
+                                cameraModel.setExposureInteractionActive
                         )
                             .transition(.opacity)
                     }

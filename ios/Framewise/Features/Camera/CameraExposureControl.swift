@@ -15,6 +15,12 @@ struct CameraExposureControl: View {
     let selectedBias: Double
     let isEnabled: Bool
     let onSelectBias: (Double) -> Void
+    let onInteractionChanged: (Bool) -> Void
+
+    @GestureState private var isInteracting = false
+    @State private var biasAtDragStart: Double?
+
+    private let dragTravelMultiplier = 1.75
 
     var body: some View {
         GeometryReader { proxy in
@@ -34,9 +40,17 @@ struct CameraExposureControl: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
+                    .updating($isInteracting) { _, isInteracting, _ in
+                        isInteracting = true
+                    }
                     .onChanged { value in
+                        if biasAtDragStart == nil {
+                            biasAtDragStart = selectedBias
+                        }
+
                         selectBias(
-                            at: value.location.y,
+                            from: biasAtDragStart ?? selectedBias,
+                            translationY: value.translation.height,
                             trackHeight: proxy.size.height
                         )
                     }
@@ -48,12 +62,20 @@ struct CameraExposureControl: View {
         .contentShape(Rectangle())
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : 0.45)
+        .onChange(of: isInteracting) { _, isInteracting in
+            onInteractionChanged(isInteracting)
+            if !isInteracting {
+                biasAtDragStart = nil
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("曝光")
         .accessibilityValue("\(selectedBias, specifier: "%+.1f") EV")
         .accessibilityAdjustableAction { direction in
             let delta = direction == .increment ? 0.1 : -0.1
+            onInteractionChanged(true)
             onSelectBias(clampedAndRounded(selectedBias + delta))
+            onInteractionChanged(false)
         }
     }
 
@@ -65,13 +87,18 @@ struct CameraExposureControl: View {
         return CGFloat((bias - minimumBias) / (maximumBias - minimumBias))
     }
 
-    private func selectBias(at y: CGFloat, trackHeight: CGFloat) {
+    private func selectBias(
+        from startingBias: Double,
+        translationY: CGFloat,
+        trackHeight: CGFloat
+    ) {
         guard trackHeight > 0, maximumBias > minimumBias else {
             return
         }
 
-        let progress = 1 - min(max(y / trackHeight, 0), 1)
-        let bias = minimumBias + Double(progress) * (maximumBias - minimumBias)
+        let range = maximumBias - minimumBias
+        let travel = Double(trackHeight) * dragTravelMultiplier
+        let bias = startingBias - Double(translationY) * range / travel
         onSelectBias(clampedAndRounded(bias))
     }
 

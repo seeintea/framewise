@@ -168,7 +168,8 @@ private struct CameraDebugPreview: View {
                     maximumExposureBias: 2,
                     selectedExposureBias: selectedExposureBias,
                     isExposureEnabled: true,
-                    onSelectExposureBias: onSelectExposureBias
+                    onSelectExposureBias: onSelectExposureBias,
+                    onExposureInteractionChanged: { _ in }
                 )
             }
 

@@ -14,9 +14,9 @@ struct CameraFocusExposureControl: View {
     let selectedExposureBias: Double
     let isExposureEnabled: Bool
     let onSelectExposureBias: (Double) -> Void
+    let onExposureInteractionChanged: (Bool) -> Void
 
     private let indicatorSize: CGFloat = 72
-    private let controlSize = CameraExposureControl.layoutSize
     private let spacing: CGFloat = 10
     private let edgePadding: CGFloat = 8
 
@@ -32,33 +32,35 @@ struct CameraFocusExposureControl: View {
                         maximumBias: maximumExposureBias,
                         selectedBias: selectedExposureBias,
                         isEnabled: isExposureEnabled,
-                        onSelectBias: onSelectExposureBias
+                        onSelectBias: onSelectExposureBias,
+                        onInteractionChanged: onExposureInteractionChanged
                     )
                     .position(
                         x: exposureControlX(in: proxy.size.width),
-                        y: exposureControlY(in: proxy.size.height)
+                        y: focusPoint.y
                     )
                 }
             }
         }
+        .clipped()
+    }
+
+    private var exposureControlOffset: CGFloat {
+        indicatorSize / 2
+            + spacing
+            + CameraExposureControl.layoutSize.width / 2
     }
 
     private func exposureControlX(in availableWidth: CGFloat) -> CGFloat {
-        let offset = indicatorSize / 2 + spacing + controlSize.width / 2
-        let rightX = focusPoint.x + offset
-        let maximumX = availableWidth - edgePadding - controlSize.width / 2
+        let rightX = focusPoint.x + exposureControlOffset
+        let maximumX = availableWidth
+            - edgePadding
+            - CameraExposureControl.layoutSize.width / 2
 
         if rightX <= maximumX {
             return rightX
         }
 
-        let minimumX = edgePadding + controlSize.width / 2
-        return max(focusPoint.x - offset, minimumX)
-    }
-
-    private func exposureControlY(in availableHeight: CGFloat) -> CGFloat {
-        let minimumY = edgePadding + controlSize.height / 2
-        let maximumY = availableHeight - edgePadding - controlSize.height / 2
-        return min(max(focusPoint.y, minimumY), maximumY)
+        return focusPoint.x - exposureControlOffset
     }
 }
