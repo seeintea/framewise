@@ -10,6 +10,7 @@ import SwiftUI
 struct CameraView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let variant: CompositionTemplateVariant
     var annotationTextById: [String: String] = [:]
@@ -19,6 +20,8 @@ struct CameraView: View {
     @State private var didControlAnnotationVisibility = false
     @State private var controlRotation = Angle.zero
     @State private var hasReceivedControlRotation = false
+    @State private var isShutterFlashVisible = false
+    @State private var shutterFeedbackTask: Task<Void, Never>?
 
     var body: some View {
         GeometryReader { proxy in
@@ -59,6 +62,14 @@ struct CameraView: View {
                             updateControlRotation
                     )
                         .accessibilityHidden(true)
+                        .opacity(
+                            cameraModel.configurationActivity
+                                == .switchingCamera ? 0.25 : 1
+                        )
+                        .animation(
+                            .easeInOut(duration: 0.18),
+                            value: cameraModel.configurationActivity
+                        )
 
                     CompositionCanvas(
                         variant: variant,
@@ -94,6 +105,11 @@ struct CameraView: View {
                             .transition(.opacity)
                     }
 
+                    Color.white
+                        .opacity(isShutterFlashVisible ? 0.72 : 0)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+
                     cameraStatusOverlay
 
                     if let issue = cameraModel.livePhotoIssue {
@@ -106,27 +122,21 @@ struct CameraView: View {
                         }
                     }
 
-                    if cameraModel.showsSaveConfirmation {
-                        saveConfirmation
-                            .transition(.opacity.combined(with: .scale))
-                    }
                 }
                 .frame(width: previewSize.width, height: previewSize.height)
                 .overlay(alignment: .top) {
-                    if shouldShowOrientationHint {
-                        StatusBadge(title: "请旋转手机")
-                            .rotationEffect(controlRotation)
-                            .padding(
-                                .top,
-                                isDeviceLandscape ? 50 : 12
+                    topStatusBadge
+                        .rotationEffect(controlRotation)
+                        .padding(
+                            .top,
+                            isDeviceLandscape ? 50 : 12
+                        )
+                        .transition(
+                            .opacity.combined(
+                                with: .scale(scale: 0.9)
                             )
-                            .transition(
-                                .opacity.combined(
-                                    with: .scale(scale: 0.9)
-                                )
-                            )
-                            .allowsHitTesting(false)
-                    }
+                        )
+                        .allowsHitTesting(false)
                 }
                 .clipped()
             }
@@ -148,7 +158,8 @@ struct CameraView: View {
                 CameraBottomControls(
                     isCaptureEnabled: cameraModel.state == .ready,
                     canSwitchCamera:
-                        cameraModel.capabilities.canSwitchCamera,
+                        cameraModel.capabilities.canSwitchCamera
+                        && cameraModel.state == .ready,
                     onCapture: {
                         cameraModel.capturePhoto(
                             outputAspectRatio: templateAspectRatio
@@ -190,6 +201,7 @@ struct CameraView: View {
             }
         }
         .onDisappear {
+            shutterFeedbackTask?.cancel()
             Task {
                 await cameraModel.stop()
             }
@@ -214,6 +226,13 @@ struct CameraView: View {
         .onChange(of: areAnnotationsVisible) { _, _ in
             didControlAnnotationVisibility = true
         }
+        .onChange(of: cameraModel.captureFeedbackTrigger) { _, _ in
+            playShutterFeedback()
+        }
+        .sensoryFeedback(
+            .impact(weight: .light),
+            trigger: cameraModel.captureFeedbackTrigger
+        )
     }
 
     private func updateControlRotation(_ angle: Double) {
@@ -241,6 +260,46 @@ struct CameraView: View {
     }
 
     @ViewBuilder
+    private var topStatusBadge: some View {
+        if cameraModel.livePhotoIssue == nil {
+            if let notice = cameraModel.transientNotice {
+                switch notice.kind {
+                case .livePhotoEnabled:
+                    StatusBadge(title: "实况")
+                case .livePhotoDisabled:
+                    StatusBadge(title: "关闭实况", palette: .light)
+                }
+            } else if shouldShowOrientationHint {
+                StatusBadge(title: "请旋转手机")
+            }
+        }
+    }
+
+    private func playShutterFeedback() {
+        shutterFeedbackTask?.cancel()
+        guard !reduceMotion else {
+            isShutterFlashVisible = false
+            return
+        }
+
+        withAnimation(.linear(duration: 0.04)) {
+            isShutterFlashVisible = true
+        }
+
+        shutterFeedbackTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(70))
+            } catch {
+                return
+            }
+
+            withAnimation(.easeOut(duration: 0.16)) {
+                isShutterFlashVisible = false
+            }
+        }
+    }
+
+    @ViewBuilder
     private var cameraStatusOverlay: some View {
         switch cameraModel.state {
         case .idle, .ready:
@@ -261,15 +320,15 @@ struct CameraView: View {
                     .foregroundStyle(.secondary)
             }
         case .configuring:
-            statusPanel {
-                ProgressView()
-                    .tint(.white)
-                Text("正在启动相机")
+            if cameraModel.configurationActivity == .startup {
+                statusPanel {
+                    ProgressView()
+                        .tint(.white)
+                    Text("正在启动相机")
+                }
             }
-        case .capturing:
-            operationStatus(captureStatusTitle)
-        case .saving:
-            operationStatus("正在保存到相册")
+        case .capturing, .saving:
+            EmptyView()
         case .interrupted:
             statusPanel {
                 Image(systemName: "camera.fill")
@@ -312,52 +371,6 @@ struct CameraView: View {
                 }
             }
         }
-    }
-
-    private func operationStatus(_ title: LocalizedStringKey) -> some View {
-        VStack {
-            Spacer()
-
-            HStack(spacing: 8) {
-                ProgressView()
-                    .tint(.white)
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.black.opacity(0.68), in: Capsule())
-            .padding(.bottom, 118)
-        }
-    }
-
-    private var saveConfirmation: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 34))
-                .foregroundStyle(.green)
-
-            Text(saveConfirmationTitle)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.white)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .background(.black.opacity(0.74), in: RoundedRectangle(cornerRadius: 16))
-        .animation(.easeInOut(duration: 0.2), value: cameraModel.showsSaveConfirmation)
-    }
-
-    private var captureStatusTitle: LocalizedStringKey {
-        cameraModel.activeCaptureIsLivePhoto
-            ? "正在拍摄实况照片"
-            : "正在拍摄"
-    }
-
-    private var saveConfirmationTitle: LocalizedStringKey {
-        cameraModel.lastSavedCaptureWasLivePhoto
-            ? "实况照片已保存到相册"
-            : "照片已保存到相册"
     }
 
     private func livePhotoIssueNotice(_ issue: LivePhotoIssue) -> some View {

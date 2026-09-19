@@ -21,15 +21,18 @@ nonisolated final class PhotoCaptureProcessor: NSObject,
     private var processedLivePhotoMovieURL: URL?
     private var processingError: CameraError?
     private let performanceCapture: CameraPerformance.Capture
+    private let onWillCapture: @Sendable () -> Void
     private var sensorCaptureTimer: CameraPerformance.Timer?
 
     init(
         livePhotoMovieURL: URL?,
         performanceCapture: CameraPerformance.Capture,
+        onWillCapture: @escaping @Sendable () -> Void,
         completion: @escaping Completion
     ) {
         requestedLivePhotoMovieURL = livePhotoMovieURL
         self.performanceCapture = performanceCapture
+        self.onWillCapture = onWillCapture
         self.completion = completion
     }
 
@@ -42,6 +45,7 @@ nonisolated final class PhotoCaptureProcessor: NSObject,
             timer: performanceCapture.requestTimer,
             capture: performanceCapture
         )
+        onWillCapture()
     }
 
     func photoOutput(

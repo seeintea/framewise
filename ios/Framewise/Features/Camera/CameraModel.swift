@@ -22,6 +22,22 @@ enum CameraPageState: Equatable {
     case failed(CameraError)
 }
 
+enum CameraConfigurationActivity: Equatable {
+    case startup
+    case livePhoto
+    case switchingCamera
+}
+
+struct CameraTransientNotice: Equatable, Identifiable {
+    enum Kind: Equatable {
+        case livePhotoEnabled
+        case livePhotoDisabled
+    }
+
+    let id = UUID()
+    let kind: Kind
+}
+
 enum LivePhotoIssue: Equatable {
     case microphoneDenied
     case microphoneRestricted
@@ -40,10 +56,11 @@ enum LivePhotoIssue: Equatable {
 @MainActor
 final class CameraModel: ObservableObject {
     @Published private(set) var state = CameraPageState.idle
-    @Published private(set) var showsSaveConfirmation = false
+    @Published private(set) var configurationActivity:
+        CameraConfigurationActivity?
+    @Published private(set) var transientNotice: CameraTransientNotice?
+    @Published private(set) var captureFeedbackTrigger = 0
     @Published private(set) var isLivePhotoEnabled = false
-    @Published private(set) var activeCaptureIsLivePhoto = false
-    @Published private(set) var lastSavedCaptureWasLivePhoto = false
     @Published private(set) var livePhotoIssue: LivePhotoIssue?
     @Published private(set) var capabilities = CameraCapabilities.unavailable
     @Published private(set) var isFlashEnabled = false
@@ -57,7 +74,7 @@ final class CameraModel: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
     private var captureTask: Task<Void, Never>?
     private var zoomTask: Task<Void, Never>?
-    private var confirmationTask: Task<Void, Never>?
+    private var transientNoticeTask: Task<Void, Never>?
     private var focusFeedbackTask: Task<Void, Never>?
     private var lifecycleGeneration = 0
     private var shouldRun = false
@@ -131,6 +148,7 @@ final class CameraModel: ObservableObject {
             return
         }
 
+        configurationActivity = .startup
         state = .configuring
 
         do {
@@ -193,21 +211,25 @@ final class CameraModel: ObservableObject {
                 return
             }
 
+            configurationActivity = nil
             state = .ready
             startupOutcome = "success"
         } catch CameraError.noCameraAvailable {
             startupOutcome = "failure"
             if isCurrent(generation) {
+                configurationActivity = nil
                 state = .unavailable
             }
         } catch let error as CameraError {
             startupOutcome = "failure"
             if isCurrent(generation) {
+                configurationActivity = nil
                 state = .failed(error)
             }
         } catch {
             startupOutcome = "failure"
             if isCurrent(generation) {
+                configurationActivity = nil
                 state = .failed(.runtimeError(error.localizedDescription))
             }
         }
@@ -217,6 +239,9 @@ final class CameraModel: ObservableObject {
         lifecycleGeneration += 1
         shouldRun = false
         focusFeedbackTask?.cancel()
+        transientNoticeTask?.cancel()
+        transientNotice = nil
+        configurationActivity = nil
         focusPoint = nil
         await captureService.stop()
 
@@ -278,6 +303,7 @@ final class CameraModel: ObservableObject {
 
         let generation = lifecycleGeneration
         let pendingZoomTask = zoomTask
+        configurationActivity = .switchingCamera
         state = .configuring
 
         Task { [weak self] in
@@ -401,7 +427,11 @@ final class CameraModel: ObservableObject {
             return
         }
 
+        transientNoticeTask?.cancel()
+        transientNotice = nil
+        let previousValue = isLivePhotoEnabled
         let shouldEnable = !isLivePhotoEnabled
+        isLivePhotoEnabled = shouldEnable
         prefersLivePhoto = shouldEnable
         UserDefaults.standard.set(
             shouldEnable,
@@ -410,11 +440,13 @@ final class CameraModel: ObservableObject {
 
         let generation = lifecycleGeneration
         let pendingZoomTask = zoomTask
+        configurationActivity = .livePhoto
         state = .configuring
         Task { [weak self] in
             await pendingZoomTask?.value
             await self?.applyLivePhotoPreference(
                 shouldEnable,
+                previousValue: previousValue,
                 generation: generation
             )
         }
@@ -441,16 +473,19 @@ final class CameraModel: ObservableObject {
                 outcome: outcome
             )
             captureTask = nil
-            activeCaptureIsLivePhoto = false
         }
 
         do {
-            activeCaptureIsLivePhoto = isLivePhotoEnabled
             let capturedResult = try await captureService.capturePhoto(
-                isLivePhotoEnabled: activeCaptureIsLivePhoto,
+                isLivePhotoEnabled: isLivePhotoEnabled,
                 isFlashEnabled: isFlashEnabled,
                 rotationAngle: captureRotationAngle,
-                performanceCapture: performanceCapture
+                performanceCapture: performanceCapture,
+                onWillCapture: { [weak self] in
+                    Task { @MainActor [weak self] in
+                        self?.captureFeedbackTrigger &+= 1
+                    }
+                }
             )
             if state == .capturing {
                 state = .saving
@@ -471,8 +506,6 @@ final class CameraModel: ObservableObject {
             }
 
             state = .ready
-            lastSavedCaptureWasLivePhoto = result.isLivePhoto
-            showSaveConfirmation()
         } catch let error as CameraError {
             outcome = "failure"
             if state == .capturing || state == .saving {
@@ -528,6 +561,7 @@ final class CameraModel: ObservableObject {
 
     private func applyLivePhotoPreference(
         _ shouldEnable: Bool,
+        previousValue: Bool,
         generation: Int
     ) async {
         do {
@@ -535,15 +569,30 @@ final class CameraModel: ObservableObject {
                 shouldEnable,
                 generation: generation
             )
+            guard isCurrent(generation) else {
+                return
+            }
+
+            configurationActivity = nil
+            state = .ready
+            if shouldEnable, isLivePhotoEnabled {
+                showTransientNotice(.livePhotoEnabled)
+            } else if !shouldEnable {
+                showTransientNotice(.livePhotoDisabled)
+            }
         } catch let error as CameraError {
             guard isCurrent(generation) else {
                 return
             }
+            isLivePhotoEnabled = previousValue
+            configurationActivity = nil
             state = .failed(error)
         } catch {
             guard isCurrent(generation) else {
                 return
             }
+            isLivePhotoEnabled = previousValue
+            configurationActivity = nil
             state = .failed(.runtimeError(error.localizedDescription))
         }
     }
@@ -560,7 +609,6 @@ final class CameraModel: ObservableObject {
 
             isLivePhotoEnabled = false
             livePhotoIssue = nil
-            state = .ready
             return
         }
 
@@ -595,7 +643,6 @@ final class CameraModel: ObservableObject {
             livePhotoIssue = .microphoneRestricted
         }
 
-        state = .ready
     }
 
     private func microphoneAuthorizationStatus() async
@@ -651,18 +698,24 @@ final class CameraModel: ObservableObject {
         }
     }
 
-    private func showSaveConfirmation() {
-        confirmationTask?.cancel()
-        showsSaveConfirmation = true
+    private func showTransientNotice(
+        _ kind: CameraTransientNotice.Kind
+    ) {
+        transientNoticeTask?.cancel()
+        let notice = CameraTransientNotice(kind: kind)
+        transientNotice = notice
 
-        confirmationTask = Task { [weak self] in
+        transientNoticeTask = Task { [weak self] in
             do {
-                try await Task.sleep(for: .seconds(1.5))
+                try await Task.sleep(for: .seconds(1))
             } catch {
                 return
             }
 
-            self?.showsSaveConfirmation = false
+            guard self?.transientNotice?.id == notice.id else {
+                return
+            }
+            self?.transientNotice = nil
         }
     }
 
@@ -691,16 +744,19 @@ final class CameraModel: ObservableObject {
             } else if isLivePhotoStillEnabled {
                 livePhotoIssue = nil
             }
+            configurationActivity = nil
             state = .ready
         } catch let error as CameraError {
             guard isCurrent(generation) else {
                 return
             }
+            configurationActivity = nil
             state = .failed(error)
         } catch {
             guard isCurrent(generation) else {
                 return
             }
+            configurationActivity = nil
             state = .failed(.runtimeError(error.localizedDescription))
         }
     }
@@ -801,6 +857,7 @@ final class CameraModel: ObservableObject {
             return
         }
 
+        configurationActivity = nil
         state = .interrupted
     }
 
@@ -825,6 +882,7 @@ final class CameraModel: ObservableObject {
             return
         }
 
+        configurationActivity = nil
         state = .failed(
             .runtimeError(description ?? "未知相机错误")
         )
