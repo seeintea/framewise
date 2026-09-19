@@ -12,6 +12,7 @@ struct CameraZoomControls: View {
     let selectedZoomFactor: Double
     let isEnabled: Bool
     let onSelectZoomFactor: (Double) -> Void
+    let controlRotation: Angle
 
     var body: some View {
         HStack(spacing: 6) {
@@ -22,6 +23,7 @@ struct CameraZoomControls: View {
                     Text(zoomLabel(for: zoom))
                         .font(.system(size: 13, weight: .light))
                         .monospacedDigit()
+                        .rotationEffect(controlRotation)
                         .foregroundStyle(
                             isSelected(zoom) ? Color.yellow : .white
                         )

@@ -19,6 +19,7 @@ struct CameraPreview: UIViewRepresentable {
     let onFocus: (CGPoint, CGPoint) -> Void
     let onZoomFactorChanged: (Double) -> Void
     let onCaptureRotationAngleChanged: (Double) -> Void
+    let onControlRotationAngleChanged: (Double) -> Void
 
     func makeUIView(context: Context) -> CameraPreviewView {
         let view = CameraPreviewView()
@@ -27,6 +28,7 @@ struct CameraPreview: UIViewRepresentable {
         view.onFocus = onFocus
         view.onZoomFactorChanged = onZoomFactorChanged
         view.onCaptureRotationAngleChanged = onCaptureRotationAngleChanged
+        view.onControlRotationAngleChanged = onControlRotationAngleChanged
         view.updateZoom(
             factor: zoomFactor,
             minimum: minimumZoomFactor,
@@ -45,6 +47,7 @@ struct CameraPreview: UIViewRepresentable {
         view.onFocus = onFocus
         view.onZoomFactorChanged = onZoomFactorChanged
         view.onCaptureRotationAngleChanged = onCaptureRotationAngleChanged
+        view.onControlRotationAngleChanged = onControlRotationAngleChanged
         view.updateZoom(
             factor: zoomFactor,
             minimum: minimumZoomFactor,
@@ -63,6 +66,7 @@ final class CameraPreviewView: UIView {
     var onFocus: ((CGPoint, CGPoint) -> Void)?
     var onZoomFactorChanged: ((Double) -> Void)?
     var onCaptureRotationAngleChanged: ((Double) -> Void)?
+    var onControlRotationAngleChanged: ((Double) -> Void)?
 
     private var cameraDeviceID: String?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
@@ -136,9 +140,17 @@ final class CameraPreviewView: UIView {
             \.videoRotationAngleForHorizonLevelPreview,
             options: [.initial, .new]
         ) { [weak self] coordinator, _ in
+            let captureAngle =
+                coordinator.videoRotationAngleForHorizonLevelCapture
+            let previewAngle =
+                coordinator.videoRotationAngleForHorizonLevelPreview
             Task { @MainActor [weak self] in
                 self?.applyPreviewRotation(
-                    coordinator.videoRotationAngleForHorizonLevelPreview
+                    previewAngle
+                )
+                self?.reportControlRotation(
+                    captureAngle: captureAngle,
+                    previewAngle: previewAngle
                 )
             }
         }
@@ -146,9 +158,16 @@ final class CameraPreviewView: UIView {
             \.videoRotationAngleForHorizonLevelCapture,
             options: [.initial, .new]
         ) { [weak self] coordinator, _ in
-            let angle = coordinator.videoRotationAngleForHorizonLevelCapture
+            let captureAngle =
+                coordinator.videoRotationAngleForHorizonLevelCapture
+            let previewAngle =
+                coordinator.videoRotationAngleForHorizonLevelPreview
             Task { @MainActor [weak self] in
-                self?.onCaptureRotationAngleChanged?(Double(angle))
+                self?.onCaptureRotationAngleChanged?(Double(captureAngle))
+                self?.reportControlRotation(
+                    captureAngle: captureAngle,
+                    previewAngle: previewAngle
+                )
             }
         }
     }
@@ -200,6 +219,25 @@ final class CameraPreviewView: UIView {
         }
 
         connection.videoRotationAngle = angle
+    }
+
+    private func reportControlRotation(
+        captureAngle: CGFloat,
+        previewAngle: CGFloat
+    ) {
+        var angle = (previewAngle - captureAngle)
+            .truncatingRemainder(dividingBy: 360)
+
+        if angle > 180 {
+            angle -= 360
+        } else if angle <= -180 {
+            angle += 360
+        }
+
+        let snappedAngle = (angle / 90).rounded() * 90
+        onControlRotationAngleChanged?(
+            Double(snappedAngle == -0 ? 0 : snappedAngle)
+        )
     }
 
     @objc private func didTap(_ recognizer: UITapGestureRecognizer) {

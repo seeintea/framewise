@@ -12,6 +12,7 @@ struct CameraBottomControls: View {
     let canSwitchCamera: Bool
     let onCapture: () -> Void
     let onSwitchCamera: () -> Void
+    let controlRotation: Angle
 
     var body: some View {
         actionControls
@@ -22,6 +23,7 @@ struct CameraBottomControls: View {
             Button(action: {}) {
                 Image(systemName: "photo.on.rectangle")
                     .font(.system(size: 21, weight: .light))
+                    .rotationEffect(controlRotation)
                     .foregroundStyle(
                         Color(red: 216 / 255, green: 216 / 255, blue: 220 / 255)
                     )
@@ -87,6 +89,7 @@ struct CameraBottomControls: View {
                 Image(.cameraRotate)
                     .resizable()
                     .scaledToFit()
+                    .rotationEffect(controlRotation)
                     .foregroundStyle(.white)
                     .frame(width: 27, height: 27)
                     .frame(width: 58, height: 58)

@@ -48,7 +48,8 @@ struct CameraDebugView: View {
                     zoomFactors: zoomFactors,
                     selectedZoomFactor: selectedZoomFactor,
                     isEnabled: true,
-                    onSelectZoomFactor: { selectedZoomFactor = $0 }
+                    onSelectZoomFactor: { selectedZoomFactor = $0 },
+                    controlRotation: .zero
                 )
 
                 CameraBottomControls(
@@ -63,7 +64,8 @@ struct CameraDebugView: View {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             isFrontFacing.toggle()
                         }
-                    }
+                    },
+                    controlRotation: .zero
                 )
             }
             .padding(.horizontal, 24)
@@ -78,7 +80,8 @@ struct CameraDebugView: View {
                 isFlashEnabled: isFlashEnabled,
                 isFlashAvailable: true,
                 onToggleFlash: { isFlashEnabled.toggle() },
-                areAnnotationsVisible: $areAnnotationsVisible
+                areAnnotationsVisible: $areAnnotationsVisible,
+                controlRotation: .zero
             )
         }
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -169,7 +172,8 @@ private struct CameraDebugPreview: View {
                     selectedExposureBias: selectedExposureBias,
                     isExposureEnabled: true,
                     onSelectExposureBias: onSelectExposureBias,
-                    onExposureInteractionChanged: { _ in }
+                    onExposureInteractionChanged: { _ in },
+                    controlRotation: .zero
                 )
             }
 

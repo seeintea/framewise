@@ -15,6 +15,7 @@ struct CameraToolbarControls: ToolbarContent {
     let isFlashAvailable: Bool
     let onToggleFlash: () -> Void
     @Binding var areAnnotationsVisible: Bool
+    let controlRotation: Angle
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
@@ -25,6 +26,7 @@ struct CameraToolbarControls: ToolbarContent {
                     ).resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
+                        .rotationEffect(controlRotation)
                 }
                 .tint(isFlashEnabled ? .yellow : .white)
                 .disabled(!isFlashAvailable)
@@ -39,6 +41,7 @@ struct CameraToolbarControls: ToolbarContent {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 18, height: 18)
+                    .rotationEffect(controlRotation)
                 }
                 .tint(.white)
                 .disabled(!isLivePhotoControlEnabled)
@@ -52,6 +55,7 @@ struct CameraToolbarControls: ToolbarContent {
                     Image(systemName: "questionmark.circle").resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
+                        .rotationEffect(controlRotation)
                 }
                 .tint(.white)
                 .accessibilityLabel(
@@ -67,6 +71,7 @@ struct CameraToolbarControls: ToolbarContent {
                             .scaledToFit()
                             .frame(width: 16, height: 16)
                     }
+                    .rotationEffect(controlRotation)
                 }
                 .tint(.white)
                 .accessibilityLabel(

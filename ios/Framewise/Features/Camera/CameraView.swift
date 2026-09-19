@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import UIKit
 
 struct CameraView: View {
     @Environment(\.openURL) private var openURL
@@ -18,6 +17,7 @@ struct CameraView: View {
 
     @StateObject private var cameraModel = CameraModel()
     @State private var didControlAnnotationVisibility = false
+    @State private var controlRotation = Angle.zero
 
     var body: some View {
         GeometryReader { proxy in
@@ -52,7 +52,9 @@ struct CameraView: View {
                         },
                         onZoomFactorChanged: cameraModel.updateZoomFactor,
                         onCaptureRotationAngleChanged:
-                            cameraModel.updateCaptureRotationAngle
+                            cameraModel.updateCaptureRotationAngle,
+                        onControlRotationAngleChanged:
+                            updateControlRotation
                     )
                         .accessibilityHidden(true)
 
@@ -83,7 +85,8 @@ struct CameraView: View {
                             onSelectExposureBias:
                                 cameraModel.selectExposureBias,
                             onExposureInteractionChanged:
-                                cameraModel.setExposureInteractionActive
+                                cameraModel.setExposureInteractionActive,
+                            controlRotation: controlRotation
                         )
                             .transition(.opacity)
                     }
@@ -118,7 +121,8 @@ struct CameraView: View {
                         selectedZoomFactor:
                             cameraModel.capabilities.selectedZoomFactor,
                         isEnabled: cameraModel.state == .ready,
-                        onSelectZoomFactor: cameraModel.selectZoomFactor
+                        onSelectZoomFactor: cameraModel.selectZoomFactor,
+                        controlRotation: controlRotation
                     )
                 }
 
@@ -131,7 +135,8 @@ struct CameraView: View {
                             outputAspectRatio: templateAspectRatio
                         )
                     },
-                    onSwitchCamera: cameraModel.switchCamera
+                    onSwitchCamera: cameraModel.switchCamera,
+                    controlRotation: controlRotation
                 )
             }
             .padding(.horizontal, 24)
@@ -147,7 +152,8 @@ struct CameraView: View {
                     cameraModel.capabilities.isFlashAvailable
                     && cameraModel.state == .ready,
                 onToggleFlash: cameraModel.toggleFlash,
-                areAnnotationsVisible: $areAnnotationsVisible
+                areAnnotationsVisible: $areAnnotationsVisible,
+                controlRotation: controlRotation
             )
         }
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -188,6 +194,12 @@ struct CameraView: View {
         }
         .onChange(of: areAnnotationsVisible) { _, _ in
             didControlAnnotationVisibility = true
+        }
+    }
+
+    private func updateControlRotation(_ angle: Double) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            controlRotation = .degrees(angle)
         }
     }
 

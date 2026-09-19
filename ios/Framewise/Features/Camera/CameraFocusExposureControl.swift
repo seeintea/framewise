@@ -15,6 +15,7 @@ struct CameraFocusExposureControl: View {
     let isExposureEnabled: Bool
     let onSelectExposureBias: (Double) -> Void
     let onExposureInteractionChanged: (Bool) -> Void
+    let controlRotation: Angle
 
     private let indicatorSize: CGFloat = 72
     private let spacing: CGFloat = 10
@@ -22,8 +23,11 @@ struct CameraFocusExposureControl: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let exposurePosition = exposureControlPosition(in: proxy.size)
+
             ZStack {
                 CameraFocusIndicator(size: indicatorSize)
+                    .rotationEffect(controlRotation)
                     .position(focusPoint)
 
                 if maximumExposureBias > minimumExposureBias {
@@ -35,10 +39,8 @@ struct CameraFocusExposureControl: View {
                         onSelectBias: onSelectExposureBias,
                         onInteractionChanged: onExposureInteractionChanged
                     )
-                    .position(
-                        x: exposureControlX(in: proxy.size.width),
-                        y: focusPoint.y
-                    )
+                    .rotationEffect(controlRotation)
+                    .position(exposurePosition)
                 }
             }
         }
@@ -51,16 +53,57 @@ struct CameraFocusExposureControl: View {
             + CameraExposureControl.layoutSize.width / 2
     }
 
-    private func exposureControlX(in availableWidth: CGFloat) -> CGFloat {
-        let rightX = focusPoint.x + exposureControlOffset
-        let maximumX = availableWidth
-            - edgePadding
-            - CameraExposureControl.layoutSize.width / 2
+    private func exposureControlPosition(in availableSize: CGSize) -> CGPoint {
+        let radians = controlRotation.radians
+        let direction = CGVector(
+            dx: CGFloat(cos(radians)),
+            dy: CGFloat(sin(radians))
+        )
+        let preferredPosition = CGPoint(
+            x: focusPoint.x + direction.dx * exposureControlOffset,
+            y: focusPoint.y + direction.dy * exposureControlOffset
+        )
 
-        if rightX <= maximumX {
-            return rightX
+        if controlFits(
+            at: preferredPosition,
+            along: direction,
+            in: availableSize
+        ) {
+            return preferredPosition
         }
 
-        return focusPoint.x - exposureControlOffset
+        return CGPoint(
+            x: focusPoint.x - direction.dx * exposureControlOffset,
+            y: focusPoint.y - direction.dy * exposureControlOffset
+        )
+    }
+
+    private func controlFits(
+        at position: CGPoint,
+        along direction: CGVector,
+        in availableSize: CGSize
+    ) -> Bool {
+        let radians = controlRotation.radians
+        let cosine = CGFloat(abs(cos(radians)))
+        let sine = CGFloat(abs(sin(radians)))
+        let size = CameraExposureControl.layoutSize
+        let rotatedWidth = size.width * cosine + size.height * sine
+        let rotatedHeight = size.width * sine + size.height * cosine
+
+        if abs(direction.dx) >= abs(direction.dy) {
+            if direction.dx >= 0 {
+                return position.x + rotatedWidth / 2
+                    <= availableSize.width - edgePadding
+            }
+
+            return position.x - rotatedWidth / 2 >= edgePadding
+        }
+
+        if direction.dy >= 0 {
+            return position.y + rotatedHeight / 2
+                <= availableSize.height - edgePadding
+        }
+
+        return position.y - rotatedHeight / 2 >= edgePadding
     }
 }
