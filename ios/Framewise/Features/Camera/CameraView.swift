@@ -18,10 +18,12 @@ struct CameraView: View {
     @StateObject private var cameraModel = CameraModel()
     @State private var didControlAnnotationVisibility = false
     @State private var controlRotation = Angle.zero
+    @State private var hasReceivedControlRotation = false
 
     var body: some View {
         GeometryReader { proxy in
-            let previewSize = previewSize(in: proxy.size)
+            let previewLayout = previewLayout(in: proxy.size)
+            let previewSize = previewLayout.size
 
             ZStack {
                 Color.black
@@ -64,9 +66,10 @@ struct CameraView: View {
                         showsAnnotations: areAnnotationsVisible
                     )
                     .frame(
-                        width: previewSize.width,
-                        height: previewSize.height
+                        width: previewLayout.compositionSize.width,
+                        height: previewLayout.compositionSize.height
                     )
+                    .rotationEffect(previewLayout.compositionRotation)
                     .allowsHitTesting(false)
 
                     if let focusPoint = cameraModel.focusPoint {
@@ -109,6 +112,22 @@ struct CameraView: View {
                     }
                 }
                 .frame(width: previewSize.width, height: previewSize.height)
+                .overlay(alignment: .top) {
+                    if shouldShowOrientationHint {
+                        StatusBadge(title: "请旋转手机")
+                            .rotationEffect(controlRotation)
+                            .padding(
+                                .top,
+                                isDeviceLandscape ? 50 : 12
+                            )
+                            .transition(
+                                .opacity.combined(
+                                    with: .scale(scale: 0.9)
+                                )
+                            )
+                            .allowsHitTesting(false)
+                    }
+                }
                 .clipped()
             }
         }
@@ -200,7 +219,25 @@ struct CameraView: View {
     private func updateControlRotation(_ angle: Double) {
         withAnimation(.easeInOut(duration: 0.2)) {
             controlRotation = .degrees(angle)
+            hasReceivedControlRotation = true
         }
+    }
+
+    private var shouldShowOrientationHint: Bool {
+        guard hasReceivedControlRotation,
+              abs(templateAspectRatio - 1) > 0.001 else {
+            return false
+        }
+
+        let isTemplateLandscape = templateAspectRatio > 1
+        return isTemplateLandscape != isDeviceLandscape
+    }
+
+    private var isDeviceLandscape: Bool {
+        let normalizedAngle = abs(
+            controlRotation.degrees.truncatingRemainder(dividingBy: 180)
+        )
+        return abs(normalizedAngle - 90) < 0.5
     }
 
     @ViewBuilder
@@ -455,8 +492,40 @@ struct CameraView: View {
         variant.aspectRatio.width / variant.aspectRatio.height
     }
 
-    private func previewSize(in availableSize: CGSize) -> CGSize {
-        let ratio = CGFloat(templateAspectRatio)
+    private func previewLayout(in availableSize: CGSize) -> PreviewLayout {
+        let nativeRatio = CGFloat(templateAspectRatio)
+        let nativeSize = aspectFitSize(
+            ratio: nativeRatio,
+            in: availableSize
+        )
+        let rotatedSize = aspectFitSize(
+            ratio: 1 / nativeRatio,
+            in: availableSize
+        )
+
+        guard rotatedSize.width * rotatedSize.height
+            > nativeSize.width * nativeSize.height else {
+            return PreviewLayout(
+                size: nativeSize,
+                compositionSize: nativeSize,
+                compositionRotation: .zero
+            )
+        }
+
+        return PreviewLayout(
+            size: rotatedSize,
+            compositionSize: CGSize(
+                width: rotatedSize.height,
+                height: rotatedSize.width
+            ),
+            compositionRotation: .degrees(90)
+        )
+    }
+
+    private func aspectFitSize(
+        ratio: CGFloat,
+        in availableSize: CGSize
+    ) -> CGSize {
         let heightFromAvailableWidth = availableSize.width / ratio
 
         if heightFromAvailableWidth <= availableSize.height {
@@ -471,6 +540,12 @@ struct CameraView: View {
             height: availableSize.height
         )
     }
+}
+
+private struct PreviewLayout {
+    let size: CGSize
+    let compositionSize: CGSize
+    let compositionRotation: Angle
 }
 
 #Preview {
