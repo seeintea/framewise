@@ -140,38 +140,40 @@ struct CameraView: View {
                 }
                 .clipped()
             }
-        }
-        .ignoresSafeArea()
-        .overlay(alignment: .bottom) {
-            VStack(spacing: 4) {
-                if cameraModel.capabilities.zoomFactors.count > 1 {
-                    CameraZoomControls(
-                        zoomFactors: cameraModel.capabilities.zoomFactors,
-                        selectedZoomFactor:
-                            cameraModel.capabilities.selectedZoomFactor,
-                        isEnabled: cameraModel.state == .ready,
-                        onSelectZoomFactor: cameraModel.selectZoomFactor,
+            .overlay(alignment: .bottom) {
+                VStack(spacing: 4) {
+                    if cameraModel.capabilities.zoomFactors.count > 1 {
+                        CameraZoomControls(
+                            zoomFactors: cameraModel.capabilities.zoomFactors,
+                            selectedZoomFactor:
+                                cameraModel.capabilities.selectedZoomFactor,
+                            isEnabled: cameraModel.state == .ready,
+                            onSelectZoomFactor: cameraModel.selectZoomFactor,
+                            controlRotation: controlRotation
+                        )
+                    }
+
+                    CameraBottomControls(
+                        isCaptureEnabled: cameraModel.state == .ready,
+                        canSwitchCamera:
+                            cameraModel.capabilities.canSwitchCamera
+                            && cameraModel.state == .ready,
+                        onCapture: {
+                            cameraModel.capturePhoto(
+                                outputAspectRatio: templateAspectRatio,
+                                previewLayoutRotationAngle:
+                                    previewLayout.compositionRotation.degrees
+                            )
+                        },
+                        onSwitchCamera: cameraModel.switchCamera,
                         controlRotation: controlRotation
                     )
                 }
-
-                CameraBottomControls(
-                    isCaptureEnabled: cameraModel.state == .ready,
-                    canSwitchCamera:
-                        cameraModel.capabilities.canSwitchCamera
-                        && cameraModel.state == .ready,
-                    onCapture: {
-                        cameraModel.capturePhoto(
-                            outputAspectRatio: templateAspectRatio
-                        )
-                    },
-                    onSwitchCamera: cameraModel.switchCamera,
-                    controlRotation: controlRotation
-                )
+                .padding(.horizontal, 24)
+                .safeAreaPadding(.bottom, 18)
             }
-            .padding(.horizontal, 24)
-            .safeAreaPadding(.bottom, 18)
         }
+        .ignoresSafeArea()
         .toolbar {
             CameraToolbarControls(
                 isLivePhotoEnabled: cameraModel.isLivePhotoEnabled,

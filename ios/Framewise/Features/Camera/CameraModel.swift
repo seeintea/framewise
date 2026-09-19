@@ -265,7 +265,10 @@ final class CameraModel: ObservableObject {
         }
     }
 
-    func capturePhoto(outputAspectRatio: Double) {
+    func capturePhoto(
+        outputAspectRatio: Double,
+        previewLayoutRotationAngle: Double
+    ) {
         guard state == .ready, captureTask == nil else {
             return
         }
@@ -279,6 +282,7 @@ final class CameraModel: ObservableObject {
             await pendingZoomTask?.value
             await self?.captureAndSavePhoto(
                 outputAspectRatio: outputAspectRatio,
+                previewLayoutRotationAngle: previewLayoutRotationAngle,
                 performanceCapture: performanceCapture
             )
         }
@@ -462,6 +466,7 @@ final class CameraModel: ObservableObject {
 
     private func captureAndSavePhoto(
         outputAspectRatio: Double,
+        previewLayoutRotationAngle: Double,
         performanceCapture: CameraPerformance.Capture
     ) async {
         var outcome = "success"
@@ -476,10 +481,18 @@ final class CameraModel: ObservableObject {
         }
 
         do {
+            // The composition canvas rotates template coordinates into the
+            // preview. Apply the inverse offset to capture output so the
+            // saved crop uses the exact orientation shown by that preview.
+            let outputRotationAngle = captureRotationAngle.map {
+                Self.normalizedRotationAngle(
+                    $0 - previewLayoutRotationAngle
+                )
+            }
             let capturedResult = try await captureService.capturePhoto(
                 isLivePhotoEnabled: isLivePhotoEnabled,
                 isFlashEnabled: isFlashEnabled,
-                rotationAngle: captureRotationAngle,
+                rotationAngle: outputRotationAngle,
                 performanceCapture: performanceCapture,
                 onWillCapture: { [weak self] in
                     Task { @MainActor [weak self] in
@@ -517,6 +530,13 @@ final class CameraModel: ObservableObject {
                 state = .failed(.captureFailed(error.localizedDescription))
             }
         }
+    }
+
+    private static func normalizedRotationAngle(_ angle: Double) -> Double {
+        let normalizedAngle = angle.truncatingRemainder(dividingBy: 360)
+        return normalizedAngle >= 0
+            ? normalizedAngle
+            : normalizedAngle + 360
     }
 
     private func prepareLivePhotoForStart(generation: Int) async throws {
