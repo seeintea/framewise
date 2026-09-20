@@ -65,6 +65,7 @@ final class CameraModel: ObservableObject {
     @Published private(set) var capabilities = CameraCapabilities.unavailable
     @Published private(set) var isFlashEnabled = false
     @Published private(set) var focusPoint: CGPoint?
+    @Published private(set) var framingSnapshot: CameraFramingSnapshot?
 
     let session: AVCaptureSession
 
@@ -79,7 +80,6 @@ final class CameraModel: ObservableObject {
     private var lifecycleGeneration = 0
     private var shouldRun = false
     private var prefersLivePhoto: Bool
-    private var captureRotationAngle: Double?
     private var pendingZoomFactor: Double?
 
     init(
@@ -266,13 +266,24 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto(
+        previewAspectRatio: Double,
         outputAspectRatio: Double,
-        previewLayoutRotationAngle: Double
+        templateToPreviewRotationAngle: Double
     ) {
-        guard state == .ready, captureTask == nil else {
+        guard state == .ready,
+              captureTask == nil,
+              let framingSnapshot else {
             return
         }
 
+        let outputPlan = CameraOutputPlan(
+            framingSnapshot: framingSnapshot,
+            previewAspectRatio: previewAspectRatio,
+            targetAspectRatio: outputAspectRatio,
+            captureToOutputRotationAngle:
+                framingSnapshot.captureToPreviewRotationAngle
+                - templateToPreviewRotationAngle
+        )
         let pendingZoomTask = zoomTask
         let performanceCapture = CameraPerformance.startCapture(
             isLivePhoto: isLivePhotoEnabled
@@ -281,8 +292,7 @@ final class CameraModel: ObservableObject {
         captureTask = Task { [weak self] in
             await pendingZoomTask?.value
             await self?.captureAndSavePhoto(
-                outputAspectRatio: outputAspectRatio,
-                previewLayoutRotationAngle: previewLayoutRotationAngle,
+                outputPlan: outputPlan,
                 performanceCapture: performanceCapture
             )
         }
@@ -307,6 +317,7 @@ final class CameraModel: ObservableObject {
 
         let generation = lifecycleGeneration
         let pendingZoomTask = zoomTask
+        framingSnapshot = nil
         configurationActivity = .switchingCamera
         state = .configuring
 
@@ -405,8 +416,8 @@ final class CameraModel: ObservableObject {
         }
     }
 
-    func updateCaptureRotationAngle(_ angle: Double) {
-        captureRotationAngle = angle
+    func updateFramingSnapshot(_ snapshot: CameraFramingSnapshot?) {
+        framingSnapshot = snapshot
     }
 
     private func scheduleFocusFeedbackDismissal() {
@@ -465,8 +476,7 @@ final class CameraModel: ObservableObject {
     }
 
     private func captureAndSavePhoto(
-        outputAspectRatio: Double,
-        previewLayoutRotationAngle: Double,
+        outputPlan: CameraOutputPlan,
         performanceCapture: CameraPerformance.Capture
     ) async {
         var outcome = "success"
@@ -481,18 +491,10 @@ final class CameraModel: ObservableObject {
         }
 
         do {
-            // The composition canvas rotates template coordinates into the
-            // preview. Apply the inverse offset to capture output so the
-            // saved crop uses the exact orientation shown by that preview.
-            let outputRotationAngle = captureRotationAngle.map {
-                Self.normalizedRotationAngle(
-                    $0 - previewLayoutRotationAngle
-                )
-            }
-            let capturedResult = try await captureService.capturePhoto(
+            let captured = try await captureService.capturePhoto(
                 isLivePhotoEnabled: isLivePhotoEnabled,
                 isFlashEnabled: isFlashEnabled,
-                rotationAngle: outputRotationAngle,
+                framingSnapshot: outputPlan.framingSnapshot,
                 performanceCapture: performanceCapture,
                 onWillCapture: { [weak self] in
                     Task { @MainActor [weak self] in
@@ -505,8 +507,10 @@ final class CameraModel: ObservableObject {
             }
 
             let result = try await livePhotoProcessor.process(
-                capturedResult,
-                targetAspectRatio: outputAspectRatio,
+                captured.result,
+                outputPlan: outputPlan.resolvingPreviewRect(
+                    captured.normalizedPreviewRect
+                ),
                 performanceCapture: performanceCapture
             )
             try await photoLibraryWriter.save(
@@ -530,13 +534,6 @@ final class CameraModel: ObservableObject {
                 state = .failed(.captureFailed(error.localizedDescription))
             }
         }
-    }
-
-    private static func normalizedRotationAngle(_ angle: Double) -> Double {
-        let normalizedAngle = angle.truncatingRemainder(dividingBy: 360)
-        return normalizedAngle >= 0
-            ? normalizedAngle
-            : normalizedAngle + 360
     }
 
     private func prepareLivePhotoForStart(generation: Int) async throws {
@@ -755,7 +752,6 @@ final class CameraModel: ObservableObject {
             isFlashEnabled = false
             focusFeedbackTask?.cancel()
             focusPoint = nil
-            captureRotationAngle = nil
             isLivePhotoEnabled = isLivePhotoStillEnabled
             if prefersLivePhoto,
                !isLivePhotoStillEnabled,

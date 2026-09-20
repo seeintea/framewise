@@ -18,7 +18,7 @@ struct CameraPreview: UIViewRepresentable {
     let isZoomEnabled: Bool
     let onFocus: (CGPoint, CGPoint) -> Void
     let onZoomFactorChanged: (Double) -> Void
-    let onCaptureRotationAngleChanged: (Double) -> Void
+    let onFramingSnapshotChanged: (CameraFramingSnapshot?) -> Void
     let onControlRotationAngleChanged: (Double) -> Void
 
     func makeUIView(context: Context) -> CameraPreviewView {
@@ -27,7 +27,7 @@ struct CameraPreview: UIViewRepresentable {
         view.previewLayer.videoGravity = .resizeAspectFill
         view.onFocus = onFocus
         view.onZoomFactorChanged = onZoomFactorChanged
-        view.onCaptureRotationAngleChanged = onCaptureRotationAngleChanged
+        view.onFramingSnapshotChanged = onFramingSnapshotChanged
         view.onControlRotationAngleChanged = onControlRotationAngleChanged
         view.updateZoom(
             factor: zoomFactor,
@@ -46,7 +46,7 @@ struct CameraPreview: UIViewRepresentable {
 
         view.onFocus = onFocus
         view.onZoomFactorChanged = onZoomFactorChanged
-        view.onCaptureRotationAngleChanged = onCaptureRotationAngleChanged
+        view.onFramingSnapshotChanged = onFramingSnapshotChanged
         view.onControlRotationAngleChanged = onControlRotationAngleChanged
         view.updateZoom(
             factor: zoomFactor,
@@ -65,13 +65,16 @@ struct CameraPreview: UIViewRepresentable {
 final class CameraPreviewView: UIView {
     var onFocus: ((CGPoint, CGPoint) -> Void)?
     var onZoomFactorChanged: ((Double) -> Void)?
-    var onCaptureRotationAngleChanged: ((Double) -> Void)?
+    var onFramingSnapshotChanged: ((CameraFramingSnapshot?) -> Void)?
     var onControlRotationAngleChanged: ((Double) -> Void)?
 
     private var cameraDeviceID: String?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var previewRotationObservation: NSKeyValueObservation?
     private var captureRotationObservation: NSKeyValueObservation?
+    private var previewRotationAngle: Double?
+    private var captureRotationAngle: Double?
+    private var lastFramingSnapshot: CameraFramingSnapshot?
     private var zoomFactor: CGFloat = 1
     private var minimumZoomFactor: CGFloat = 1
     private var maximumZoomFactor: CGFloat = 1
@@ -90,6 +93,11 @@ final class CameraPreviewView: UIView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         installGestureRecognizers()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        reportFramingSnapshot()
     }
 
     private func installGestureRecognizers() {
@@ -145,6 +153,8 @@ final class CameraPreviewView: UIView {
             let previewAngle =
                 coordinator.videoRotationAngleForHorizonLevelPreview
             Task { @MainActor [weak self] in
+                self?.previewRotationAngle = Double(previewAngle)
+                self?.captureRotationAngle = Double(captureAngle)
                 self?.applyPreviewRotation(
                     previewAngle
                 )
@@ -163,7 +173,9 @@ final class CameraPreviewView: UIView {
             let previewAngle =
                 coordinator.videoRotationAngleForHorizonLevelPreview
             Task { @MainActor [weak self] in
-                self?.onCaptureRotationAngleChanged?(Double(captureAngle))
+                self?.previewRotationAngle = Double(previewAngle)
+                self?.captureRotationAngle = Double(captureAngle)
+                self?.reportFramingSnapshot()
                 self?.reportControlRotation(
                     captureAngle: captureAngle,
                     previewAngle: previewAngle
@@ -199,6 +211,10 @@ final class CameraPreviewView: UIView {
         captureRotationObservation = nil
         rotationCoordinator = nil
         cameraDeviceID = nil
+        previewRotationAngle = nil
+        captureRotationAngle = nil
+        lastFramingSnapshot = nil
+        onFramingSnapshotChanged?(nil)
     }
 
     private func configureMirroring(isFrontFacing: Bool) {
@@ -210,6 +226,7 @@ final class CameraPreviewView: UIView {
         if connection.isVideoMirroringSupported {
             connection.isVideoMirrored = isFrontFacing
         }
+        reportFramingSnapshot()
     }
 
     private func applyPreviewRotation(_ angle: CGFloat) {
@@ -219,12 +236,56 @@ final class CameraPreviewView: UIView {
         }
 
         connection.videoRotationAngle = angle
+        reportFramingSnapshot()
+    }
+
+    private func reportFramingSnapshot() {
+        guard bounds.width > 0,
+              bounds.height > 0,
+              let previewRotationAngle,
+              let captureRotationAngle,
+              let connection = previewLayer.connection else {
+            return
+        }
+
+        let captureToPreviewRotationAngle = Self.relativeRotationAngle(
+            captureAngle: captureRotationAngle,
+            previewAngle: previewRotationAngle
+        )
+        let visibleMetadataRect = previewLayer
+            .metadataOutputRectConverted(fromLayerRect: bounds)
+            .standardized
+        let snapshot = CameraFramingSnapshot(
+            captureRotationAngle: captureRotationAngle,
+            isMirrored: connection.isVideoMirrored,
+            captureToPreviewRotationAngle:
+                captureToPreviewRotationAngle,
+            visibleMetadataRect: visibleMetadataRect
+        )
+        guard snapshot != lastFramingSnapshot else {
+            return
+        }
+
+        lastFramingSnapshot = snapshot
+        onFramingSnapshotChanged?(snapshot)
     }
 
     private func reportControlRotation(
         captureAngle: CGFloat,
         previewAngle: CGFloat
     ) {
+        onControlRotationAngleChanged?(
+            Self.relativeRotationAngle(
+                captureAngle: Double(captureAngle),
+                previewAngle: Double(previewAngle)
+            )
+        )
+    }
+
+    private static func relativeRotationAngle(
+        captureAngle: Double,
+        previewAngle: Double
+    ) -> Double {
         var angle = (previewAngle - captureAngle)
             .truncatingRemainder(dividingBy: 360)
 
@@ -235,9 +296,7 @@ final class CameraPreviewView: UIView {
         }
 
         let snappedAngle = (angle / 90).rounded() * 90
-        onControlRotationAngleChanged?(
-            Double(snappedAngle == -0 ? 0 : snappedAngle)
-        )
+        return snappedAngle == -0 ? 0 : snappedAngle
     }
 
     @objc private func didTap(_ recognizer: UITapGestureRecognizer) {

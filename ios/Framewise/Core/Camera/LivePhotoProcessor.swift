@@ -14,7 +14,7 @@ actor LivePhotoProcessor {
 
     func process(
         _ capture: CameraCaptureResult,
-        targetAspectRatio: Double,
+        outputPlan: CameraOutputPlan,
         performanceCapture: CameraPerformance.Capture
     ) async throws -> CameraCaptureResult {
         let processingTimer = CameraPerformance.startTimer()
@@ -28,9 +28,9 @@ actor LivePhotoProcessor {
             )
         }
 
-        guard targetAspectRatio > 0 else {
+        guard Self.isValid(outputPlan) else {
             outcome = "failure"
-            throw CameraError.processingFailed("无效的输出画幅比例。")
+            throw CameraError.processingFailed("拍摄画幅与模板比例不一致。")
         }
 
         switch capture {
@@ -39,7 +39,7 @@ actor LivePhotoProcessor {
                 return .photo(
                     try processPhotoData(
                         data,
-                        targetAspectRatio: targetAspectRatio,
+                        outputPlan: outputPlan,
                         performanceCapture: performanceCapture
                     )
                 )
@@ -56,13 +56,13 @@ actor LivePhotoProcessor {
             do {
                 let processedPhotoData = try processPhotoData(
                     photoData,
-                    targetAspectRatio: targetAspectRatio,
+                    outputPlan: outputPlan,
                     performanceCapture: performanceCapture
                 )
                 try await processMovie(
                     at: pairedVideoURL,
                     outputURL: processedMovieURL,
-                    targetAspectRatio: targetAspectRatio,
+                    outputPlan: outputPlan,
                     performanceCapture: performanceCapture
                 )
 
@@ -83,7 +83,7 @@ actor LivePhotoProcessor {
 
     private func processPhotoData(
         _ data: Data,
-        targetAspectRatio: Double,
+        outputPlan: CameraOutputPlan,
         performanceCapture: CameraPerformance.Capture
     ) throws -> Data {
         let timer = CameraPerformance.startTimer()
@@ -107,22 +107,39 @@ actor LivePhotoProcessor {
             throw CameraError.processingFailed("无法读取相机照片。")
         }
 
-        let cropRect = CameraOutputGeometry.centeredCropRect(
-            in: image.extent,
-            targetAspectRatio: targetAspectRatio
+        let visibleRect = Self.pixelRect(
+            for: outputPlan.normalizedPreviewRect,
+            in: image.extent
         )
-        let croppedImage = image
-            .cropped(to: cropRect)
-            .transformed(
-                by: CGAffineTransform(
-                    translationX: -cropRect.minX,
-                    y: -cropRect.minY
-                )
-            )
+        let cropRect = CameraOutputGeometry.centeredCropRect(
+            in: visibleRect,
+            targetAspectRatio: outputPlan.sourceCropAspectRatio
+        )
+        guard !cropRect.isNull,
+              cropRect.width > 0,
+              cropRect.height > 0 else {
+            outcome = "failure"
+            throw CameraError.processingFailed("取景区域无效。")
+        }
+        let previewImage = Self.normalizedImage(
+            image.cropped(to: cropRect)
+        )
+        let outputImage = Self.rotatedImage(
+            previewImage,
+            clockwiseRotationAngle:
+                outputPlan.captureToOutputRotationAngle
+        )
+        guard Self.hasAspectRatio(
+            outputImage.extent.size,
+            targetAspectRatio: outputPlan.targetAspectRatio
+        ) else {
+            outcome = "failure"
+            throw CameraError.processingFailed("照片输出比例不正确。")
+        }
 
         guard let renderedImage = imageContext.createCGImage(
-            croppedImage,
-            from: croppedImage.extent
+            outputImage,
+            from: outputImage.extent
         ) else {
             outcome = "failure"
             throw CameraError.processingFailed("无法生成裁切后的照片。")
@@ -163,7 +180,7 @@ actor LivePhotoProcessor {
     private func processMovie(
         at inputURL: URL,
         outputURL: URL,
-        targetAspectRatio: Double,
+        outputPlan: CameraOutputPlan,
         performanceCapture: CameraPerformance.Capture
     ) async throws {
         let timer = CameraPerformance.startTimer()
@@ -181,7 +198,7 @@ actor LivePhotoProcessor {
             try await processMovieContents(
                 at: inputURL,
                 outputURL: outputURL,
-                targetAspectRatio: targetAspectRatio
+                outputPlan: outputPlan
             )
         } catch {
             outcome = "failure"
@@ -192,7 +209,7 @@ actor LivePhotoProcessor {
     private func processMovieContents(
         at inputURL: URL,
         outputURL: URL,
-        targetAspectRatio: Double
+        outputPlan: CameraOutputPlan
     ) async throws {
         let asset = AVURLAsset(url: inputURL)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
@@ -213,16 +230,31 @@ actor LivePhotoProcessor {
                 height: abs(transformedBounds.height)
             )
         )
-        let requestedCropRect = CameraOutputGeometry.centeredCropRect(
-            in: orientedBounds,
-            targetAspectRatio: targetAspectRatio
+        let visibleRect = Self.pixelRect(
+            for: outputPlan.normalizedPreviewRect,
+            in: orientedBounds
         )
+        let requestedCropRect = CameraOutputGeometry.centeredCropRect(
+            in: visibleRect,
+            targetAspectRatio: outputPlan.sourceCropAspectRatio
+        )
+        guard !requestedCropRect.isNull,
+              requestedCropRect.width > 0,
+              requestedCropRect.height > 0 else {
+            throw CameraError.processingFailed("实况照片取景区域无效。")
+        }
         let renderSize = CameraOutputGeometry.evenPixelSize(
             requestedCropRect.size
         )
         let cropRect = CGRect(
-            x: orientedBounds.midX - renderSize.width / 2,
-            y: orientedBounds.midY - renderSize.height / 2,
+            x: min(
+                max(requestedCropRect.minX, orientedBounds.minX),
+                orientedBounds.maxX - renderSize.width
+            ),
+            y: min(
+                max(requestedCropRect.minY, orientedBounds.minY),
+                orientedBounds.maxY - renderSize.height
+            ),
             width: renderSize.width,
             height: renderSize.height
         )
@@ -232,12 +264,30 @@ actor LivePhotoProcessor {
                 y: -transformedBounds.minY
             )
         )
-        let outputTransform = normalizedTransform.concatenating(
+        let previewTransform = normalizedTransform.concatenating(
             CGAffineTransform(
                 translationX: -cropRect.minX,
                 y: -cropRect.minY
             )
         )
+        let outputRotation = CameraOutputGeometry
+            .normalizedRotationTransform(
+                clockwiseRotationAngle:
+                    outputPlan.captureToOutputRotationAngle,
+                sourceSize: renderSize
+            )
+        let outputTransform = previewTransform.concatenating(
+            outputRotation.transform
+        )
+        let outputSize = CameraOutputGeometry.evenPixelSize(
+            outputRotation.outputSize
+        )
+        guard Self.hasAspectRatio(
+            outputSize,
+            targetAspectRatio: outputPlan.targetAspectRatio
+        ) else {
+            throw CameraError.processingFailed("实况照片输出比例不正确。")
+        }
         let frameRate = nominalFrameRate > 0 ? nominalFrameRate : 30
         let frameDuration = CMTime(
             value: 1,
@@ -250,7 +300,7 @@ actor LivePhotoProcessor {
                 track: videoTrack,
                 duration: duration,
                 frameDuration: frameDuration,
-                renderSize: renderSize,
+                renderSize: outputSize,
                 transform: outputTransform
             )
         } else {
@@ -258,7 +308,7 @@ actor LivePhotoProcessor {
                 track: videoTrack,
                 duration: duration,
                 frameDuration: frameDuration,
-                renderSize: renderSize,
+                renderSize: outputSize,
                 transform: outputTransform
             )
         }
@@ -328,6 +378,95 @@ actor LivePhotoProcessor {
         composition.renderSize = renderSize
         composition.instructions = [instruction]
         return composition
+    }
+
+    nonisolated private static func isValid(
+        _ outputPlan: CameraOutputPlan
+    ) -> Bool {
+        let sourceRatio = outputPlan.sourceCropAspectRatio
+        let targetRatio = outputPlan.targetAspectRatio
+        guard sourceRatio > 0, targetRatio > 0 else {
+            return false
+        }
+
+        let quarterTurns = CameraOutputGeometry.normalizedQuarterTurns(
+            outputPlan.captureToOutputRotationAngle
+        )
+        let projectedRatio = quarterTurns.isMultiple(of: 2)
+            ? sourceRatio
+            : 1 / sourceRatio
+        return abs(projectedRatio - targetRatio) / targetRatio < 0.01
+    }
+
+    nonisolated private static func normalizedImage(
+        _ image: CIImage
+    ) -> CIImage {
+        image.transformed(
+            by: CGAffineTransform(
+                translationX: -image.extent.minX,
+                y: -image.extent.minY
+            )
+        )
+    }
+
+    nonisolated private static func pixelRect(
+        for normalizedRect: CGRect,
+        in extent: CGRect
+    ) -> CGRect {
+        let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+        let rect = normalizedRect.standardized.intersection(unitRect)
+        guard extent.width > 0,
+              extent.height > 0,
+              !rect.isNull,
+              rect.width > 0,
+              rect.height > 0 else {
+            return extent
+        }
+
+        // Capture output coordinates use a top-left origin. Core Image uses a
+        // bottom-left origin, so flip only the normalized y coordinate.
+        return CGRect(
+            x: extent.minX + rect.minX * extent.width,
+            y: extent.minY + (1 - rect.maxY) * extent.height,
+            width: rect.width * extent.width,
+            height: rect.height * extent.height
+        ).intersection(extent)
+    }
+
+    nonisolated private static func hasAspectRatio(
+        _ size: CGSize,
+        targetAspectRatio: Double
+    ) -> Bool {
+        guard size.width > 0,
+              size.height > 0,
+              targetAspectRatio > 0 else {
+            return false
+        }
+
+        let actualRatio = Double(size.width / size.height)
+        return abs(actualRatio - targetAspectRatio) / targetAspectRatio < 0.01
+    }
+
+    nonisolated private static func rotatedImage(
+        _ image: CIImage,
+        clockwiseRotationAngle: Double
+    ) -> CIImage {
+        let orientation: CGImagePropertyOrientation
+
+        switch CameraOutputGeometry.normalizedQuarterTurns(
+            clockwiseRotationAngle
+        ) {
+        case 1:
+            orientation = .right
+        case 2:
+            orientation = .down
+        case 3:
+            orientation = .left
+        default:
+            orientation = .up
+        }
+
+        return normalizedImage(image.oriented(orientation))
     }
 
     nonisolated private static func makeProcessedMovieURL() -> URL {

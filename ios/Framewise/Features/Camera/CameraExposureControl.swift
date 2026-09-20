@@ -17,7 +17,6 @@ struct CameraExposureControl: View {
     let onSelectBias: (Double) -> Void
     let onInteractionChanged: (Bool) -> Void
 
-    @GestureState private var isInteracting = false
     @State private var biasAtDragStart: Double?
 
     private let dragTravelMultiplier = 1.75
@@ -40,12 +39,10 @@ struct CameraExposureControl: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .updating($isInteracting) { _, isInteracting, _ in
-                        isInteracting = true
-                    }
                     .onChanged { value in
                         if biasAtDragStart == nil {
                             biasAtDragStart = selectedBias
+                            onInteractionChanged(true)
                         }
 
                         selectBias(
@@ -53,6 +50,14 @@ struct CameraExposureControl: View {
                             translationY: value.translation.height,
                             trackHeight: proxy.size.height
                         )
+                    }
+                    .onEnded { _ in
+                        guard biasAtDragStart != nil else {
+                            return
+                        }
+
+                        biasAtDragStart = nil
+                        onInteractionChanged(false)
                     }
             )
         }
@@ -62,12 +67,6 @@ struct CameraExposureControl: View {
         .contentShape(Rectangle())
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : 0.45)
-        .onChange(of: isInteracting) { _, isInteracting in
-            onInteractionChanged(isInteracting)
-            if !isInteracting {
-                biasAtDragStart = nil
-            }
-        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("曝光")
         .accessibilityValue("\(selectedBias, specifier: "%+.1f") EV")

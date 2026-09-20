@@ -281,15 +281,18 @@ actor CameraCaptureService {
     func capturePhoto(
         isLivePhotoEnabled: Bool,
         isFlashEnabled: Bool,
-        rotationAngle: Double?,
+        framingSnapshot: CameraFramingSnapshot,
         performanceCapture: CameraPerformance.Capture,
         onWillCapture: @escaping @Sendable () -> Void
-    ) async throws -> CameraCaptureResult {
+    ) async throws -> CameraCapturedResult {
         guard isConfigured, session.isRunning else {
             throw CameraError.captureNotReady
         }
 
-        configurePhotoConnection(rotationAngle: rotationAngle)
+        configurePhotoConnection(framingSnapshot: framingSnapshot)
+        let normalizedPreviewRect = normalizedPhotoOutputRect(
+            for: framingSnapshot.visibleMetadataRect
+        )
 
         let settings: AVCapturePhotoSettings
         if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
@@ -319,7 +322,7 @@ actor CameraCaptureService {
         let uniqueID = settings.uniqueID
 
         do {
-            return try await withCheckedThrowingContinuation { continuation in
+            let result: CameraCaptureResult = try await withCheckedThrowingContinuation { continuation in
                 let processor = PhotoCaptureProcessor(
                     livePhotoMovieURL: livePhotoMovieURL,
                     performanceCapture: performanceCapture,
@@ -335,6 +338,10 @@ actor CameraCaptureService {
                 photoProcessors[uniqueID] = processor
                 photoOutput.capturePhoto(with: settings, delegate: processor)
             }
+            return CameraCapturedResult(
+                result: result,
+                normalizedPreviewRect: normalizedPreviewRect
+            )
         } catch {
             if let livePhotoMovieURL {
                 try? FileManager.default.removeItem(at: livePhotoMovieURL)
@@ -384,22 +391,57 @@ actor CameraCaptureService {
         }
     }
 
-    private func configurePhotoConnection(rotationAngle: Double?) {
+    private func configurePhotoConnection(
+        framingSnapshot: CameraFramingSnapshot
+    ) {
         guard let connection = photoOutput.connection(with: .video) else {
             return
         }
 
-        if let rotationAngle {
-            let angle = CGFloat(rotationAngle)
-            if connection.isVideoRotationAngleSupported(angle) {
-                connection.videoRotationAngle = angle
-            }
+        let angle = CGFloat(framingSnapshot.captureRotationAngle)
+        if connection.isVideoRotationAngleSupported(angle) {
+            connection.videoRotationAngle = angle
         }
 
         connection.automaticallyAdjustsVideoMirroring = false
         if connection.isVideoMirroringSupported {
-            connection.isVideoMirrored = videoInput?.device.position == .front
+            connection.isVideoMirrored = framingSnapshot.isMirrored
         }
+    }
+
+    private func normalizedPhotoOutputRect(
+        for metadataRect: CGRect
+    ) -> CGRect {
+        let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+        let fullOutputRect = photoOutput
+            .outputRectConverted(fromMetadataOutputRect: unitRect)
+            .standardized
+        let visibleOutputRect = photoOutput
+            .outputRectConverted(fromMetadataOutputRect: metadataRect)
+            .standardized
+
+        guard fullOutputRect.width > 0,
+              fullOutputRect.height > 0,
+              !visibleOutputRect.isNull else {
+            return unitRect
+        }
+
+        let normalizedRect = CGRect(
+            x: (visibleOutputRect.minX - fullOutputRect.minX)
+                / fullOutputRect.width,
+            y: (visibleOutputRect.minY - fullOutputRect.minY)
+                / fullOutputRect.height,
+            width: visibleOutputRect.width / fullOutputRect.width,
+            height: visibleOutputRect.height / fullOutputRect.height
+        ).standardized.intersection(unitRect)
+
+        guard !normalizedRect.isNull,
+              normalizedRect.width > 0,
+              normalizedRect.height > 0 else {
+            return unitRect
+        }
+
+        return normalizedRect
     }
 
     private func setDefaultZoomFactorIfPossible(on device: AVCaptureDevice) {

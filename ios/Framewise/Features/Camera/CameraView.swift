@@ -56,8 +56,8 @@ struct CameraView: View {
                             )
                         },
                         onZoomFactorChanged: cameraModel.updateZoomFactor,
-                        onCaptureRotationAngleChanged:
-                            cameraModel.updateCaptureRotationAngle,
+                        onFramingSnapshotChanged:
+                            cameraModel.updateFramingSnapshot,
                         onControlRotationAngleChanged:
                             updateControlRotation
                     )
@@ -154,14 +154,19 @@ struct CameraView: View {
                     }
 
                     CameraBottomControls(
-                        isCaptureEnabled: cameraModel.state == .ready,
+                        isCaptureEnabled:
+                            cameraModel.state == .ready
+                            && cameraModel.framingSnapshot != nil,
                         canSwitchCamera:
                             cameraModel.capabilities.canSwitchCamera
                             && cameraModel.state == .ready,
                         onCapture: {
                             cameraModel.capturePhoto(
+                                previewAspectRatio: Double(
+                                    previewSize.width / previewSize.height
+                                ),
                                 outputAspectRatio: templateAspectRatio,
-                                previewLayoutRotationAngle:
+                                templateToPreviewRotationAngle:
                                     previewLayout.compositionRotation.degrees
                             )
                         },

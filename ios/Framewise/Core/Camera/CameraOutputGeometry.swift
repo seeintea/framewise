@@ -15,7 +15,7 @@ enum CameraOutputGeometry {
         guard extent.width > 0,
               extent.height > 0,
               targetAspectRatio > 0 else {
-            return extent
+            return .null
         }
 
         let targetRatio = CGFloat(targetAspectRatio)
@@ -47,5 +47,38 @@ enum CameraOutputGeometry {
             width: max(2, (size.width / 2).rounded(.down) * 2),
             height: max(2, (size.height / 2).rounded(.down) * 2)
         )
+    }
+
+    nonisolated static func normalizedRotationTransform(
+        clockwiseRotationAngle: Double,
+        sourceSize: CGSize
+    ) -> (transform: CGAffineTransform, outputSize: CGSize) {
+        let radians = CGFloat(
+            normalizedQuarterTurns(clockwiseRotationAngle)
+        ) * .pi / 2
+        let rotation = CGAffineTransform(rotationAngle: radians)
+        let rotatedBounds = CGRect(origin: .zero, size: sourceSize)
+            .applying(rotation)
+        let transform = rotation.concatenating(
+            CGAffineTransform(
+                translationX: -rotatedBounds.minX,
+                y: -rotatedBounds.minY
+            )
+        )
+
+        return (
+            transform,
+            CGSize(
+                width: abs(rotatedBounds.width),
+                height: abs(rotatedBounds.height)
+            )
+        )
+    }
+
+    nonisolated static func normalizedQuarterTurns(
+        _ angle: Double
+    ) -> Int {
+        let roundedTurns = Int((angle / 90).rounded())
+        return ((roundedTurns % 4) + 4) % 4
     }
 }

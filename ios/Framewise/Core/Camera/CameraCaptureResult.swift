@@ -7,6 +7,11 @@
 
 import Foundation
 
+struct CameraCapturedResult: Sendable {
+    let result: CameraCaptureResult
+    let normalizedPreviewRect: CGRect
+}
+
 enum CameraCaptureResult: Sendable {
     case photo(Data)
     case livePhoto(photoData: Data, pairedVideoURL: URL)
