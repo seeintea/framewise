@@ -1,9 +1,15 @@
-# iOS 相机模块第一阶段
+# [归档] iOS 相机模块第一阶段
 
-> 状态：M0～M6 已实现并完成真机验收，第一阶段完成。
+> [!WARNING]
+> 本文记录的实现已于 2026-09-20 从活跃 iOS target 移除，旧代码保存在
+> [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)。
+> 文中的“已实现”“当前实现”、模块路径、状态机和验收结果都只描述归档版本，不能作为新相机
+> 实现的事实依据。新实现请以 `ios/Framewise/` 中当前实际存在的代码为准。
+
+> 归档前状态：M0～M6 已实现并完成真机验收，第一阶段完成。
 >
-> 最近更新：2026-09-15。当前实现状态以
-> `ios/Framewise/Core/Camera/` 与 `ios/Framewise/Features/Camera/` 为准。
+> 最后实现更新：2026-09-15。归档前代码位于
+> `ios/Framewise/Core/Camera/` 与 `ios/Framewise/Features/Camera/`；这些旧文件现已迁出。
 >
 > 基线：以当前 Xcode 工程配置为准，最低支持 iOS 18.0；使用 Xcode 26 构建。
 >

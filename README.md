@@ -34,11 +34,17 @@ apps/           独立应用，包括模板预览与后续编辑工具
 composition/    平台无关的构图模板数据
 design-system/  跨平台字体、图标和品牌源文件
 plans/          产品、验证与架构讨论记录
+archive/        已退出活跃 target 的只读实现快照
 ```
 
-`plans/` 只作为产品和迁移依据，不代表对应能力已经实现。历史代码不保留在当前工作树中。
+`plans/` 只作为产品和迁移依据，不代表对应能力已经实现。`archive/` 中的代码不参与
+Xcode 编译，也不是当前架构或能力的事实依据。
 
 ## 历史实现
+
+2026-09-20 之前的原生 iOS 相机实现保存在
+[`archive/ios-camera-legacy-2026-09-20/`](./archive/ios-camera-legacy-2026-09-20/README.md)。
+它只用于追溯旧行为；当前相机正在重新实现，不应从该快照复制架构或推断当前能力。
 
 迁移前的 React Native 归档与早期 SwiftUI 翻译保留在提交 `5d1a630`。需要参考时使用独立 worktree：
 

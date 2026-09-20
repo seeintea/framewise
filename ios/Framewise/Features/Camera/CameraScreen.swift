@@ -2,7 +2,7 @@
 //  CameraScreen.swift
 //  Framewise
 //
-//  Created by Codex on 2026/9/13.
+//  Camera feature rewrite entry point.
 //
 
 import SwiftUI
@@ -10,26 +10,21 @@ import SwiftUI
 struct CameraScreen: View {
     let variant: CompositionTemplateVariant
     let annotationTextById: [String: String]
-
-    @State private var areAnnotationsVisible: Bool
-
-    init(
-        variant: CompositionTemplateVariant,
-        annotationTextById: [String: String],
-        showsAnnotationsOnEntry: Bool
-    ) {
-        self.variant = variant
-        self.annotationTextById = annotationTextById
-        _areAnnotationsVisible = State(
-            initialValue: showsAnnotationsOnEntry
-        )
-    }
+    let showsAnnotationsOnEntry: Bool
 
     var body: some View {
-        CameraView(
-            variant: variant,
-            annotationTextById: annotationTextById,
-            areAnnotationsVisible: $areAnnotationsVisible
-        )
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+
+            ContentUnavailableView(
+                "相机开发中",
+                systemImage: "camera",
+                description: Text("新的相机实现将从这里开始。")
+            )
+            .foregroundStyle(.white)
+        }
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
     }
 }

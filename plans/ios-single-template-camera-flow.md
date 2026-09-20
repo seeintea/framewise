@@ -1,4 +1,11 @@
-# iOS 单模板相机链路
+# [部分归档] iOS 单模板相机链路
+
+> [!IMPORTANT]
+> 模板 JSON、`CompositionCatalog`、`CameraTemplateRequest` 与导航解析契约仍在活跃代码中；
+> 本文涉及旧 `CameraView` 和旧相机页面渲染的实施记录已于 2026-09-20 归档。
+> 旧相机代码保存在
+> [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)，
+> 不得据此推断当前相机能力已经实现。
 
 ## 目标
 

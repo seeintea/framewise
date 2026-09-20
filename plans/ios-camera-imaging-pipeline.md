@@ -1,6 +1,13 @@
-# iOS 相机取景与成片一致性
+# [归档] iOS 相机取景与成片一致性
 
-> 状态：2026-09-20 已完成第一阶段管线重建并通过编译，等待真机验收。
+> [!WARNING]
+> 本文描述的 `CameraFramingSnapshot`、`CameraOutputPlan`、`CameraPreview`、
+> `CameraCaptureService` 与 `LivePhotoProcessor` 均属于 2026-09-20 已归档的旧相机实现。
+> 对应代码保存在
+> [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)。
+> 取景与成片一致性仍是产品要求，但本文的具体几何模型不是新实现的既定方案。
+
+> 归档前状态：2026-09-20 已完成第一阶段管线重建并通过编译，等待真机验收。
 > 在通过本文的方向、镜像与 Live Photo 验收矩阵前，不把跨方向拍摄视为可交付能力。
 
 ## 1. 已确认的问题

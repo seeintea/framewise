@@ -1,6 +1,6 @@
 //
 //  CameraCaptureService.swift
-//  Framewise
+//  Framewise legacy camera snapshot
 //
 //  Created by Codex on 2026/9/14.
 //

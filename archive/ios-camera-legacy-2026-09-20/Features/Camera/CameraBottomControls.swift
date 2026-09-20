@@ -1,6 +1,6 @@
 //
 //  CameraBottomControls.swift
-//  Framewise
+//  Framewise legacy camera snapshot
 //
 //  Created by yukkuri on 2026/9/16.
 //
