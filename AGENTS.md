@@ -7,6 +7,7 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 - 做出假设前，先检查当前 Swift 代码、`ios/Framewise.xcodeproj` 和对应 target 的 build settings。
 - `plans/` 记录产品与架构方向，只作为上下文，不代表相关功能已经实现。
 - 2026-09-20 之前的原生 iOS 相机实现已移到 `archive/ios-camera-legacy-2026-09-20/`，不参与 target 编译。该目录及标题带“归档”的相机文档只用于追溯旧行为，不是新相机的设计依据，也不能据此判断当前能力已经实现。
+- 新相机的已确认设计逐步记录在 `plans/ios-camera-architecture-v2.md`；未写入该文档的旧相机行为不自动成为重写要求，实际完成状态仍以当前 Swift 代码为准。
 - React Native 归档与早期 SwiftUI 翻译保留在提交 `5d1a630`。需要阅读时，从该提交创建独立 worktree；不要把旧代码恢复或复制到当前工作树，除非用户明确要求迁移其中的具体能力。
 - 使用新的 Apple 平台 API 前，阅读对应系统版本的 Apple Developer Documentation，并确认 availability。
 
