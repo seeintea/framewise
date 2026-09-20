@@ -272,12 +272,12 @@ struct CameraView: View {
             if let notice = cameraModel.transientNotice {
                 switch notice.kind {
                 case .livePhotoEnabled:
-                    StatusBadge(title: "实况")
+                    CameraStatusBadge(title: "实况")
                 case .livePhotoDisabled:
-                    StatusBadge(title: "关闭实况", palette: .light)
+                    CameraStatusBadge(title: "关闭实况", palette: .light)
                 }
             } else if shouldShowOrientationHint {
-                StatusBadge(title: "请旋转手机")
+                CameraStatusBadge(title: "请旋转手机")
             }
         }
     }

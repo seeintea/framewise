@@ -1,5 +1,5 @@
 //
-//  StatusBadge.swift
+//  CameraStatusBadge.swift
 //  Framewise
 //
 //  Created by Codex on 2026/9/19.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct StatusBadge: View {
+struct CameraStatusBadge: View {
     enum Palette {
         case yellow
         case light
@@ -43,8 +43,8 @@ struct StatusBadge: View {
         Color.black
 
         VStack(spacing: 16) {
-            StatusBadge(title: "请旋转手机")
-            StatusBadge(title: "关闭实况", palette: .light)
+            CameraStatusBadge(title: "请旋转手机")
+            CameraStatusBadge(title: "关闭实况", palette: .light)
         }
     }
 }
