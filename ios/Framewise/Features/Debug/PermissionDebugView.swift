@@ -2,18 +2,24 @@
 //  PermissionDebugView.swift
 //  Framewise
 //
+//  Created by yukkuri on 2026/9/21.
+//
 
 #if DEBUG
 import SwiftUI
 
 struct PermissionDebugView: View {
+    private static let testPermissions: [Permissions.Kind] = [
+        .camera,
+        .photoLibraryAdd,
+        .photoLibraryRead,
+        .microphone,
+    ]
+
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var cameraStatus = PermissionStatus.unknown
-    @State private var photoAddStatus = PermissionStatus.unknown
-    @State private var photoReadStatus = PermissionStatus.unknown
-    @State private var microphoneStatus = PermissionStatus.unknown
-    @State private var requestingPermission: DebugPermission?
+    @State private var checkResult = Permissions.check([])
+    @State private var requestingPermission: Permissions.Kind?
 
     var body: some View {
         List {
@@ -22,25 +28,25 @@ struct PermissionDebugView: View {
                     "相机",
                     detail: "拍摄照片的必要权限",
                     permission: .camera,
-                    status: cameraStatus
+                    status: status(for: .camera)
                 )
                 permissionRow(
                     "相册添加",
                     detail: "把拍摄结果保存到系统相册",
-                    permission: .photoAdd,
-                    status: photoAddStatus
+                    permission: .photoLibraryAdd,
+                    status: status(for: .photoLibraryAdd)
                 )
                 permissionRow(
                     "相册读取",
                     detail: "用于显示最近照片缩略图，可选",
-                    permission: .photoRead,
-                    status: photoReadStatus
+                    permission: .photoLibraryRead,
+                    status: status(for: .photoLibraryRead)
                 )
                 permissionRow(
                     "麦克风",
                     detail: "用于带声音的实况照片",
                     permission: .microphone,
-                    status: microphoneStatus
+                    status: status(for: .microphone)
                 )
             } footer: {
                 Text("每项权限独立检查和申请。已经拒绝的权限需要在系统设置中修改。")
@@ -48,6 +54,15 @@ struct PermissionDebugView: View {
         }
         .navigationTitle("权限测试")
         .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("系统设置", systemImage: "gearshape") {
+                    Task {
+                        await Permissions.openSettings()
+                    }
+                }
+            }
+        }
         .task {
             reloadStatuses()
         }
@@ -63,7 +78,7 @@ struct PermissionDebugView: View {
     private func permissionRow(
         _ title: LocalizedStringKey,
         detail: LocalizedStringKey,
-        permission: DebugPermission,
+        permission: Permissions.Kind,
         status: PermissionStatus
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -105,36 +120,23 @@ struct PermissionDebugView: View {
         .padding(.vertical, 4)
     }
 
-    private func request(_ permission: DebugPermission) {
+    private func request(_ permission: Permissions.Kind) {
         guard requestingPermission == nil else { return }
         requestingPermission = permission
 
         Task {
-            switch permission {
-            case .camera:
-                cameraStatus = await CameraPermission.request()
-            case .photoAdd:
-                photoAddStatus = await PhotoLibraryPermission.request(
-                    for: .addOnly
-                )
-            case .photoRead:
-                photoReadStatus = await PhotoLibraryPermission.request(
-                    for: .readWrite
-                )
-            case .microphone:
-                microphoneStatus = await MicrophonePermission.request()
-            }
-
+            _ = await Permissions.request([permission])
             reloadStatuses()
             requestingPermission = nil
         }
     }
 
     private func reloadStatuses() {
-        cameraStatus = CameraPermission.status
-        photoAddStatus = PhotoLibraryPermission.status(for: .addOnly)
-        photoReadStatus = PhotoLibraryPermission.status(for: .readWrite)
-        microphoneStatus = MicrophonePermission.status
+        checkResult = Permissions.check(Self.testPermissions)
+    }
+
+    private func status(for permission: Permissions.Kind) -> PermissionStatus {
+        checkResult[permission]
     }
 
     private func statusTitle(
@@ -166,12 +168,5 @@ struct PermissionDebugView: View {
             .red
         }
     }
-}
-
-private enum DebugPermission: Hashable {
-    case camera
-    case photoAdd
-    case photoRead
-    case microphone
 }
 #endif

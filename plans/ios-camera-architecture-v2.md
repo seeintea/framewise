@@ -76,7 +76,7 @@
 
 ```text
 ios/Framewise/Core/Permissions/
-├── PermissionStatus.swift
+├── Permissions.swift
 ├── CameraPermission.swift
 ├── PhotoLibraryPermission.swift
 └── MicrophonePermission.swift
@@ -88,12 +88,30 @@ Core 权限边界已经实现相机、相册和麦克风三个独立权限类型
 不提供 read-only 访问级别，因此缩略图流程使用系统的 read-write 权限，但应用只把它用于读取
 用户可访问照片的缩略图。
 
+使用侧统一通过无状态的 `Permissions` facade 传入所需权限数组：
+
+```swift
+let result = Permissions.check([.camera, .photoLibraryAdd])
+result.isAuthorized
+result[.camera]
+
+let requested = await Permissions.request([.camera, .microphone])
+requested[.microphone]
+
+await Permissions.openSettings()
+```
+
+使用侧只暴露 `check`、`request` 和 `openSettings` 三个动作。`check` 与 `request` 的结果既能判断
+传入权限是否全部可用，也能通过权限下标读取每一项的具体状态。数组中的权限按传入顺序逐项
+申请，重复项会被忽略。这个接口只减少调用侧分支，不改变按实际使用时机分别申请权限的规则；
+调用方不得因为支持数组参数就在进入相机时请求全部权限。
+
 权限类型遵守以下边界：
 
 - 对外提供当前权限状态查询。
 - 对外提供显式的异步授权请求；查询操作本身不得弹出系统授权框。
 - 不把 `AVAuthorizationStatus`、`PHAuthorizationStatus` 等系统 enum 扩散到 feature 层。
-- 不把所有权限收进一个拥有大量分支的全局 `PermissionManager`。
+- `Permissions` facade 不缓存状态、不持有 UI，也不决定一次应申请哪些权限。
 - 不为了统一形式提前引入协议；出现真实替换或测试需求后再抽象。
 - 不持有 SwiftUI 状态，不要求在 MainActor 上执行无关的系统查询。
 - 不记录授权文案；用户可见文案属于具体 feature。
@@ -147,7 +165,8 @@ Core 权限边界已完成：
 1. 在 `Core/Permissions` 中定义统一的应用权限状态，不向 feature 暴露系统 enum。
 2. 相机、相册 add-only、相册 read-write 和麦克风权限分别提供独立的状态查询、授权判断和异步
    申请能力。
-3. 已经决定的权限不会重复发起系统申请；状态始终以对应系统 API 的结果为准。
+3. 使用侧可以通过 `Permissions` 传入数组统一查询、判断或依次申请所需权限。
+4. 已经决定的权限不会重复发起系统申请；状态始终以对应系统 API 的结果为准。
 
 权限 UI 与流程接入尚未开始：
 
