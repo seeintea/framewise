@@ -10,7 +10,6 @@ import SwiftUI
 struct CameraScreen: View {
     let variant: CompositionTemplateVariant
     let annotationTextById: [String: String]
-    let showsAnnotationsOnEntry: Bool
 
     var body: some View {
         ZStack {

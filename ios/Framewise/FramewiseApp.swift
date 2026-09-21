@@ -27,8 +27,6 @@ struct AppRootView: View {
     }
 
     @State private var path: [AppRoute] = []
-    @AppStorage(AppSettingKey.showsCameraAnnotationsOnEntry)
-    private var showsCameraAnnotationsOnEntry = true
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -80,8 +78,7 @@ struct AppRootView: View {
                 annotationTextById: catalog.annotationTextById(
                     templateId: template.id,
                     variantId: variant.id
-                ),
-                showsAnnotationsOnEntry: showsCameraAnnotationsOnEntry
+                )
             )
         } else {
             ZStack {

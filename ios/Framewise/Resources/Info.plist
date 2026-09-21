@@ -8,6 +8,8 @@
 	<string>Framewise uses the microphone only when capturing Live Photos with sound.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Framewise saves photos you capture to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Framewise accesses your photo library to show a recent photo thumbnail.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>DingTalk JinBuTi.ttf</string>
