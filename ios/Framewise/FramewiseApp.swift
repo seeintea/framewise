@@ -27,6 +27,7 @@ struct AppRootView: View {
     }
 
     @State private var path: [AppRoute] = []
+    @State private var isLivePhotoEnabled = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -73,12 +74,13 @@ struct AppRootView: View {
            request.templateIds.contains(request.initialTemplateId),
            let template = catalog.template(id: request.initialTemplateId),
            let variant = template.defaultVariant {
-            CameraScreen(
+            CameraAccess(
                 variant: variant,
                 annotationTextById: catalog.annotationTextById(
                     templateId: template.id,
                     variantId: variant.id
-                )
+                ),
+                isLivePhotoEnabled: isLivePhotoEnabled
             )
         } else {
             ZStack {

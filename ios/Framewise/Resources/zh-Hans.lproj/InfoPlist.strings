@@ -1,5 +1,5 @@
 "CFBundleDisplayName" = "蒙版相机";
-"NSCameraUsageDescription" = "Framewise 需要使用相机，让你通过构图提示预览并拍摄照片。";
-"NSMicrophoneUsageDescription" = "Framewise 仅在拍摄带声音的实况照片时使用麦克风。";
-"NSPhotoLibraryAddUsageDescription" = "Framewise 需要把你拍摄的照片保存到系统相册。";
-"NSPhotoLibraryUsageDescription" = "Framewise 需要读取系统相册，以显示最近照片的缩略图。";
+"NSCameraUsageDescription" = "蒙版相机需要使用相机，让你通过构图提示预览并拍摄照片。";
+"NSMicrophoneUsageDescription" = "蒙版相机仅在拍摄带声音的实况照片时使用麦克风。";
+"NSPhotoLibraryAddUsageDescription" = "蒙版相机需要把你拍摄的照片保存到系统相册。";
+"NSPhotoLibraryUsageDescription" = "蒙版相机需要读取系统相册，以显示最近照片的缩略图。";
