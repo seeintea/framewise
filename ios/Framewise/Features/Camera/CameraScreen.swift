@@ -7,7 +7,7 @@ struct CameraScreen: View {
     private enum SaveError: Error { case invalidPhoto }
     @Environment(\.scenePhase) private var scenePhase
 
-    let variant: CompositionTemplateVariant
+    let variant: MaskVariant
     let annotationTextById: [String: String]
     let requestMicrophoneAccess: () async -> Bool
 

@@ -10,7 +10,7 @@ import SwiftUI
 struct MainTabView: View {
     @State private var selection = MainTab.guide
 
-    let onCameraRequest: (CameraTemplateRequest) -> Void
+    let onCameraRequest: (CameraMaskRequest) -> Void
     let onSearch: () -> Void
 
     var body: some View {

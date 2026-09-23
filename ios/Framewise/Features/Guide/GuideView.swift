@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-private let quickCaptureTemplateId = "5aa983db-8730-4307-b18f-88ffe4735206"
+private let quickCaptureMaskId = "5aa983db-8730-4307-b18f-88ffe4735206"
 
 private let landscapeSamplePreviews = [
     GuidePreview(
@@ -53,9 +53,9 @@ private let portraitSamplePreviews = [
 struct GuideView: View {
     @Environment(\.colorScheme) private var colorScheme
 
-    let onCameraRequest: (CameraTemplateRequest) -> Void
+    let onCameraRequest: (CameraMaskRequest) -> Void
 
-    init(onCameraRequest: @escaping (CameraTemplateRequest) -> Void = { _ in })
+    init(onCameraRequest: @escaping (CameraMaskRequest) -> Void = { _ in })
     {
         self.onCameraRequest = onCameraRequest
     }
@@ -88,9 +88,9 @@ struct GuideView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 GuideHeader {
                     onCameraRequest(
-                        CameraTemplateRequest(
-                            templateIds: [quickCaptureTemplateId],
-                            initialTemplateId: quickCaptureTemplateId
+                        CameraMaskRequest(
+                            maskId: quickCaptureMaskId,
+                            relatedMaskIds: []
                         )
                     )
                 }

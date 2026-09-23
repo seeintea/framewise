@@ -1,5 +1,5 @@
 //
-//  CompositionCanvas.swift
+//  MaskCanvas.swift
 //  Framewise
 //
 //  Created by yukkuri on 2026/9/13.
@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-struct CompositionCanvas: View {
-    let variant: CompositionTemplateVariant
+struct MaskCanvas: View {
+    let variant: MaskVariant
     var annotationTextById: [String: String] = [:]
     var showsAnnotations = true
     var color = Color(
@@ -65,7 +65,7 @@ struct CompositionCanvas: View {
         .accessibilityHidden(true)
     }
 
-    private func path(for shape: CompositionShape, in rect: CGRect) -> Path {
+    private func path(for shape: MaskShape, in rect: CGRect) -> Path {
         switch shape {
         case .line(let start, let end), .dashedLine(let start, let end):
             var path = Path()
@@ -98,7 +98,7 @@ struct CompositionCanvas: View {
         }
     }
 
-    private func strokeStyle(for shape: CompositionShape) -> StrokeStyle {
+    private func strokeStyle(for shape: MaskShape) -> StrokeStyle {
         StrokeStyle(
             lineWidth: lineWidth,
             lineCap: .round,

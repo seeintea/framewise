@@ -12,7 +12,7 @@ import SwiftUI
 struct CameraAccess: View {
     @Environment(\.scenePhase) private var scenePhase
 
-    let variant: CompositionTemplateVariant
+    let variant: MaskVariant
     let annotationTextById: [String: String]
 
     @State private var state = State.checking

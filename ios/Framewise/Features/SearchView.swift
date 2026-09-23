@@ -8,42 +8,33 @@
 import SwiftUI
 
 struct SearchView: View {
-    let catalog: CompositionCatalog
-    let onCameraRequest: (CameraTemplateRequest) -> Void
-
-    private var templateIds: [String] {
-        catalog.templates.map(\.id)
-    }
+    let masks: [MaskContent]
+    let onCameraRequest: (CameraMaskRequest) -> Void
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                Text("共 \(catalog.templates.count) 个模版")
+                Text("共 \(masks.count) 个模版")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 4)
 
-                ForEach(catalog.templates) { template in
-                    if let variant = template.defaultVariant,
-                       let localization = catalog.localization(
-                           templateId: template.id
-                       ) {
-                        Button {
-                            onCameraRequest(
-                                CameraTemplateRequest(
-                                    templateIds: templateIds,
-                                    initialTemplateId: template.id
-                                )
+                ForEach(masks) { mask in
+                    Button {
+                        onCameraRequest(
+                            CameraMaskRequest(
+                                maskId: mask.id,
+                                relatedMaskIds: []
                             )
-                        } label: {
-                            SearchTemplateCard(
-                                variant: variant,
-                                title: localization.title,
-                                description: localization.description
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        )
+                    } label: {
+                        SearchTemplateCard(
+                            variant: mask.defaultVariant,
+                            title: mask.localization.title,
+                            description: mask.localization.description
+                        )
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(16)
@@ -55,7 +46,7 @@ struct SearchView: View {
 }
 
 private struct SearchTemplateCard: View {
-    let variant: CompositionTemplateVariant
+    let variant: MaskVariant
     let title: String
     let description: String
 
@@ -79,7 +70,7 @@ private struct SearchTemplateCard: View {
                     endPoint: .bottomTrailing
                 )
 
-                CompositionCanvas(
+                MaskCanvas(
                     variant: variant,
                     showsAnnotations: false,
                     lineWidth: 1
