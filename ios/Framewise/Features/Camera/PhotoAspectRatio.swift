@@ -1,0 +1,54 @@
+import UIKit
+
+enum PhotoAspectRatio: String, CaseIterable, Identifiable {
+    case square = "1:1"
+    case standard = "3:4"
+    case tall = "9:16"
+
+    var id: String { rawValue }
+
+    private var dimensions: (width: Int, height: Int) {
+        switch self {
+        case .square: (1, 1)
+        case .standard: (3, 4)
+        case .tall: (9, 16)
+        }
+    }
+
+    var value: CGFloat {
+        CGFloat(dimensions.width) / CGFloat(dimensions.height)
+    }
+
+    /// Renders an upright pixel matrix with an exact integer aspect ratio.
+    func croppedImage(from data: Data) -> UIImage? {
+        guard let image = UIImage(data: data), let cgImage = image.cgImage else {
+            return nil
+        }
+        let isQuarterTurn: Bool = {
+            switch image.imageOrientation {
+            case .left, .right, .leftMirrored, .rightMirrored: true
+            default: false
+            }
+        }()
+        let sourceWidth = isQuarterTurn ? cgImage.height : cgImage.width
+        let sourceHeight = isQuarterTurn ? cgImage.width : cgImage.height
+        let units = min(sourceWidth / dimensions.width,
+                        sourceHeight / dimensions.height)
+        guard units > 0 else { return nil }
+        let outputWidth = units * dimensions.width
+        let outputHeight = units * dimensions.height
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(
+            size: CGSize(width: outputWidth, height: outputHeight), format: format
+        )
+        return renderer.image { _ in
+            image.draw(in: CGRect(
+                x: CGFloat(outputWidth - sourceWidth) / 2,
+                y: CGFloat(outputHeight - sourceHeight) / 2,
+                width: CGFloat(sourceWidth),
+                height: CGFloat(sourceHeight)
+            ))
+        }
+    }
+}
