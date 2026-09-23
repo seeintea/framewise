@@ -86,6 +86,74 @@
         }
       }
     },
+    "camera.live.enable" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Live Photo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开实况照片"
+          }
+        }
+      }
+    },
+    "camera.live.disable" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn off Live Photo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭实况照片"
+          }
+        }
+      }
+    },
+    "camera.error.live-photo" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live Photo is unavailable on this device."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此设备暂不支持实况照片。"
+          }
+        }
+      }
+    },
+    "camera.error.microphone" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow microphone access to capture Live Photos with sound."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请允许使用麦克风，以拍摄带声音的实况照片。"
+          }
+        }
+      }
+    },
     "camera.capture.accessibility-label" : {
       "extractionState": "manual",
       "localizations": {

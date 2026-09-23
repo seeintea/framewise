@@ -3,6 +3,11 @@ import Foundation
 
 /// Owns all capture-device work on one serial queue. Permission requests stay in CameraAccess.
 nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
+    enum CapturedPhoto {
+        case still(Data)
+        case live(photoData: Data, movieURL: URL)
+    }
+
     struct ZoomOption: Equatable {
         let factor: CGFloat
         let label: String
@@ -59,7 +64,46 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         }
     }
 
-    func capture(completion: @escaping (Result<Data, Error>) -> Void) {
+    func enableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
+        queue.async { [self] in
+            do {
+                guard isConfigured else { throw CameraError.unavailable }
+                if photoOutput.isLivePhotoCaptureEnabled {
+                    DispatchQueue.main.async { completion(.success(())) }
+                    return
+                }
+                guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
+                      let microphone = AVCaptureDevice.default(for: .audio) else {
+                    throw CameraError.unavailable
+                }
+                let audioInput = try AVCaptureDeviceInput(device: microphone)
+                guard session.canAddInput(audioInput) else { throw CameraError.unavailable }
+
+                let wasRunning = session.isRunning
+                if wasRunning { session.stopRunning() }
+                session.beginConfiguration()
+                session.addInput(audioInput)
+                session.commitConfiguration()
+                guard photoOutput.isLivePhotoCaptureSupported else {
+                    session.beginConfiguration()
+                    session.removeInput(audioInput)
+                    session.commitConfiguration()
+                    if wasRunning { session.startRunning() }
+                    throw CameraError.unavailable
+                }
+                photoOutput.isLivePhotoCaptureEnabled = true
+                if wasRunning { session.startRunning() }
+                guard !wasRunning || session.isRunning else {
+                    throw CameraError.unavailable
+                }
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func capture(livePhoto: Bool, completion: @escaping (Result<CapturedPhoto, Error>) -> Void) {
         queue.async { [self] in
             guard session.isRunning else {
                 DispatchQueue.main.async {
@@ -67,9 +111,19 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 return
             }
+            guard !livePhoto || (photoOutput.isLivePhotoCaptureEnabled
+                && !photoOutput.isLivePhotoCaptureSuspended) else {
+                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+                return
+            }
             let settings = AVCapturePhotoSettings()
             settings.photoQualityPrioritization = .balanced
-            let delegate = PhotoDelegate { [weak self] result in
+            let movieURL = livePhoto
+                ? FileManager.default.temporaryDirectory
+                    .appendingPathComponent("Framewise-\(UUID().uuidString).mov")
+                : nil
+            settings.livePhotoMovieFileURL = movieURL
+            let delegate = PhotoDelegate(movieURL: movieURL) { [weak self] result in
                 DispatchQueue.main.async {
                     completion(result)
                     self?.queue.async { self?.photoDelegate = nil }
@@ -149,9 +203,14 @@ private extension CameraEngine {
     }
 
     nonisolated final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
-        private let completion: (Result<Data, Error>) -> Void
+        private let completion: (Result<CapturedPhoto, Error>) -> Void
+        private let movieURL: URL?
+        private var photoData: Data?
+        private var processedMovieURL: URL?
+        private var processingError: Error?
 
-        init(completion: @escaping (Result<Data, Error>) -> Void) {
+        init(movieURL: URL?, completion: @escaping (Result<CapturedPhoto, Error>) -> Void) {
+            self.movieURL = movieURL
             self.completion = completion
         }
 
@@ -161,12 +220,49 @@ private extension CameraEngine {
             error: Error?
         ) {
             if let error {
-                completion(.failure(error))
+                processingError = error
             } else if let data = photo.fileDataRepresentation() {
-                completion(.success(data))
+                photoData = data
             } else {
-                completion(.failure(CameraError.unavailable))
+                processingError = CameraError.unavailable
             }
+        }
+
+        func photoOutput(
+            _ output: AVCapturePhotoOutput,
+            didFinishProcessingLivePhotoToMovieFileAt outputFileURL: URL,
+            duration: CMTime,
+            photoDisplayTime: CMTime,
+            resolvedSettings: AVCaptureResolvedPhotoSettings,
+            error: Error?
+        ) {
+            if let error { processingError = error }
+            else { processedMovieURL = outputFileURL }
+        }
+
+        func photoOutput(
+            _ output: AVCapturePhotoOutput,
+            didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
+            error: Error?
+        ) {
+            let result: Result<CapturedPhoto, Error>
+            if let error = error ?? processingError {
+                result = .failure(error)
+            } else if let photoData {
+                if movieURL == nil {
+                    result = .success(.still(photoData))
+                } else if let processedMovieURL {
+                    result = .success(.live(photoData: photoData, movieURL: processedMovieURL))
+                } else {
+                    result = .failure(CameraError.unavailable)
+                }
+            } else {
+                result = .failure(CameraError.unavailable)
+            }
+            if case .failure = result, let movieURL {
+                try? FileManager.default.removeItem(at: movieURL)
+            }
+            completion(result)
         }
     }
 }

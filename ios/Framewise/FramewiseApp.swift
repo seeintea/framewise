@@ -27,7 +27,6 @@ struct AppRootView: View {
     }
 
     @State private var path: [AppRoute] = []
-    @State private var isLivePhotoEnabled = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -79,8 +78,7 @@ struct AppRootView: View {
                 annotationTextById: catalog.annotationTextById(
                     templateId: template.id,
                     variantId: variant.id
-                ),
-                isLivePhotoEnabled: isLivePhotoEnabled
+                )
             )
         } else {
             ZStack {

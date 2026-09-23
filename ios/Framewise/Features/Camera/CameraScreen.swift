@@ -4,10 +4,12 @@ import SwiftUI
 import UIKit
 
 struct CameraScreen: View {
+    private enum SaveError: Error { case invalidPhoto }
     @Environment(\.scenePhase) private var scenePhase
 
     let variant: CompositionTemplateVariant
     let annotationTextById: [String: String]
+    let requestMicrophoneAccess: () async -> Bool
 
     @State private var engine = CameraEngine()
     @State private var ratio: PhotoAspectRatio = .standard
@@ -17,9 +19,13 @@ struct CameraScreen: View {
     @State private var zoomFactor: CGFloat = 1
     @State private var pinchStartFactor: CGFloat?
     @State private var isCapturing = false
+    @State private var isLivePhotoEnabled = false
+    @State private var isEnablingLivePhoto = false
     @State private var errorMessage: LocalizedStringKey?
     @State private var showsSavedFeedback = false
+    @State private var savedFeedbackTask: Task<Void, Never>?
     @State private var orientationMotion = CMMotionManager()
+    private let livePhotoProcessor = LivePhotoProcessor()
 
     var body: some View {
         GeometryReader { geometry in
@@ -65,6 +71,17 @@ struct CameraScreen: View {
                                 .background(.black.opacity(0.55), in: Capsule())
                         }
                         .accessibilityLabel("camera.output.accessibility-label")
+
+                        Spacer()
+
+                        Button(action: toggleLivePhoto) {
+                            Image(systemName: isLivePhotoEnabled ? "livephoto" : "livephoto.slash")
+                                .font(.title3)
+                                .foregroundStyle(isLivePhotoEnabled ? .yellow : .white)
+                                .frame(minWidth: 44, minHeight: 44)
+                        }
+                        .disabled(isEnablingLivePhoto || isCapturing)
+                        .accessibilityLabel(livePhotoAccessibilityLabel)
 
                         Spacer()
                         Menu {
@@ -150,6 +167,7 @@ struct CameraScreen: View {
             engine.stop()
             UIDevice.current.endGeneratingDeviceOrientationNotifications()
             orientationMotion.stopDeviceMotionUpdates()
+            savedFeedbackTask?.cancel()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { startCamera() }
@@ -195,6 +213,33 @@ struct CameraScreen: View {
         }
     }
 
+    private var livePhotoAccessibilityLabel: LocalizedStringKey {
+        isLivePhotoEnabled ? "camera.live.disable" : "camera.live.enable"
+    }
+
+    private func toggleLivePhoto() {
+        guard !isEnablingLivePhoto else { return }
+        if isLivePhotoEnabled {
+            isLivePhotoEnabled = false
+            return
+        }
+        isEnablingLivePhoto = true
+        Task {
+            guard await requestMicrophoneAccess() else {
+                isEnablingLivePhoto = false
+                errorMessage = "camera.error.microphone"
+                return
+            }
+            engine.enableLivePhoto { result in
+                isEnablingLivePhoto = false
+                switch result {
+                case .success: isLivePhotoEnabled = true
+                case .failure: errorMessage = "camera.error.live-photo"
+                }
+            }
+        }
+    }
+
     private func rememberLandscapeOrientation() {
         let orientation = UIDevice.current.orientation
         if orientation == .landscapeLeft || orientation == .landscapeRight {
@@ -214,42 +259,95 @@ struct CameraScreen: View {
 
     private func capture() {
         guard !isCapturing else { return }
+        savedFeedbackTask?.cancel()
+        showsSavedFeedback = false
         isCapturing = true
         let selectedRatio = ratio
         let selectedSaveOrientation = saveOrientation
+        let capturesLivePhoto = isLivePhotoEnabled
         let deviceOrientation = UIDevice.current.orientation
         let rememberedOrientation = lastLandscapeOrientation
         let motionOrientation = motionLandscapeOrientation
-        engine.capture { result in
+        let quarterTurns = selectedSaveOrientation.quarterTurns(
+            deviceOrientation: deviceOrientation,
+            lastLandscapeOrientation: rememberedOrientation,
+            motionLandscapeOrientation: motionOrientation
+        )
+        engine.capture(livePhoto: capturesLivePhoto) { result in
             switch result {
             case .failure:
                 isCapturing = false
                 errorMessage = "camera.error.capture"
-            case .success(let data):
-                guard let portraitImage = selectedRatio.croppedImage(from: data) else {
-                    isCapturing = false
-                    errorMessage = "camera.error.capture"
-                    return
-                }
-                let image = selectedSaveOrientation.applied(
-                    to: portraitImage,
-                    deviceOrientation: deviceOrientation,
-                    lastLandscapeOrientation: rememberedOrientation,
-                    motionLandscapeOrientation: motionOrientation
-                )
+            case .success(let captured):
                 Task {
                     do {
-                        try await PHPhotoLibrary.shared().performChanges {
-                            PHAssetChangeRequest.creationRequestForAsset(from: image)
-                        }
+                        try await save(
+                            captured,
+                            ratio: selectedRatio,
+                            saveOrientation: selectedSaveOrientation,
+                            deviceOrientation: deviceOrientation,
+                            lastLandscapeOrientation: rememberedOrientation,
+                            motionLandscapeOrientation: motionOrientation,
+                            quarterTurns: quarterTurns
+                        )
+                        isCapturing = false
                         showsSavedFeedback = true
-                        try? await Task.sleep(for: .seconds(1.5))
-                        showsSavedFeedback = false
+                        savedFeedbackTask?.cancel()
+                        savedFeedbackTask = Task {
+                            try? await Task.sleep(for: .seconds(1.5))
+                            guard !Task.isCancelled else { return }
+                            showsSavedFeedback = false
+                        }
                     } catch {
                         errorMessage = "camera.error.save"
+                        isCapturing = false
                     }
-                    isCapturing = false
                 }
+            }
+        }
+    }
+
+    private func save(
+        _ captured: CameraEngine.CapturedPhoto,
+        ratio: PhotoAspectRatio,
+        saveOrientation: PhotoSaveOrientation,
+        deviceOrientation: UIDeviceOrientation,
+        lastLandscapeOrientation: UIDeviceOrientation?,
+        motionLandscapeOrientation: UIDeviceOrientation?,
+        quarterTurns: Int
+    ) async throws {
+        switch captured {
+        case .still(let data):
+            guard let portraitImage = ratio.croppedImage(from: data) else {
+                throw SaveError.invalidPhoto
+            }
+            let image = saveOrientation.applied(
+                to: portraitImage,
+                deviceOrientation: deviceOrientation,
+                lastLandscapeOrientation: lastLandscapeOrientation,
+                motionLandscapeOrientation: motionLandscapeOrientation
+            )
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }
+        case .live(let photoData, let movieURL):
+            defer { try? FileManager.default.removeItem(at: movieURL) }
+            let processed = try await livePhotoProcessor.process(
+                photoData: photoData,
+                movieURL: movieURL,
+                ratio: ratio,
+                quarterTurns: quarterTurns
+            )
+            defer {
+                if processed.movieURL != movieURL {
+                    try? FileManager.default.removeItem(at: processed.movieURL)
+                }
+            }
+            try await PHPhotoLibrary.shared().performChanges {
+                let request = PHAssetCreationRequest.forAsset()
+                request.addResource(with: .photo, data: processed.photoData, options: nil)
+                request.addResource(with: .pairedVideo,
+                                    fileURL: processed.movieURL, options: nil)
             }
         }
     }

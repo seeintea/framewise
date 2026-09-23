@@ -14,7 +14,6 @@ struct CameraAccess: View {
 
     let variant: CompositionTemplateVariant
     let annotationTextById: [String: String]
-    let isLivePhotoEnabled: Bool
 
     @State private var state = State.checking
     @State private var showsPermissionAlert = false
@@ -25,7 +24,8 @@ struct CameraAccess: View {
             case .authorized:
                 CameraScreen(
                     variant: variant,
-                    annotationTextById: annotationTextById
+                    annotationTextById: annotationTextById,
+                    requestMicrophoneAccess: requestMicrophoneAccess
                 )
 
             case .requesting:
@@ -53,10 +53,6 @@ struct CameraAccess: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active, state != .requesting else { return }
-            reloadStatus()
-        }
-        .onChange(of: isLivePhotoEnabled) {
-            guard state != .requesting else { return }
             reloadStatus()
         }
         .alert(alertTitle, isPresented: $showsPermissionAlert) {
@@ -121,12 +117,13 @@ struct CameraAccess: View {
         }
     }
 
+    private func requestMicrophoneAccess() async -> Bool {
+        let result = await Permissions.request([.microphone])
+        return result.isAuthorized
+    }
+
     private var requiredPermissions: [Permissions.Kind] {
-        if isLivePhotoEnabled {
-            [.camera, .photoLibraryAdd, .microphone]
-        } else {
-            [.camera, .photoLibraryAdd]
-        }
+        [.camera, .photoLibraryAdd]
     }
 
     private var alertTitle: LocalizedStringKey {
@@ -146,8 +143,6 @@ struct CameraAccess: View {
 
     private var alertMessage: LocalizedStringKey {
         switch state {
-        case .notDetermined where isLivePhotoEnabled:
-            "camera.access.alert.request.live-photo.message"
         case .notDetermined:
             "camera.access.alert.request.photo.message"
         case .denied:

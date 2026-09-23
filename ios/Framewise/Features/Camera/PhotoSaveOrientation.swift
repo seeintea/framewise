@@ -6,6 +6,19 @@ enum PhotoSaveOrientation {
     case landscapeLeft
     case landscapeRight
 
+    func quarterTurns(
+        deviceOrientation: UIDeviceOrientation,
+        lastLandscapeOrientation: UIDeviceOrientation?,
+        motionLandscapeOrientation: UIDeviceOrientation?
+    ) -> Int {
+        guard self != .portrait else { return 0 }
+        return resolvedRotation(
+            deviceOrientation: deviceOrientation,
+            lastLandscapeOrientation: lastLandscapeOrientation,
+            motionLandscapeOrientation: motionLandscapeOrientation
+        ) == .left ? -1 : 1
+    }
+
     /// Rotates the completed portrait crop; capture and crop geometry stay unchanged.
     func applied(
         to image: UIImage,
@@ -13,7 +26,18 @@ enum PhotoSaveOrientation {
         lastLandscapeOrientation: UIDeviceOrientation?,
         motionLandscapeOrientation: UIDeviceOrientation?
     ) -> UIImage {
-        guard self != .portrait else { return image }
+        Self.applied(
+            to: image,
+            quarterTurns: quarterTurns(
+                deviceOrientation: deviceOrientation,
+                lastLandscapeOrientation: lastLandscapeOrientation,
+                motionLandscapeOrientation: motionLandscapeOrientation
+            )
+        )
+    }
+
+    nonisolated static func applied(to image: UIImage, quarterTurns: Int) -> UIImage {
+        guard quarterTurns != 0 else { return image }
 
         let outputSize = CGSize(width: image.size.height, height: image.size.width)
         let format = UIGraphicsImageRendererFormat()
@@ -21,18 +45,12 @@ enum PhotoSaveOrientation {
         let renderer = UIGraphicsImageRenderer(size: outputSize, format: format)
 
         return renderer.image { context in
-            switch resolvedRotation(
-                deviceOrientation: deviceOrientation,
-                lastLandscapeOrientation: lastLandscapeOrientation,
-                motionLandscapeOrientation: motionLandscapeOrientation
-            ) {
-            case .left:
+            if quarterTurns < 0 {
                 context.cgContext.translateBy(x: 0, y: outputSize.height)
-                context.cgContext.rotate(by: -.pi / 2)
-            case .right:
+            } else {
                 context.cgContext.translateBy(x: outputSize.width, y: 0)
-                context.cgContext.rotate(by: .pi / 2)
             }
+            context.cgContext.rotate(by: CGFloat(quarterTurns) * .pi / 2)
             image.draw(at: .zero)
         }
     }

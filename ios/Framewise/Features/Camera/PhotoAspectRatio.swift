@@ -1,13 +1,13 @@
 import UIKit
 
-enum PhotoAspectRatio: String, CaseIterable, Identifiable {
+enum PhotoAspectRatio: String, CaseIterable, Identifiable, Sendable {
     case square = "1:1"
     case standard = "3:4"
     case tall = "9:16"
 
     var id: String { rawValue }
 
-    private var dimensions: (width: Int, height: Int) {
+    nonisolated var dimensions: (width: Int, height: Int) {
         switch self {
         case .square: (1, 1)
         case .standard: (3, 4)
@@ -15,12 +15,12 @@ enum PhotoAspectRatio: String, CaseIterable, Identifiable {
         }
     }
 
-    var value: CGFloat {
+    nonisolated var value: CGFloat {
         CGFloat(dimensions.width) / CGFloat(dimensions.height)
     }
 
     /// Renders an upright pixel matrix with an exact integer aspect ratio.
-    func croppedImage(from data: Data) -> UIImage? {
+    nonisolated func croppedImage(from data: Data) -> UIImage? {
         guard let image = UIImage(data: data), let cgImage = image.cgImage else {
             return nil
         }
