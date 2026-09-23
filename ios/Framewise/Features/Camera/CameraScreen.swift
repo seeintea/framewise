@@ -1,5 +1,7 @@
+import CoreMotion
 import Photos
 import SwiftUI
+import UIKit
 
 struct CameraScreen: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -9,12 +11,15 @@ struct CameraScreen: View {
 
     @State private var engine = CameraEngine()
     @State private var ratio: PhotoAspectRatio = .standard
+    @State private var saveOrientation: PhotoSaveOrientation = .portrait
+    @State private var lastLandscapeOrientation: UIDeviceOrientation?
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
     @State private var zoomFactor: CGFloat = 1
     @State private var pinchStartFactor: CGFloat?
     @State private var isCapturing = false
     @State private var errorMessage: LocalizedStringKey?
     @State private var showsSavedFeedback = false
+    @State private var orientationMotion = CMMotionManager()
 
     var body: some View {
         GeometryReader { geometry in
@@ -39,6 +44,28 @@ struct CameraScreen: View {
 
                 VStack(spacing: 0) {
                     HStack {
+                        Menu {
+                            Button("camera.output.portrait") {
+                                saveOrientation = .portrait
+                            }
+                            Button("camera.output.landscape") {
+                                saveOrientation = .landscapeAutomatic
+                            }
+                            Button("camera.output.landscape-left") {
+                                saveOrientation = .landscapeLeft
+                            }
+                            Button("camera.output.landscape-right") {
+                                saveOrientation = .landscapeRight
+                            }
+                        } label: {
+                            Text(saveOrientationTitle)
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 15)
+                                .padding(.vertical, 9)
+                                .background(.black.opacity(0.55), in: Capsule())
+                        }
+                        .accessibilityLabel("camera.output.accessibility-label")
+
                         Spacer()
                         Menu {
                             ForEach(PhotoAspectRatio.allCases) { option in
@@ -104,8 +131,26 @@ struct CameraScreen: View {
         }
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear {
+            lastLandscapeOrientation = nil
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+            rememberLandscapeOrientation()
+            if orientationMotion.isDeviceMotionAvailable {
+                orientationMotion.deviceMotionUpdateInterval = 0.1
+                orientationMotion.startDeviceMotionUpdates()
+            }
+        }
         .task { startCamera() }
-        .onDisappear { engine.stop() }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIDevice.orientationDidChangeNotification
+        )) { _ in
+            rememberLandscapeOrientation()
+        }
+        .onDisappear {
+            engine.stop()
+            UIDevice.current.endGeneratingDeviceOrientationNotifications()
+            orientationMotion.stopDeviceMotionUpdates()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { startCamera() }
             else { engine.stop() }
@@ -141,21 +186,57 @@ struct CameraScreen: View {
         engine.setZoom(requestedFactor) { zoomFactor = $0 }
     }
 
+    private var saveOrientationTitle: LocalizedStringKey {
+        switch saveOrientation {
+        case .portrait: "camera.output.portrait"
+        case .landscapeAutomatic: "camera.output.landscape"
+        case .landscapeLeft: "camera.output.landscape-left"
+        case .landscapeRight: "camera.output.landscape-right"
+        }
+    }
+
+    private func rememberLandscapeOrientation() {
+        let orientation = UIDevice.current.orientation
+        if orientation == .landscapeLeft || orientation == .landscapeRight {
+            lastLandscapeOrientation = orientation
+        }
+    }
+
+    private var motionLandscapeOrientation: UIDeviceOrientation? {
+        guard let gravity = orientationMotion.deviceMotion?.gravity,
+              abs(gravity.x) >= 0.5,
+              abs(gravity.x) > abs(gravity.y) else {
+            return nil
+        }
+        // In the portrait screen coordinates, left hold has negative x gravity.
+        return gravity.x < 0 ? .landscapeLeft : .landscapeRight
+    }
+
     private func capture() {
         guard !isCapturing else { return }
         isCapturing = true
         let selectedRatio = ratio
+        let selectedSaveOrientation = saveOrientation
+        let deviceOrientation = UIDevice.current.orientation
+        let rememberedOrientation = lastLandscapeOrientation
+        let motionOrientation = motionLandscapeOrientation
         engine.capture { result in
             switch result {
             case .failure:
                 isCapturing = false
                 errorMessage = "camera.error.capture"
             case .success(let data):
-                guard let image = selectedRatio.croppedImage(from: data) else {
+                guard let portraitImage = selectedRatio.croppedImage(from: data) else {
                     isCapturing = false
                     errorMessage = "camera.error.capture"
                     return
                 }
+                let image = selectedSaveOrientation.applied(
+                    to: portraitImage,
+                    deviceOrientation: deviceOrientation,
+                    lastLandscapeOrientation: rememberedOrientation,
+                    motionLandscapeOrientation: motionOrientation
+                )
                 Task {
                     do {
                         try await PHPhotoLibrary.shared().performChanges {

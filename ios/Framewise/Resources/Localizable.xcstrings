@@ -1,6 +1,91 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "camera.output.portrait" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Portrait save"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "竖屏保存"
+          }
+        }
+      }
+    },
+    "camera.output.landscape" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landscape save (Auto)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "横排保存（自动）"
+          }
+        }
+      }
+    },
+    "camera.output.landscape-left" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landscape: rotate left"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "横排：向左旋转"
+          }
+        }
+      }
+    },
+    "camera.output.landscape-right" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landscape: rotate right"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "横排：向右旋转"
+          }
+        }
+      }
+    },
+    "camera.output.accessibility-label" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo save orientation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "照片保存方向"
+          }
+        }
+      }
+    },
     "camera.capture.accessibility-label" : {
       "extractionState": "manual",
       "localizations": {
