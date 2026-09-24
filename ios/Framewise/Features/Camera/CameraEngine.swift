@@ -13,6 +13,12 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         let label: String
     }
 
+    struct Capabilities {
+        let zoomOptions: [ZoomOption]
+        let exposureRange: ClosedRange<Float>
+        let flashModes: [AVCaptureDevice.FlashMode]
+    }
+
     let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "com.framewise.camera.session")
     private let photoOutput = AVCapturePhotoOutput()
@@ -20,7 +26,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private var isConfigured = false
     private var photoDelegate: PhotoDelegate?
 
-    func start(completion: @escaping (Result<[ZoomOption], Error>) -> Void) {
+    func start(completion: @escaping (Result<Capabilities, Error>) -> Void) {
         queue.async { [self] in
             do {
                 if !isConfigured {
@@ -32,8 +38,12 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 guard session.isRunning, let device else {
                     throw CameraError.unavailable
                 }
-                let options = zoomOptions(for: device)
-                DispatchQueue.main.async { completion(.success(options)) }
+                let capabilities = Capabilities(
+                    zoomOptions: zoomOptions(for: device),
+                    exposureRange: device.minExposureTargetBias...device.maxExposureTargetBias,
+                    flashModes: photoOutput.supportedFlashModes
+                )
+                DispatchQueue.main.async { completion(.success(capabilities)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
@@ -60,6 +70,56 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 DispatchQueue.main.async { completion(value) }
             } catch {
                 DispatchQueue.main.async { completion(device.videoZoomFactor) }
+            }
+        }
+    }
+
+    func focusAndExpose(at point: CGPoint, completion: @escaping (Result<Void, Error>) -> Void) {
+        queue.async { [self] in
+            guard let device else {
+                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+                return
+            }
+            do {
+                try device.lockForConfiguration()
+                defer { device.unlockForConfiguration() }
+                var changed = false
+                if device.isFocusPointOfInterestSupported,
+                   device.isFocusModeSupported(.continuousAutoFocus) {
+                    device.focusPointOfInterest = point
+                    device.focusMode = .continuousAutoFocus
+                    changed = true
+                }
+                if device.isExposurePointOfInterestSupported,
+                   device.isExposureModeSupported(.continuousAutoExposure) {
+                    device.exposurePointOfInterest = point
+                    device.exposureMode = .continuousAutoExposure
+                    changed = true
+                }
+                let result: Result<Void, Error> = changed
+                    ? .success(()) : .failure(CameraError.unavailable)
+                DispatchQueue.main.async { completion(result) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func setExposureBias(_ bias: Float, completion: @escaping (Result<Float, Error>) -> Void) {
+        queue.async { [self] in
+            guard let device else {
+                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+                return
+            }
+            do {
+                let value = min(max(bias, device.minExposureTargetBias),
+                                device.maxExposureTargetBias)
+                try device.lockForConfiguration()
+                device.setExposureTargetBias(value, completionHandler: nil)
+                device.unlockForConfiguration()
+                DispatchQueue.main.async { completion(.success(value)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
@@ -103,7 +163,11 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         }
     }
 
-    func capture(livePhoto: Bool, completion: @escaping (Result<CapturedPhoto, Error>) -> Void) {
+    func capture(
+        livePhoto: Bool,
+        flashMode: AVCaptureDevice.FlashMode,
+        completion: @escaping (Result<CapturedPhoto, Error>) -> Void
+    ) {
         queue.async { [self] in
             guard session.isRunning else {
                 DispatchQueue.main.async {
@@ -116,8 +180,13 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
                 return
             }
+            guard photoOutput.supportedFlashModes.contains(flashMode) else {
+                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+                return
+            }
             let settings = AVCapturePhotoSettings()
             settings.photoQualityPrioritization = .balanced
+            settings.flashMode = flashMode
             let movieURL = livePhoto
                 ? FileManager.default.temporaryDirectory
                     .appendingPathComponent("Framewise-\(UUID().uuidString).mov")
