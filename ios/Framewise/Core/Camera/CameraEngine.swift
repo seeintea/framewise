@@ -1,9 +1,16 @@
+//
+//  CameraEngine.swift
+//  Framewise
+//
+//  Created by yukkuri on 2026/9/24.
+//
+
 import AVFoundation
 import Foundation
 
 /// Owns all capture-device work on one serial queue. Permission requests stay in CameraAccess.
 nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
-    enum CapturedPhoto {
+    enum CapturedPhoto: Sendable {
         case still(Data)
         case live(photoData: Data, movieURL: URL)
     }
@@ -23,6 +30,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.framewise.camera.session")
     private let photoOutput = AVCapturePhotoOutput()
     private var device: AVCaptureDevice?
+    private var liveAudioInput: AVCaptureDeviceInput?
     private var isConfigured = false
     private var photoDelegate: PhotoDelegate?
 
@@ -40,7 +48,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 let capabilities = Capabilities(
                     zoomOptions: zoomOptions(for: device),
-                    exposureRange: device.minExposureTargetBias...device.maxExposureTargetBias,
+                    exposureRange: device
+                        .minExposureTargetBias...device.maxExposureTargetBias,
                     flashModes: photoOutput.supportedFlashModes
                 )
                 DispatchQueue.main.async { completion(.success(capabilities)) }
@@ -61,8 +70,10 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     func setZoom(_ factor: CGFloat, completion: @escaping (CGFloat) -> Void) {
         queue.async { [self] in
             guard let device else { return }
-            let value = min(max(factor, device.minAvailableVideoZoomFactor),
-                            min(device.maxAvailableVideoZoomFactor, 10))
+            let value = min(
+                max(factor, device.minAvailableVideoZoomFactor),
+                min(device.maxAvailableVideoZoomFactor, 10)
+            )
             do {
                 try device.lockForConfiguration()
                 device.videoZoomFactor = value
@@ -74,10 +85,15 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         }
     }
 
-    func focusAndExpose(at point: CGPoint, completion: @escaping (Result<Void, Error>) -> Void) {
+    func focusAndExpose(
+        at point: CGPoint,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
         queue.async { [self] in
             guard let device else {
-                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+                DispatchQueue.main.async {
+                    completion(.failure(CameraError.unavailable))
+                }
                 return
             }
             do {
@@ -85,18 +101,21 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 defer { device.unlockForConfiguration() }
                 var changed = false
                 if device.isFocusPointOfInterestSupported,
-                   device.isFocusModeSupported(.continuousAutoFocus) {
+                    device.isFocusModeSupported(.continuousAutoFocus)
+                {
                     device.focusPointOfInterest = point
                     device.focusMode = .continuousAutoFocus
                     changed = true
                 }
                 if device.isExposurePointOfInterestSupported,
-                   device.isExposureModeSupported(.continuousAutoExposure) {
+                    device.isExposureModeSupported(.continuousAutoExposure)
+                {
                     device.exposurePointOfInterest = point
                     device.exposureMode = .continuousAutoExposure
                     changed = true
                 }
-                let result: Result<Void, Error> = changed
+                let result: Result<Void, Error> =
+                    changed
                     ? .success(()) : .failure(CameraError.unavailable)
                 DispatchQueue.main.async { completion(result) }
             } catch {
@@ -105,15 +124,22 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         }
     }
 
-    func setExposureBias(_ bias: Float, completion: @escaping (Result<Float, Error>) -> Void) {
+    func setExposureBias(
+        _ bias: Float,
+        completion: @escaping (Result<Float, Error>) -> Void
+    ) {
         queue.async { [self] in
             guard let device else {
-                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+                DispatchQueue.main.async {
+                    completion(.failure(CameraError.unavailable))
+                }
                 return
             }
             do {
-                let value = min(max(bias, device.minExposureTargetBias),
-                                device.maxExposureTargetBias)
+                let value = min(
+                    max(bias, device.minExposureTargetBias),
+                    device.maxExposureTargetBias
+                )
                 try device.lockForConfiguration()
                 device.setExposureTargetBias(value, completionHandler: nil)
                 device.unlockForConfiguration()
@@ -132,12 +158,17 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     DispatchQueue.main.async { completion(.success(())) }
                     return
                 }
-                guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
-                      let microphone = AVCaptureDevice.default(for: .audio) else {
+                guard
+                    AVCaptureDevice.authorizationStatus(for: .audio)
+                        == .authorized,
+                    let microphone = AVCaptureDevice.default(for: .audio)
+                else {
                     throw CameraError.unavailable
                 }
                 let audioInput = try AVCaptureDeviceInput(device: microphone)
-                guard session.canAddInput(audioInput) else { throw CameraError.unavailable }
+                guard session.canAddInput(audioInput) else {
+                    throw CameraError.unavailable
+                }
 
                 let wasRunning = session.isRunning
                 if wasRunning { session.stopRunning() }
@@ -152,6 +183,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     throw CameraError.unavailable
                 }
                 photoOutput.isLivePhotoCaptureEnabled = true
+                liveAudioInput = audioInput
                 if wasRunning { session.startRunning() }
                 guard !wasRunning || session.isRunning else {
                     throw CameraError.unavailable
@@ -160,6 +192,31 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
+        }
+    }
+
+    func disableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
+        queue.async { [self] in
+            guard isConfigured else {
+                DispatchQueue.main.async {
+                    completion(.failure(CameraError.unavailable))
+                }
+                return
+            }
+            let wasRunning = session.isRunning
+            if wasRunning { session.stopRunning() }
+            photoOutput.isLivePhotoCaptureEnabled = false
+            if let liveAudioInput {
+                session.beginConfiguration()
+                session.removeInput(liveAudioInput)
+                session.commitConfiguration()
+                self.liveAudioInput = nil
+            }
+            if wasRunning { session.startRunning() }
+            let result: Result<Void, Error> =
+                !wasRunning || session.isRunning
+                ? .success(()) : .failure(CameraError.unavailable)
+            DispatchQueue.main.async { completion(result) }
         }
     }
 
@@ -175,24 +232,35 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 return
             }
-            guard !livePhoto || (photoOutput.isLivePhotoCaptureEnabled
-                && !photoOutput.isLivePhotoCaptureSuspended) else {
-                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+            guard
+                !livePhoto
+                    || (photoOutput.isLivePhotoCaptureEnabled
+                        && !photoOutput.isLivePhotoCaptureSuspended)
+            else {
+                DispatchQueue.main.async {
+                    completion(.failure(CameraError.unavailable))
+                }
                 return
             }
             guard photoOutput.supportedFlashModes.contains(flashMode) else {
-                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
+                DispatchQueue.main.async {
+                    completion(.failure(CameraError.unavailable))
+                }
                 return
             }
             let settings = AVCapturePhotoSettings()
             settings.photoQualityPrioritization = .balanced
             settings.flashMode = flashMode
-            let movieURL = livePhoto
+            let movieURL =
+                livePhoto
                 ? FileManager.default.temporaryDirectory
-                    .appendingPathComponent("Framewise-\(UUID().uuidString).mov")
+                    .appendingPathComponent(
+                        "Framewise-\(UUID().uuidString).mov"
+                    )
                 : nil
             settings.livePhotoMovieFileURL = movieURL
-            let delegate = PhotoDelegate(movieURL: movieURL) { [weak self] result in
+            let delegate = PhotoDelegate(movieURL: movieURL) {
+                [weak self] result in
                 DispatchQueue.main.async {
                     completion(result)
                     self?.queue.async { self?.photoDelegate = nil }
@@ -204,31 +272,42 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 
     private func configure() throws {
-        guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
+        guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+        else {
             throw CameraError.permissionUnavailable
         }
         let deviceTypes: [AVCaptureDevice.DeviceType] = [
             .builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera,
-            .builtInWideAngleCamera
+            .builtInWideAngleCamera,
         ]
         let devices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: deviceTypes, mediaType: .video, position: .back
+            deviceTypes: deviceTypes,
+            mediaType: .video,
+            position: .back
         ).devices
-        guard let device = deviceTypes.compactMap({ type in
-            devices.first(where: { $0.deviceType == type })
-        }).first else {
+        guard
+            let device = deviceTypes.compactMap({ type in
+                devices.first(where: { $0.deviceType == type })
+            }).first
+        else {
             throw CameraError.unavailable
         }
 
         let input = try AVCaptureDeviceInput(device: device)
-        guard session.canAddInput(input), session.canAddOutput(photoOutput) else {
+        guard session.canAddInput(input), session.canAddOutput(photoOutput)
+        else {
             throw CameraError.unavailable
         }
-        if device.constituentDevices.first?.deviceType == AVCaptureDevice.DeviceType.builtInUltraWideCamera,
-           let wideFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first {
+        if device.constituentDevices.first?.deviceType
+            == AVCaptureDevice.DeviceType.builtInUltraWideCamera,
+            let wideFactor = device.virtualDeviceSwitchOverVideoZoomFactors
+                .first
+        {
             try device.lockForConfiguration()
-            device.videoZoomFactor = min(CGFloat(truncating: wideFactor),
-                                         device.maxAvailableVideoZoomFactor)
+            device.videoZoomFactor = min(
+                CGFloat(truncating: wideFactor),
+                device.maxAvailableVideoZoomFactor
+            )
             device.unlockForConfiguration()
         }
         session.beginConfiguration()
@@ -241,14 +320,23 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 
     private func zoomOptions(for device: AVCaptureDevice) -> [ZoomOption] {
-        let switches = device.virtualDeviceSwitchOverVideoZoomFactors.map(\.doubleValue)
-        let hasUltraWide = device.constituentDevices.first?.deviceType == AVCaptureDevice.DeviceType.builtInUltraWideCamera
+        let switches = device.virtualDeviceSwitchOverVideoZoomFactors.map(
+            \.doubleValue
+        )
+        let hasUltraWide =
+            device.constituentDevices.first?.deviceType
+            == AVCaptureDevice.DeviceType.builtInUltraWideCamera
         let oneX = hasUltraWide ? CGFloat(switches.first ?? 1) : 1
-        var factors: [CGFloat] = [device.minAvailableVideoZoomFactor, oneX, oneX * 2]
+        var factors: [CGFloat] = [
+            device.minAvailableVideoZoomFactor, oneX, oneX * 2,
+        ]
         factors += switches.map { CGFloat($0) }
         let maximum = min(device.maxAvailableVideoZoomFactor, 10)
-        return factors
-            .filter { $0 >= device.minAvailableVideoZoomFactor && $0 <= maximum }
+        return
+            factors
+            .filter {
+                $0 >= device.minAvailableVideoZoomFactor && $0 <= maximum
+            }
             .sorted()
             .reduce(into: [CGFloat]()) { result, factor in
                 if result.last.map({ abs($0 - factor) > 0.05 }) ?? true {
@@ -257,7 +345,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             }
             .map { factor in
                 let display = factor / oneX
-                let label = display.rounded() == display
+                let label =
+                    display.rounded() == display
                     ? String(format: "%.0f×", Double(display))
                     : String(format: "%.1f×", Double(display))
                 return ZoomOption(factor: factor, label: label)
@@ -265,20 +354,25 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 }
 
-private extension CameraEngine {
-    enum CameraError: Error {
+extension CameraEngine {
+    fileprivate enum CameraError: Error {
         case unavailable
         case permissionUnavailable
     }
 
-    nonisolated final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
+    fileprivate nonisolated final class PhotoDelegate: NSObject,
+        AVCapturePhotoCaptureDelegate
+    {
         private let completion: (Result<CapturedPhoto, Error>) -> Void
         private let movieURL: URL?
         private var photoData: Data?
         private var processedMovieURL: URL?
         private var processingError: Error?
 
-        init(movieURL: URL?, completion: @escaping (Result<CapturedPhoto, Error>) -> Void) {
+        init(
+            movieURL: URL?,
+            completion: @escaping (Result<CapturedPhoto, Error>) -> Void
+        ) {
             self.movieURL = movieURL
             self.completion = completion
         }
@@ -305,13 +399,17 @@ private extension CameraEngine {
             resolvedSettings: AVCaptureResolvedPhotoSettings,
             error: Error?
         ) {
-            if let error { processingError = error }
-            else { processedMovieURL = outputFileURL }
+            if let error {
+                processingError = error
+            } else {
+                processedMovieURL = outputFileURL
+            }
         }
 
         func photoOutput(
             _ output: AVCapturePhotoOutput,
-            didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
+            didFinishCaptureFor resolvedSettings:
+                AVCaptureResolvedPhotoSettings,
             error: Error?
         ) {
             let result: Result<CapturedPhoto, Error>
@@ -321,7 +419,9 @@ private extension CameraEngine {
                 if movieURL == nil {
                     result = .success(.still(photoData))
                 } else if let processedMovieURL {
-                    result = .success(.live(photoData: photoData, movieURL: processedMovieURL))
+                    result = .success(
+                        .live(photoData: photoData, movieURL: processedMovieURL)
+                    )
                 } else {
                     result = .failure(CameraError.unavailable)
                 }

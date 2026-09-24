@@ -19,6 +19,7 @@ struct AppRootView: View {
     }
 
     @State private var path: [AppRoute] = []
+    @State private var showsCameraSaveError = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -38,6 +39,14 @@ struct AppRootView: View {
                     cameraDestination(for: request)
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cameraPhotoSaveFailed)) { _ in
+            showsCameraSaveError = true
+        }
+        .alert("camera.error.title", isPresented: $showsCameraSaveError) {
+            Button("camera.error.ok", role: .cancel) {}
+        } message: {
+            Text("camera.error.save")
         }
     }
 

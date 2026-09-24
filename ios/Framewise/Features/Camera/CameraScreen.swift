@@ -1,21 +1,25 @@
 import AVFoundation
-import CoreMotion
-import Photos
 import SwiftUI
-import UIKit
 
 struct CameraScreen: View {
-    private enum SaveError: Error { case invalidPhoto }
+    private enum CameraPhase: Equatable {
+        case stopped
+        case starting(UUID)
+        case ready
+        case changingLivePhoto(UUID)
+        case capturing(UUID)
+    }
+
     @Environment(\.scenePhase) private var scenePhase
 
     let variant: MaskVariant
     let annotationTextById: [String: String]
     let requestMicrophoneAccess: () async -> Bool
+    @Binding var livePhotoEnabled: Bool
 
-    @State private var engine = CameraEngine()
+    @State private var camera = CameraController()
+    @State private var phase: CameraPhase = .stopped
     @State private var ratio: PhotoAspectRatio = .standard
-    @State private var saveOrientation: PhotoSaveOrientation = .portrait
-    @State private var lastLandscapeOrientation: UIDeviceOrientation?
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
     @State private var zoomFactor: CGFloat = 1
     @State private var pinchStartFactor: CGFloat?
@@ -25,14 +29,7 @@ struct CameraScreen: View {
     @State private var flashMode: AVCaptureDevice.FlashMode = .off
     @State private var showsFocusFeedback = false
     @State private var focusFeedbackTask: Task<Void, Never>?
-    @State private var isCapturing = false
-    @State private var isLivePhotoEnabled = false
-    @State private var isEnablingLivePhoto = false
     @State private var errorMessage: LocalizedStringKey?
-    @State private var showsSavedFeedback = false
-    @State private var savedFeedbackTask: Task<Void, Never>?
-    @State private var orientationMotion = CMMotionManager()
-    private let livePhotoProcessor = LivePhotoProcessor()
 
     var body: some View {
         GeometryReader { geometry in
@@ -41,8 +38,8 @@ struct CameraScreen: View {
             ZStack {
                 Color.black.ignoresSafeArea()
 
-                CameraPreview(session: engine.session) { point in
-                    engine.focusAndExpose(at: point) { result in
+                CameraPreview(session: camera.session) { point in
+                    camera.focusAndExpose(at: point) { result in
                         switch result {
                         case .success:
                             showsFocusFeedback = true
@@ -72,37 +69,15 @@ struct CameraScreen: View {
 
                 VStack(spacing: 0) {
                     HStack {
-                        Menu {
-                            Button("camera.output.portrait") {
-                                saveOrientation = .portrait
-                            }
-                            Button("camera.output.landscape") {
-                                saveOrientation = .landscapeAutomatic
-                            }
-                            Button("camera.output.landscape-left") {
-                                saveOrientation = .landscapeLeft
-                            }
-                            Button("camera.output.landscape-right") {
-                                saveOrientation = .landscapeRight
-                            }
-                        } label: {
-                            Text(saveOrientationTitle)
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 15)
-                                .padding(.vertical, 9)
-                                .background(.black.opacity(0.55), in: Capsule())
-                        }
-                        .accessibilityLabel("camera.output.accessibility-label")
-
                         Spacer()
 
                         Button(action: toggleLivePhoto) {
-                            Image(systemName: isLivePhotoEnabled ? "livephoto" : "livephoto.slash")
+                            Image(systemName: livePhotoEnabled ? "livephoto" : "livephoto.slash")
                                 .font(.title3)
-                                .foregroundStyle(isLivePhotoEnabled ? .yellow : .white)
+                                .foregroundStyle(livePhotoEnabled ? .yellow : .white)
                                 .frame(minWidth: 44, minHeight: 44)
                         }
-                        .disabled(isEnablingLivePhoto || isCapturing)
+                        .disabled(phase != .ready)
                         .accessibilityLabel(livePhotoAccessibilityLabel)
 
                         Spacer()
@@ -140,7 +115,7 @@ struct CameraScreen: View {
                                 .padding(.vertical, 9)
                                 .background(.black.opacity(0.55), in: Capsule())
                         }
-                        .disabled(flashModes.count < 2 || isCapturing)
+                        .disabled(flashModes.count < 2 || phase != .ready)
                         .accessibilityLabel("camera.flash.accessibility-label")
                         Spacer()
                     }
@@ -196,19 +171,11 @@ struct CameraScreen: View {
                                 Circle().stroke(.white, lineWidth: 3)
                             }
                     }
-                    .disabled(isCapturing || zoomOptions.isEmpty)
+                    .disabled(phase != .ready || zoomOptions.isEmpty)
                     .accessibilityLabel("camera.capture.accessibility-label")
                     .padding(.bottom, 24)
                 }
 
-                if showsSavedFeedback {
-                    Text("camera.saved.message")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(12)
-                        .background(.black.opacity(0.7), in: Capsule())
-                        .frame(maxHeight: .infinity, alignment: .top)
-                        .padding(.top, 60)
-                }
                 if showsFocusFeedback {
                     Text("camera.focus.applied")
                         .font(.caption.weight(.semibold))
@@ -220,48 +187,52 @@ struct CameraScreen: View {
         }
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .onAppear {
-            lastLandscapeOrientation = nil
-            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-            rememberLandscapeOrientation()
-            if orientationMotion.isDeviceMotionAvailable {
-                orientationMotion.deviceMotionUpdateInterval = 0.1
-                orientationMotion.startDeviceMotionUpdates()
-            }
-        }
         .task { startCamera() }
-        .onReceive(NotificationCenter.default.publisher(
-            for: UIDevice.orientationDidChangeNotification
-        )) { _ in
-            rememberLandscapeOrientation()
-        }
         .onDisappear {
-            engine.stop()
-            UIDevice.current.endGeneratingDeviceOrientationNotifications()
-            orientationMotion.stopDeviceMotionUpdates()
-            savedFeedbackTask?.cancel()
+            phase = .stopped
+            camera.stop()
             focusFeedbackTask?.cancel()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { startCamera() }
-            else { engine.stop() }
+            else {
+                self.phase = .stopped
+                camera.stop()
+            }
         }
         .alert("camera.error.title", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {
             Button("camera.error.ok", role: .cancel) { errorMessage = nil }
+            if phase == .stopped {
+                Button("camera.access.action.retry") {
+                    errorMessage = nil
+                    startCamera()
+                }
+                if livePhotoEnabled {
+                    Button("camera.live.disable") {
+                        livePhotoEnabled = false
+                        errorMessage = nil
+                        startCamera()
+                    }
+                }
+            }
         } message: {
             if let errorMessage { Text(errorMessage) }
         }
     }
 
     private func startCamera() {
+        guard phase == .stopped else { return }
         guard Permissions.check([.camera]).isAuthorized else {
             errorMessage = "camera.error.permission"
             return
         }
-        engine.start { result in
+        let operationID = UUID()
+        phase = .starting(operationID)
+        camera.start(livePhotoEnabled: livePhotoEnabled) { result in
+            guard phase == .starting(operationID) else { return }
             switch result {
             case .success(let capabilities):
                 zoomOptions = capabilities.zoomOptions
@@ -271,18 +242,22 @@ struct CameraScreen: View {
                 if let normal = capabilities.zoomOptions.first(where: { $0.label == "1×" }) {
                     zoomFactor = normal.factor
                 }
-            case .failure: errorMessage = "camera.error.unavailable"
+                phase = .ready
+            case .failure:
+                phase = .stopped
+                camera.stop()
+                errorMessage = "camera.error.unavailable"
             }
         }
     }
 
     private func setZoom(_ requestedFactor: CGFloat) {
-        engine.setZoom(requestedFactor) { zoomFactor = $0 }
+        camera.setZoom(requestedFactor) { zoomFactor = $0 }
     }
 
     private func setExposureBias(_ requestedBias: Double) {
         exposureBias = requestedBias
-        engine.setExposureBias(Float(requestedBias)) { result in
+        camera.setExposureBias(Float(requestedBias)) { result in
             switch result {
             case .success(let value): exposureBias = Double(value)
             case .failure: errorMessage = "camera.error.exposure"
@@ -299,151 +274,60 @@ struct CameraScreen: View {
         }
     }
 
-    private var saveOrientationTitle: LocalizedStringKey {
-        switch saveOrientation {
-        case .portrait: "camera.output.portrait"
-        case .landscapeAutomatic: "camera.output.landscape"
-        case .landscapeLeft: "camera.output.landscape-left"
-        case .landscapeRight: "camera.output.landscape-right"
-        }
-    }
-
     private var livePhotoAccessibilityLabel: LocalizedStringKey {
-        isLivePhotoEnabled ? "camera.live.disable" : "camera.live.enable"
+        livePhotoEnabled ? "camera.live.disable" : "camera.live.enable"
     }
 
     private func toggleLivePhoto() {
-        guard !isEnablingLivePhoto else { return }
-        if isLivePhotoEnabled {
-            isLivePhotoEnabled = false
+        guard phase == .ready else { return }
+        let operationID = UUID()
+        phase = .changingLivePhoto(operationID)
+        if livePhotoEnabled {
+            camera.setLivePhotoEnabled(false) { result in
+                guard phase == .changingLivePhoto(operationID) else { return }
+                switch result {
+                case .success:
+                    livePhotoEnabled = false
+                    phase = .ready
+                case .failure:
+                    phase = .stopped
+                    camera.stop()
+                    errorMessage = "camera.error.live-photo"
+                }
+            }
             return
         }
-        isEnablingLivePhoto = true
         Task {
             guard await requestMicrophoneAccess() else {
-                isEnablingLivePhoto = false
+                guard phase == .changingLivePhoto(operationID) else { return }
+                phase = .ready
                 errorMessage = "camera.error.microphone"
                 return
             }
-            engine.enableLivePhoto { result in
-                isEnablingLivePhoto = false
+            guard phase == .changingLivePhoto(operationID) else { return }
+            camera.setLivePhotoEnabled(true) { result in
+                guard phase == .changingLivePhoto(operationID) else { return }
                 switch result {
-                case .success: isLivePhotoEnabled = true
-                case .failure: errorMessage = "camera.error.live-photo"
+                case .success:
+                    livePhotoEnabled = true
+                    phase = .ready
+                case .failure:
+                    phase = .stopped
+                    camera.stop()
+                    errorMessage = "camera.error.live-photo"
                 }
             }
         }
-    }
-
-    private func rememberLandscapeOrientation() {
-        let orientation = UIDevice.current.orientation
-        if orientation == .landscapeLeft || orientation == .landscapeRight {
-            lastLandscapeOrientation = orientation
-        }
-    }
-
-    private var motionLandscapeOrientation: UIDeviceOrientation? {
-        guard let gravity = orientationMotion.deviceMotion?.gravity,
-              abs(gravity.x) >= 0.5,
-              abs(gravity.x) > abs(gravity.y) else {
-            return nil
-        }
-        // In the portrait screen coordinates, left hold has negative x gravity.
-        return gravity.x < 0 ? .landscapeLeft : .landscapeRight
     }
 
     private func capture() {
-        guard !isCapturing else { return }
-        savedFeedbackTask?.cancel()
-        showsSavedFeedback = false
-        isCapturing = true
-        let selectedRatio = ratio
-        let selectedSaveOrientation = saveOrientation
-        let capturesLivePhoto = isLivePhotoEnabled
-        let deviceOrientation = UIDevice.current.orientation
-        let rememberedOrientation = lastLandscapeOrientation
-        let motionOrientation = motionLandscapeOrientation
-        let quarterTurns = selectedSaveOrientation.quarterTurns(
-            deviceOrientation: deviceOrientation,
-            lastLandscapeOrientation: rememberedOrientation,
-            motionLandscapeOrientation: motionOrientation
-        )
-        engine.capture(livePhoto: capturesLivePhoto, flashMode: flashMode) { result in
-            switch result {
-            case .failure:
-                isCapturing = false
-                errorMessage = "camera.error.capture"
-            case .success(let captured):
-                Task {
-                    do {
-                        try await save(
-                            captured,
-                            ratio: selectedRatio,
-                            saveOrientation: selectedSaveOrientation,
-                            deviceOrientation: deviceOrientation,
-                            lastLandscapeOrientation: rememberedOrientation,
-                            motionLandscapeOrientation: motionOrientation,
-                            quarterTurns: quarterTurns
-                        )
-                        isCapturing = false
-                        showsSavedFeedback = true
-                        savedFeedbackTask?.cancel()
-                        savedFeedbackTask = Task {
-                            try? await Task.sleep(for: .seconds(1.5))
-                            guard !Task.isCancelled else { return }
-                            showsSavedFeedback = false
-                        }
-                    } catch {
-                        errorMessage = "camera.error.save"
-                        isCapturing = false
-                    }
-                }
-            }
-        }
-    }
-
-    private func save(
-        _ captured: CameraEngine.CapturedPhoto,
-        ratio: PhotoAspectRatio,
-        saveOrientation: PhotoSaveOrientation,
-        deviceOrientation: UIDeviceOrientation,
-        lastLandscapeOrientation: UIDeviceOrientation?,
-        motionLandscapeOrientation: UIDeviceOrientation?,
-        quarterTurns: Int
-    ) async throws {
-        switch captured {
-        case .still(let data):
-            guard let portraitImage = ratio.croppedImage(from: data) else {
-                throw SaveError.invalidPhoto
-            }
-            let image = saveOrientation.applied(
-                to: portraitImage,
-                deviceOrientation: deviceOrientation,
-                lastLandscapeOrientation: lastLandscapeOrientation,
-                motionLandscapeOrientation: motionLandscapeOrientation
-            )
-            try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.creationRequestForAsset(from: image)
-            }
-        case .live(let photoData, let movieURL):
-            defer { try? FileManager.default.removeItem(at: movieURL) }
-            let processed = try await livePhotoProcessor.process(
-                photoData: photoData,
-                movieURL: movieURL,
-                ratio: ratio,
-                quarterTurns: quarterTurns
-            )
-            defer {
-                if processed.movieURL != movieURL {
-                    try? FileManager.default.removeItem(at: processed.movieURL)
-                }
-            }
-            try await PHPhotoLibrary.shared().performChanges {
-                let request = PHAssetCreationRequest.forAsset()
-                request.addResource(with: .photo, data: processed.photoData, options: nil)
-                request.addResource(with: .pairedVideo,
-                                    fileURL: processed.movieURL, options: nil)
-            }
+        guard phase == .ready else { return }
+        let operationID = UUID()
+        phase = .capturing(operationID)
+        camera.capture(ratio: ratio, livePhoto: livePhotoEnabled, flashMode: flashMode) { result in
+            guard phase == .capturing(operationID) else { return }
+            phase = .ready
+            if case .failure = result { errorMessage = "camera.error.capture" }
         }
     }
 }

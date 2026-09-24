@@ -11,6 +11,7 @@ import SwiftUI
 
 struct CameraAccess: View {
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("camera.livePhotoEnabled") private var livePhotoEnabled = false
 
     let variant: MaskVariant
     let annotationTextById: [String: String]
@@ -25,7 +26,8 @@ struct CameraAccess: View {
                 CameraScreen(
                     variant: variant,
                     annotationTextById: annotationTextById,
-                    requestMicrophoneAccess: requestMicrophoneAccess
+                    requestMicrophoneAccess: requestMicrophoneAccess,
+                    livePhotoEnabled: $livePhotoEnabled
                 )
 
             case .requesting:
@@ -61,20 +63,32 @@ struct CameraAccess: View {
                 Button("camera.access.action.continue") {
                     requestAccess()
                 }
+                if livePhotoEnabled {
+                    Button("camera.live.disable") { disableLivePhotoPreference() }
+                }
                 Button("camera.access.action.cancel", role: .cancel) {}
 
             case .denied:
                 Button("camera.access.action.open-settings") {
                     openSettings()
                 }
+                if livePhotoEnabled {
+                    Button("camera.live.disable") { disableLivePhotoPreference() }
+                }
                 Button("camera.access.action.cancel", role: .cancel) {}
 
             case .restricted:
+                if livePhotoEnabled {
+                    Button("camera.live.disable") { disableLivePhotoPreference() }
+                }
                 Button("camera.access.action.acknowledge", role: .cancel) {}
 
             case .unavailable:
                 Button("camera.access.action.retry") {
                     reloadStatus()
+                }
+                if livePhotoEnabled {
+                    Button("camera.live.disable") { disableLivePhotoPreference() }
                 }
                 Button("camera.access.action.cancel", role: .cancel) {}
 
@@ -122,8 +136,14 @@ struct CameraAccess: View {
         return result.isAuthorized
     }
 
+    private func disableLivePhotoPreference() {
+        livePhotoEnabled = false
+        reloadStatus()
+    }
+
     private var requiredPermissions: [Permissions.Kind] {
-        [.camera, .photoLibraryAdd]
+        livePhotoEnabled ? [.camera, .photoLibraryAdd, .microphone]
+            : [.camera, .photoLibraryAdd]
     }
 
     private var alertTitle: LocalizedStringKey {
