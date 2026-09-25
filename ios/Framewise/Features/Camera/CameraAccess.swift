@@ -38,7 +38,7 @@ struct CameraAccess: View {
                     ProgressView()
                         .tint(.white)
                         .accessibilityLabel(
-                            "camera.access.requesting.accessibility-label"
+                            Text(.cameraAccessRequestingAccessibilityLabel)
                         )
                 }
 
@@ -60,37 +60,37 @@ struct CameraAccess: View {
         .alert(alertTitle, isPresented: $showsPermissionAlert) {
             switch state {
             case .notDetermined:
-                Button("camera.access.action.continue") {
+                Button(.cameraAccessActionContinue) {
                     requestAccess()
                 }
                 if livePhotoEnabled {
-                    Button("camera.live.disable") { disableLivePhotoPreference() }
+                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
                 }
-                Button("camera.access.action.cancel", role: .cancel) {}
+                Button(.cameraAccessActionCancel, role: .cancel) {}
 
             case .denied:
-                Button("camera.access.action.open-settings") {
+                Button(.cameraAccessActionOpenSettings) {
                     openSettings()
                 }
                 if livePhotoEnabled {
-                    Button("camera.live.disable") { disableLivePhotoPreference() }
+                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
                 }
-                Button("camera.access.action.cancel", role: .cancel) {}
+                Button(.cameraAccessActionCancel, role: .cancel) {}
 
             case .restricted:
                 if livePhotoEnabled {
-                    Button("camera.live.disable") { disableLivePhotoPreference() }
+                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
                 }
-                Button("camera.access.action.acknowledge", role: .cancel) {}
+                Button(.cameraAccessActionAcknowledge, role: .cancel) {}
 
             case .unavailable:
-                Button("camera.access.action.retry") {
+                Button(.cameraAccessActionRetry) {
                     reloadStatus()
                 }
                 if livePhotoEnabled {
-                    Button("camera.live.disable") { disableLivePhotoPreference() }
+                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
                 }
-                Button("camera.access.action.cancel", role: .cancel) {}
+                Button(.cameraAccessActionCancel, role: .cancel) {}
 
             case .checking, .requesting, .authorized:
                 EmptyView()
@@ -146,31 +146,31 @@ struct CameraAccess: View {
             : [.camera, .photoLibraryAdd]
     }
 
-    private var alertTitle: LocalizedStringKey {
+    private var alertTitle: LocalizedStringResource {
         switch state {
         case .notDetermined:
-            "camera.access.alert.request.title"
+            .cameraAccessAlertRequestTitle
         case .denied:
-            "camera.access.alert.denied.title"
+            .cameraAccessAlertDeniedTitle
         case .restricted:
-            "camera.access.alert.restricted.title"
+            .cameraAccessAlertRestrictedTitle
         case .unavailable:
-            "camera.access.alert.unavailable.title"
+            .cameraAccessAlertUnavailableTitle
         case .checking, .requesting, .authorized:
             ""
         }
     }
 
-    private var alertMessage: LocalizedStringKey {
+    private var alertMessage: LocalizedStringResource {
         switch state {
         case .notDetermined:
-            "camera.access.alert.request.photo.message"
+            .cameraAccessAlertRequestPhotoMessage
         case .denied:
-            "camera.access.alert.denied.message"
+            .cameraAccessAlertDeniedMessage
         case .restricted:
-            "camera.access.alert.restricted.message"
+            .cameraAccessAlertRestrictedMessage
         case .unavailable:
-            "camera.access.alert.unavailable.message"
+            .cameraAccessAlertUnavailableMessage
         case .checking, .requesting, .authorized:
             ""
         }

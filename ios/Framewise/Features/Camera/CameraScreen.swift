@@ -39,7 +39,7 @@ struct CameraScreen: View {
     @State private var zoomFrame = CGRect.zero
     @State private var showsMaskLoadError = false
     @State private var holdQuarterTurns = 0
-    @State private var errorMessage: LocalizedStringKey?
+    @State private var errorMessage: LocalizedStringResource?
 
     init(
         masks: [MaskContent],
@@ -157,20 +157,20 @@ struct CameraScreen: View {
             }
         }
         .alert(
-            "camera.error.title",
+            .cameraErrorTitle,
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )
         ) {
-            Button("camera.error.ok", role: .cancel) { errorMessage = nil }
+            Button(.cameraErrorOk, role: .cancel) { errorMessage = nil }
             if phase == .stopped {
-                Button("camera.access.action.retry") {
+                Button(.cameraAccessActionRetry) {
                     errorMessage = nil
                     startCamera()
                 }
                 if livePhotoEnabled {
-                    Button("camera.live.disable") {
+                    Button(.cameraLiveDisable) {
                         livePhotoEnabled = false
                         errorMessage = nil
                         startCamera()
@@ -326,7 +326,7 @@ struct CameraScreen: View {
         camera.focusAndExpose(at: devicePoint) { result in
             if case .failure = result {
                 focusPoint = nil
-                errorMessage = "camera.error.focus"
+                errorMessage = .cameraErrorFocus
             }
         }
     }
@@ -343,7 +343,7 @@ struct CameraScreen: View {
     private func startCamera() {
         guard phase == .stopped else { return }
         guard Permissions.check([.camera]).isAuthorized else {
-            errorMessage = "camera.error.permission"
+            errorMessage = .cameraErrorPermission
             return
         }
         let operationID = UUID()
@@ -364,7 +364,7 @@ struct CameraScreen: View {
             case .failure:
                 phase = .stopped
                 camera.stop()
-                errorMessage = "camera.error.unavailable"
+                errorMessage = .cameraErrorUnavailable
             }
         }
     }
@@ -378,7 +378,7 @@ struct CameraScreen: View {
         camera.setExposureBias(Float(requestedBias)) { result in
             switch result {
             case .success(let value): exposureBias = Double(value)
-            case .failure: errorMessage = "camera.error.exposure"
+            case .failure: errorMessage = .cameraErrorExposure
             }
         }
     }
@@ -397,7 +397,7 @@ struct CameraScreen: View {
                 case .failure:
                     phase = .stopped
                     camera.stop()
-                    errorMessage = "camera.error.live-photo"
+                    errorMessage = .cameraErrorLivePhoto
                 }
             }
             return
@@ -406,7 +406,7 @@ struct CameraScreen: View {
             guard await requestMicrophoneAccess() else {
                 guard phase == .changingLivePhoto(operationID) else { return }
                 phase = .ready
-                errorMessage = "camera.error.microphone"
+                errorMessage = .cameraErrorMicrophone
                 return
             }
             guard phase == .changingLivePhoto(operationID) else { return }
@@ -419,7 +419,7 @@ struct CameraScreen: View {
                 case .failure:
                     phase = .stopped
                     camera.stop()
-                    errorMessage = "camera.error.live-photo"
+                    errorMessage = .cameraErrorLivePhoto
                 }
             }
         }
@@ -439,7 +439,7 @@ struct CameraScreen: View {
         ) { result in
             guard phase == .capturing(operationID) else { return }
             phase = .ready
-            if case .failure = result { errorMessage = "camera.error.capture" }
+            if case .failure = result { errorMessage = .cameraErrorCapture }
         }
     }
 }

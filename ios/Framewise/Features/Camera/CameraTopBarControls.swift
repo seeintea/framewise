@@ -92,12 +92,12 @@ struct CameraTopBarControls: ToolbarContent {
         }
     }
 
-    private func flashTitle(for mode: AVCaptureDevice.FlashMode) -> LocalizedStringKey {
+    private func flashTitle(for mode: AVCaptureDevice.FlashMode) -> LocalizedStringResource {
         switch mode {
-        case .off: "camera.flash.off"
-        case .auto: "camera.flash.auto"
-        case .on: "camera.flash.on"
-        @unknown default: "camera.flash.off"
+        case .off: .cameraFlashOff
+        case .auto: .cameraFlashAuto
+        case .on: .cameraFlashOn
+        @unknown default: .cameraFlashOff
         }
     }
 }

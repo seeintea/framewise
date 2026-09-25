@@ -43,10 +43,10 @@ struct AppRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .cameraPhotoSaveFailed)) { _ in
             showsCameraSaveError = true
         }
-        .alert("camera.error.title", isPresented: $showsCameraSaveError) {
-            Button("camera.error.ok", role: .cancel) {}
+        .alert(.cameraErrorTitle, isPresented: $showsCameraSaveError) {
+            Button(.cameraErrorOk, role: .cancel) {}
         } message: {
-            Text("camera.error.save")
+            Text(.cameraErrorSave)
         }
     }
 
