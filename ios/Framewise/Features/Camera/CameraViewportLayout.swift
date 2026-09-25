@@ -12,7 +12,11 @@ struct CameraViewportLayout {
     let maskDrawingSize: CGSize
     let maskRotation: Angle
 
-    init(aspectRatio: MaskAspectRatio, availableSize: CGSize) {
+    init(
+        aspectRatio: MaskAspectRatio,
+        availableSize: CGSize,
+        landscapeRotation: Angle = .degrees(90)
+    ) {
         let templateWidth = CGFloat(aspectRatio.width)
         let templateHeight = CGFloat(aspectRatio.height)
         let portraitRatio =
@@ -30,7 +34,7 @@ struct CameraViewportLayout {
                 width: previewHeight,
                 height: previewWidth
             )
-            maskRotation = .degrees(90)
+            maskRotation = landscapeRotation
         } else {
             maskDrawingSize = previewSize
             maskRotation = .zero

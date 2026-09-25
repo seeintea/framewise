@@ -1,4 +1,5 @@
 #if DEBUG
+    import AVFoundation
     import SwiftUI
 
     struct CameraDebugView: View {
@@ -111,10 +112,15 @@
                     } action: { previewBottom = $0 }
                     .overlay(alignment: .bottom) {
                         CameraZoomControls(
-                            zoomFactors: zoomFactors,
-                            selectedZoomFactor: selectedZoomFactor,
+                            zoomOptions: zoomFactors.map { factor in
+                                CameraEngine.ZoomOption(
+                                    factor: CGFloat(factor),
+                                    label: "\(factor.formatted(.number.precision(.fractionLength(0...1))))×"
+                                )
+                            },
+                            selectedZoomFactor: CGFloat(selectedZoomFactor),
                             isEnabled: true,
-                            onSelectZoomFactor: { selectedZoomFactor = $0 },
+                            onSelectZoomFactor: { selectedZoomFactor = Double($0) },
                             controlRotation: .zero
                         )
                         .padding(.bottom, 12)
@@ -171,7 +177,8 @@
             .toolbar(.visible, for: .navigationBar)
             .toolbar {
                 CameraTopBarControls(
-                    isFlashEnabled: isFlashEnabled,
+                    flashMode: isFlashEnabled ? .on : .off,
+                    availableFlashModes: [.off, .on],
                     onToggleFlash: { isFlashEnabled.toggle() },
                     isLivePhotoEnabled: isLivePhotoEnabled,
                     onToggleLivePhoto: { isLivePhotoEnabled.toggle() },

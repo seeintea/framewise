@@ -16,6 +16,10 @@ final class CameraController {
     private var lifecycleID = UUID()
 
     var session: AVCaptureSession { engine.session }
+    var onOrientationChange: ((Int) -> Void)? {
+        get { orientation.onHoldChange }
+        set { orientation.onHoldChange = newValue }
+    }
 
     func start(
         livePhotoEnabled: Bool,

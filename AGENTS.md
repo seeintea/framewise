@@ -13,7 +13,7 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 
 ## 运行环境与依赖
 
-- 项目使用 Xcode 26，当前最低部署版本为 iOS 26。
+- 项目使用 Xcode 26，当前最低部署版本为 iOS 18。
 - 应用 UI 使用 SwiftUI；只有 SwiftUI 无法合理满足相机预览、高频绘制或系统能力接入时才使用 UIKit、AVFoundation、Vision、Core ML 或 Metal。
 - 优先使用 Apple 系统框架。只有平台能力无法合理提供所需功能时才新增第三方依赖。
 - 如需第三方 Swift 依赖，优先使用 Swift Package Manager，并提交 `Package.resolved`；不要引入 CocoaPods、Carthage 或其他依赖管理器。

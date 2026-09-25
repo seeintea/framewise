@@ -8,26 +8,27 @@
 import SwiftUI
 
 struct CameraZoomControls: View {
-    let zoomFactors: [Double]
-    let selectedZoomFactor: Double
+    let zoomOptions: [CameraEngine.ZoomOption]
+    let selectedZoomFactor: CGFloat
     let isEnabled: Bool
-    let onSelectZoomFactor: (Double) -> Void
+    let onSelectZoomFactor: (CGFloat) -> Void
     let controlRotation: Angle
 
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(zoomFactors, id: \.self) { zoom in
+            ForEach(zoomOptions, id: \.factor) { option in
                 Button {
-                    onSelectZoomFactor(zoom)
+                    onSelectZoomFactor(option.factor)
                 } label: {
-                    Text(zoomLabel(for: zoom))
+                    Text(verbatim: zoomLabel(for: option))
                         .font(.system(size: 13, weight: .light))
                         .monospacedDigit()
                         .rotationEffect(controlRotation)
-                        .foregroundStyle(isSelected(zoom) ? .yellow : .white)
-                        .frame(width: 38, height: 38)
+                        .foregroundStyle(isSelected(option) ? .yellow : .white)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                         .background {
-                            if isSelected(zoom) {
+                            if isSelected(option) {
                                 Circle()
                                     .fill(
                                         Color(
@@ -45,46 +46,51 @@ struct CameraZoomControls: View {
                 .accessibilityLabel(
                     Text(
                         .cameraZoomAccessibilityLabel(
-                            zoom: zoomLabel(for: zoom)
+                            zoom: zoomLabel(for: option)
                         )
                     )
                 )
-                .accessibilityAddTraits(isSelected(zoom) ? .isSelected : [])
+                .accessibilityAddTraits(isSelected(option) ? .isSelected : [])
             }
         }
     }
 
-    private func zoomLabel(for zoom: Double) -> String {
+    private func zoomLabel(for option: CameraEngine.ZoomOption) -> String {
         let displayedZoom =
-            isSelected(zoom) && !isPresetZoomSelected
-            ? selectedZoomFactor : zoom
+            isSelected(option) && !isPresetZoomSelected
+            ? Double(selectedZoomFactor / oneXFactor) : nil
+        guard let displayedZoom else { return option.label }
         let value = displayedZoom.formatted(
             .number.precision(.fractionLength(0...1))
         )
         return "\(value)×"
     }
 
-    private func isSelected(_ zoom: Double) -> Bool {
-        zoomFactors.firstIndex(of: zoom) == selectedZoomIndex
+    private var oneXFactor: CGFloat {
+        zoomOptions.first { $0.label == "1×" }?.factor ?? 1
+    }
+
+    private func isSelected(_ option: CameraEngine.ZoomOption) -> Bool {
+        zoomOptions.firstIndex(of: option) == selectedZoomIndex
     }
 
     private var isPresetZoomSelected: Bool {
-        zoomFactors.contains { abs(selectedZoomFactor - $0) < 0.01 }
+        zoomOptions.contains { abs(selectedZoomFactor - $0.factor) < 0.01 }
     }
 
     private var selectedZoomIndex: Int? {
-        guard !zoomFactors.isEmpty else { return nil }
-        if let exactIndex = zoomFactors.firstIndex(where: {
-            abs(selectedZoomFactor - $0) < 0.01
+        guard !zoomOptions.isEmpty else { return nil }
+        if let exactIndex = zoomOptions.firstIndex(where: {
+            abs(selectedZoomFactor - $0.factor) < 0.01
         }) {
             return exactIndex
         }
-        if let nextIndex = zoomFactors.firstIndex(where: {
-            selectedZoomFactor < $0
+        if let nextIndex = zoomOptions.firstIndex(where: {
+            selectedZoomFactor < $0.factor
         }) {
             return max(nextIndex - 1, 0)
         }
-        return zoomFactors.count - 1
+        return zoomOptions.count - 1
     }
 }
 

@@ -28,6 +28,7 @@ final class CameraOrientationMonitor {
     private var orientationObserver: NSObjectProtocol?
     private var lastReliableHold: Hold?
     private var lastLandscapeHold: Hold?
+    var onHoldChange: ((Int) -> Void)?
 
     func start() {
         guard orientationObserver == nil else { return }
@@ -77,6 +78,7 @@ final class CameraOrientationMonitor {
 
     private func rememberGravity(x: Double, y: Double) {
         guard let hold = Self.hold(x: x, y: y) else { return }
+        if hold != lastReliableHold { onHoldChange?(hold.quarterTurns) }
         lastReliableHold = hold
         if hold != .portrait { lastLandscapeHold = hold }
     }
@@ -95,9 +97,11 @@ final class CameraOrientationMonitor {
     }
 
     private func rememberDeviceOrientation() {
-        if let hold = deviceHold(), hold != .portrait {
-            lastLandscapeHold = hold
+        guard let hold = deviceHold() else { return }
+        if currentGravityHold() == nil, hold != lastReliableHold {
+            onHoldChange?(hold.quarterTurns)
         }
+        if hold != .portrait { lastLandscapeHold = hold }
     }
 
     private func deviceHold() -> Hold? {

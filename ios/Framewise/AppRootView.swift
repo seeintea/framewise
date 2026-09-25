@@ -70,21 +70,16 @@ struct AppRootView: View {
 
     @ViewBuilder
     private func cameraDestination(for request: CameraMaskRequest) -> some View {
-        if let mask = try? Self.maskServer.getMask(id: request.maskId) {
-            CameraAccess(
-                variant: mask.defaultVariant,
-                annotationTextById: mask.annotationTextById(
-                    variantId: mask.defaultVariant.id
-                )
-            )
-        } else {
-            ZStack {
-                Color.black
-                    .ignoresSafeArea()
-
-                Text("无法加载构图模版")
-                    .foregroundStyle(.white)
-            }
+        let availableMasks = (try? Self.masks.get()) ?? []
+        let maskById = Dictionary(uniqueKeysWithValues: availableMasks.map { ($0.id, $0) })
+        let requestedIds = request.relatedMaskIds.contains(request.maskId)
+            ? request.relatedMaskIds : [request.maskId] + request.relatedMaskIds
+        let orderedIds = requestedIds.reduce(into: [String]()) { ids, id in
+            if !ids.contains(id) { ids.append(id) }
         }
+        let masks = maskById[request.maskId] == nil
+            ? [] : orderedIds.compactMap { maskById[$0] }
+
+        CameraAccess(masks: masks, initialMaskId: request.maskId)
     }
 }

@@ -13,8 +13,8 @@ struct CameraAccess: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("camera.livePhotoEnabled") private var livePhotoEnabled = false
 
-    let variant: MaskVariant
-    let annotationTextById: [String: String]
+    let masks: [MaskContent]
+    let initialMaskId: String
 
     @State private var state = State.checking
     @State private var showsPermissionAlert = false
@@ -24,8 +24,8 @@ struct CameraAccess: View {
             switch state {
             case .authorized:
                 CameraScreen(
-                    variant: variant,
-                    annotationTextById: annotationTextById,
+                    masks: masks,
+                    initialMaskId: initialMaskId,
                     requestMicrophoneAccess: requestMicrophoneAccess,
                     livePhotoEnabled: $livePhotoEnabled
                 )
