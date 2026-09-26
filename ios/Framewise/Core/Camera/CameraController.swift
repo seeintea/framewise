@@ -55,8 +55,23 @@ final class CameraController {
         engine.stop()
     }
 
-    func setZoom(_ factor: CGFloat, completion: @escaping (CGFloat) -> Void) {
-        engine.setZoom(factor, completion: completion)
+    func setZoom(
+        _ factor: CGFloat,
+        animated: Bool,
+        completion: @escaping (CGFloat) -> Void
+    ) {
+        engine.setZoom(factor, animated: animated, completion: completion)
+    }
+
+    func magnifyZoom(
+        _ magnification: CGFloat,
+        completion: @escaping (CGFloat) -> Void
+    ) {
+        engine.magnifyZoom(magnification, completion: completion)
+    }
+
+    func endZoomGesture() {
+        engine.endZoomGesture()
     }
 
     func focusAndExpose(

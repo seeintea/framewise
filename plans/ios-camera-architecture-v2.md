@@ -4,7 +4,7 @@
 >
 > 创建日期：2026-09-20。
 >
-> 最近更新：2026-09-25。
+> 最近更新：2026-09-26。
 >
 > 本文描述 2026-09-20 开始的新相机实现。旧相机架构与实现已经归档在
 > [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)，
@@ -30,6 +30,40 @@
 AVFoundation 根据设备与场景决定。三种尺寸表示输出宽高比，不预设固定像素尺寸。模板引导、
 Live Photo、前后切换与曝光控制在此基础拍照链路稳定后继续推进。预览与照片四边内容的精确
 对应仍需真机验证，不能仅以比例正确代替取景一致性的验收。
+
+## 2026-09-26 快捷缩放动画
+
+用户真机对比后接受系统缩放动画，正式快捷倍率切换统一使用
+`AVCaptureDevice.ramp(toVideoZoomFactor:withRate:)`。移除按时间逐帧赋值的自定义动画、
+临时对比开关、报告观察器和验证入口。物理镜头选择仍由 AVFoundation 决定。
+
+速率沿用本次验证时的参数：按倍率比值的 `abs(log2(target / current))` 计算跨度，
+名义时长为 `min(0.15 + max(distance - 1, 0) * 0.04, 0.20)` 秒，速率为跨度除以名义时长。
+系统会平滑加速度，因此这两个时间参数不保证实际完成时长。
+
+连续点击先停止当前动画，再从设备当前倍率转向新目标，不排队累积动画。
+捏合以设备当前倍率为起点立即接管，停止会话时也停止缩放；开启“减弱动态效果”时
+快捷倍率直接赋值。按钮立即选中目标倍率，重新进入相机时读取设备实际倍率。
+
+### 本次参考来源
+
+记录日期：2026-09-26。以下源码链接固定为记录时重新核对的提交，方便追溯；这些库仅作
+实现参考，未作为依赖引入 Framewise。
+
+| 项目 | 核对位置 | 与本次改动相关的处理方式 |
+| --- | --- | --- |
+| VisionCamera V5 | [HybridCameraController.swift，提交 `91bae1f`](https://github.com/margelo/react-native-vision-camera/blob/91bae1f08d549b50444ee16661dc4f4375cba0b6/packages/react-native-vision-camera/ios/Hybrid%20Objects/HybridCameraController.swift#L319) | `startZoomAnimation(zoom:rate:)` 直接调用系统 `ramp`，按速率驱动；通过 `isRampingVideoZoom` 观察完成，另有 `cancelZoomAnimation()`。这是本次改用系统动画的直接参考。 |
+| NextLevel | [NextLevel.swift，提交 `2fa4250`](https://github.com/NextLevel/NextLevel/blob/2fa42500caf7edd7136d23b64d9ecb5684d93d07/Sources/NextLevel.swift#L2446) | `videoZoomFactor` setter 在会话队列中锁定设备，限制倍率范围后直接赋值。用于对照设备控制方式，该路径没有提供快捷倍率动画。 |
+| Mijick/Camera | [CameraManager.swift，提交 `0f02348`](https://github.com/Mijick/Camera/blob/0f02348fcc8fbbc9224c7fbf444f182dc25d0b40/Sources/Internal/Manager/CameraManager.swift#L191)；[CaptureDevice.swift](https://github.com/Mijick/Camera/blob/0f02348fcc8fbbc9224c7fbf444f182dc25d0b40/Sources/Internal/Manager/Helpers/Capture%20Device/CaptureDevice.swift#L59) | `setCameraZoomFactor` 锁定设备后调用 `setZoomFactor`，最终限制范围并直接写入 `videoZoomFactor`。用于对照缩放入口与设备赋值方式。 |
+
+官方依据：[Apple 的 ramp 文档](https://developer.apple.com/documentation/avfoundation/avcapturedevice/ramp(tovideozoomfactor:withrate:))
+说明速率以倍率的倍频变化计算，内部会平滑加速度；[videoZoomFactor 文档](https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor)
+说明直接赋值会取消正在进行的 ramp。本项目据此用当前倍率赋值实现立即接管，未照搬
+VisionCamera 使用 `cancelVideoZoomRamp()` 的平滑停止方式。
+
+在上述查阅的缩放路径中，未发现按 iPhone 型号应用固定画面偏移补偿的实现；这不代表这些
+项目的所有功能都不存在相关处理。本次最终选择依据是用户对当前真机系统动画效果的认可，
+没有继续引入双摄预采集或几何补偿。
 
 ## 2026-09-23 Live Photo 接入
 

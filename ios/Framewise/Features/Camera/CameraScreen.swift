@@ -11,6 +11,7 @@ struct CameraScreen: View {
     }
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("camera.flashMode") private var storedFlashMode = 0
     @AppStorage("camera.annotationsVisible") private var areAnnotationsVisible =
         true
@@ -26,7 +27,6 @@ struct CameraScreen: View {
     @State private var captureRatio: PhotoAspectRatio
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
     @State private var zoomFactor: CGFloat = 1
-    @State private var pinchStartFactor: CGFloat?
     @State private var exposureRange: ClosedRange<Float> = 0...0
     @State private var exposureBias: Double = 0
     @State private var flashModes: [AVCaptureDevice.FlashMode] = []
@@ -194,11 +194,9 @@ struct CameraScreen: View {
         .gesture(
             MagnificationGesture()
                 .onChanged { value in
-                    let baseline = pinchStartFactor ?? zoomFactor
-                    if pinchStartFactor == nil { pinchStartFactor = baseline }
-                    setZoom(baseline * value)
+                    camera.magnifyZoom(value) { zoomFactor = $0 }
                 }
-                .onEnded { _ in pinchStartFactor = nil }
+                .onEnded { _ in camera.endZoomGesture() }
         )
         .overlay {
             if let mask = selectedMask {
@@ -355,11 +353,7 @@ struct CameraScreen: View {
                 zoomOptions = capabilities.zoomOptions
                 exposureRange = capabilities.exposureRange
                 flashModes = capabilities.flashModes
-                if let normal = capabilities.zoomOptions.first(where: {
-                    $0.label == "1×"
-                }) {
-                    zoomFactor = normal.factor
-                }
+                zoomFactor = capabilities.zoomFactor
                 phase = .ready
             case .failure:
                 phase = .stopped
@@ -370,7 +364,7 @@ struct CameraScreen: View {
     }
 
     private func setZoom(_ requestedFactor: CGFloat) {
-        camera.setZoom(requestedFactor) { zoomFactor = $0 }
+        camera.setZoom(requestedFactor, animated: !reduceMotion) { zoomFactor = $0 }
     }
 
     private func setExposureBias(_ requestedBias: Double) {

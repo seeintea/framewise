@@ -22,6 +22,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     struct Capabilities {
         let zoomOptions: [ZoomOption]
+        let zoomFactor: CGFloat
         let exposureRange: ClosedRange<Float>
         let flashModes: [AVCaptureDevice.FlashMode]
     }
@@ -33,6 +34,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private var liveAudioInput: AVCaptureDeviceInput?
     private var isConfigured = false
     private var photoDelegate: PhotoDelegate?
+    private var pinchStartZoomFactor: CGFloat?
 
     func start(completion: @escaping (Result<Capabilities, Error>) -> Void) {
         queue.async { [self] in
@@ -48,6 +50,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 let capabilities = Capabilities(
                     zoomOptions: zoomOptions(for: device),
+                    zoomFactor: device.videoZoomFactor,
                     exposureRange: device
                         .minExposureTargetBias...device.maxExposureTargetBias,
                     flashModes: photoOutput.supportedFlashModes
@@ -61,28 +64,98 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func stop() {
         queue.async { [self] in
+            if let device, device.isRampingVideoZoom {
+                do {
+                    try device.lockForConfiguration()
+                    defer { device.unlockForConfiguration() }
+                    device.videoZoomFactor = device.videoZoomFactor
+                } catch {
+                    print("Camera: could not stop zoom ramp: \(error)")
+                }
+            }
+            pinchStartZoomFactor = nil
             if session.isRunning {
                 session.stopRunning()
             }
         }
     }
 
-    func setZoom(_ factor: CGFloat, completion: @escaping (CGFloat) -> Void) {
+    func setZoom(
+        _ factor: CGFloat,
+        animated: Bool,
+        completion: @escaping (CGFloat) -> Void
+    ) {
         queue.async { [self] in
             guard let device else { return }
-            let value = min(
-                max(factor, device.minAvailableVideoZoomFactor),
-                min(device.maxAvailableVideoZoomFactor, 10)
-            )
+            let value = clampedZoomFactor(factor, for: device)
             do {
                 try device.lockForConfiguration()
-                device.videoZoomFactor = value
-                device.unlockForConfiguration()
+                defer { device.unlockForConfiguration() }
+                // Assigning the current factor immediately cancels a prior system ramp.
+                if device.isRampingVideoZoom {
+                    device.videoZoomFactor = device.videoZoomFactor
+                }
+                pinchStartZoomFactor = nil
+                if animated && value != device.videoZoomFactor {
+                    let distance = abs(log2(Double(value / device.videoZoomFactor)))
+                    // Keep the verified system ramp's speed; acceleration is system-managed.
+                    let nominalDuration = min(0.15 + max(distance - 1, 0) * 0.04, 0.20)
+                    device.ramp(
+                        toVideoZoomFactor: value,
+                        withRate: Float(distance / nominalDuration)
+                    )
+                } else {
+                    device.videoZoomFactor = value
+                }
+                // Select the shortcut immediately while the device zoom animates.
                 DispatchQueue.main.async { completion(value) }
             } catch {
-                DispatchQueue.main.async { completion(device.videoZoomFactor) }
+                let currentFactor = device.videoZoomFactor
+                DispatchQueue.main.async { completion(currentFactor) }
             }
         }
+    }
+
+    func magnifyZoom(
+        _ magnification: CGFloat,
+        completion: @escaping (CGFloat) -> Void
+    ) {
+        queue.async { [self] in
+            guard let device else { return }
+            do {
+                try device.lockForConfiguration()
+                defer { device.unlockForConfiguration() }
+                if device.isRampingVideoZoom {
+                    device.videoZoomFactor = device.videoZoomFactor
+                }
+                // A pinch takes over from the shortcut's current device zoom.
+                let baseline = pinchStartZoomFactor ?? device.videoZoomFactor
+                pinchStartZoomFactor = baseline
+                let value = clampedZoomFactor(
+                    baseline * magnification,
+                    for: device
+                )
+                device.videoZoomFactor = value
+                DispatchQueue.main.async { completion(value) }
+            } catch {
+                let currentFactor = device.videoZoomFactor
+                DispatchQueue.main.async { completion(currentFactor) }
+            }
+        }
+    }
+
+    func endZoomGesture() {
+        queue.async { [self] in pinchStartZoomFactor = nil }
+    }
+
+    private func clampedZoomFactor(
+        _ factor: CGFloat,
+        for device: AVCaptureDevice
+    ) -> CGFloat {
+        min(
+            max(factor, device.minAvailableVideoZoomFactor),
+            min(device.maxAvailableVideoZoomFactor, 10)
+        )
     }
 
     func focusAndExpose(
