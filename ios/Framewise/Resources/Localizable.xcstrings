@@ -466,6 +466,23 @@
         }
       }
     },
+    "camera.error.switch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not switch cameras. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法切换摄像头，请重试。"
+          }
+        }
+      }
+    },
     "camera.error.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -717,6 +734,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "相机缩放 %1$(zoom)@"
+          }
+        }
+      }
+    },
+    "camera.zoom.front.narrow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Narrow"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "窄"
+          }
+        }
+      }
+    },
+    "camera.zoom.front.wide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wide"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宽"
           }
         }
       }

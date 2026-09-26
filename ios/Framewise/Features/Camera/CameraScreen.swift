@@ -6,6 +6,7 @@ struct CameraScreen: View {
         case stopped
         case starting(UUID)
         case ready
+        case switchingCamera(UUID)
         case changingLivePhoto(UUID)
         case capturing(UUID)
     }
@@ -27,6 +28,10 @@ struct CameraScreen: View {
     @State private var captureRatio: PhotoAspectRatio
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
     @State private var zoomFactor: CGFloat = 1
+    @GestureState private var selfieZoomTarget: CGFloat?
+    @State private var isFrontCamera = false
+    @State private var canSwitchCamera = false
+    @State private var cameraConfigurationID = UUID()
     @State private var exposureRange: ClosedRange<Float> = 0...0
     @State private var exposureBias: Double = 0
     @State private var flashModes: [AVCaptureDevice.FlashMode] = []
@@ -86,10 +91,10 @@ struct CameraScreen: View {
             CameraBottomControls(
                 isAlbumEnabled: false,
                 isCaptureEnabled: phase == .ready && !zoomOptions.isEmpty,
-                canSwitchCamera: false,
+                canSwitchCamera: phase == .ready && canSwitchCamera,
                 onOpenAlbum: {},
                 onCapture: capture,
-                onSwitchCamera: {},
+                onSwitchCamera: switchCamera,
                 controlRotation: controlRotation,
                 maskOptions: masks.map {
                     CameraMaskOption(id: $0.id, title: $0.localization.title)
@@ -184,7 +189,8 @@ struct CameraScreen: View {
     }
 
     private func preview(layout: CameraViewportLayout) -> some View {
-        CameraPreview(session: camera.session) { devicePoint, viewPoint in
+        CameraPreview(session: camera.session, isMirrored: isFrontCamera) {
+            devicePoint, viewPoint in
             focus(at: devicePoint, showAt: viewPoint)
         }
         .frame(
@@ -194,11 +200,38 @@ struct CameraScreen: View {
         .clipped()
         .gesture(
             MagnificationGesture()
-                .onChanged { value in
-                    camera.magnifyZoom(value) { zoomFactor = $0 }
+                .updating($selfieZoomTarget) { value, target, _ in
+                    guard phase == .ready, isFrontCamera, target == nil,
+                        zoomOptions.count == 2
+                    else { return }
+                    // Front-camera pinches select a framing, never a continuous factor.
+                    if value <= 0.9 {
+                        target = zoomOptions.last?.factor
+                    } else if value >= 1.1 {
+                        target = zoomOptions.first?.factor
+                    }
                 }
-                .onEnded { _ in camera.endZoomGesture() }
+                .onChanged { value in
+                    guard phase == .ready, !isFrontCamera else { return }
+                    let configurationID = cameraConfigurationID
+                    camera.magnifyZoom(value) { value in
+                        guard phase != .stopped, cameraConfigurationID == configurationID
+                        else { return }
+                        zoomFactor = value
+                    }
+                }
+                .onEnded { _ in
+                    guard phase == .ready, !isFrontCamera else { return }
+                    camera.endZoomGesture()
+                },
+            including: phase == .ready ? .all : .subviews
         )
+        .onChange(of: selfieZoomTarget) { _, target in
+            guard phase == .ready, isFrontCamera, let target,
+                abs(target - zoomFactor) > 0.01
+            else { return }
+            setZoom(target)
+        }
         .overlay {
             if let mask = selectedMask {
                 CameraMaskOverlay(
@@ -246,7 +279,8 @@ struct CameraScreen: View {
                 selectedZoomFactor: zoomFactor,
                 isEnabled: phase == .ready,
                 onSelectZoomFactor: setZoom,
-                controlRotation: controlRotation
+                controlRotation: controlRotation,
+                isFrontCamera: isFrontCamera
             )
             .padding(.bottom, 12)
             .offset(y: -zoomLift)
@@ -325,7 +359,10 @@ struct CameraScreen: View {
         isFocusFeedbackDimmed = false
         focusPoint = viewPoint
         scheduleFocusFeedbackTimeout()
+        let configurationID = cameraConfigurationID
         camera.focusAndExpose(at: devicePoint) { result in
+            guard phase != .stopped, cameraConfigurationID == configurationID
+            else { return }
             switch result {
             case .success:
                 exposureBias = 0
@@ -360,15 +397,13 @@ struct CameraScreen: View {
             return
         }
         let operationID = UUID()
+        cameraConfigurationID = operationID
         phase = .starting(operationID)
         camera.start(livePhotoEnabled: livePhotoEnabled) { result in
             guard phase == .starting(operationID) else { return }
             switch result {
             case .success(let capabilities):
-                zoomOptions = capabilities.zoomOptions
-                exposureRange = capabilities.exposureRange
-                flashModes = capabilities.flashModes
-                zoomFactor = capabilities.zoomFactor
+                applyCapabilities(capabilities)
                 phase = .ready
             case .failure:
                 phase = .stopped
@@ -378,13 +413,57 @@ struct CameraScreen: View {
         }
     }
 
+    private func applyCapabilities(_ capabilities: CameraEngine.Capabilities) {
+        isFrontCamera = capabilities.isFrontCamera
+        canSwitchCamera = capabilities.canSwitchCamera
+        zoomOptions = capabilities.zoomOptions
+        zoomFactor = capabilities.zoomFactor
+        exposureRange = capabilities.exposureRange
+        exposureBias = Double(capabilities.exposureBias)
+        flashModes = capabilities.flashModes
+    }
+
+    private func switchCamera() {
+        guard phase == .ready, canSwitchCamera else { return }
+        let operationID = UUID()
+        cameraConfigurationID = operationID
+        phase = .switchingCamera(operationID)
+        focusFeedbackTask?.cancel()
+        focusPoint = nil
+        isFocusFeedbackDimmed = false
+        exposureInteractionActive = false
+        camera.switchCamera(livePhotoEnabled: livePhotoEnabled) { result in
+            guard phase == .switchingCamera(operationID) else { return }
+            switch result {
+            case .success(let capabilities):
+                applyCapabilities(capabilities)
+                phase = .ready
+            case .failure:
+                // Re-read the restored camera's actual settings before enabling controls.
+                phase = .stopped
+                startCamera()
+                errorMessage = .cameraErrorSwitch
+            }
+        }
+    }
+
     private func setZoom(_ requestedFactor: CGFloat) {
-        camera.setZoom(requestedFactor, animated: !reduceMotion) { zoomFactor = $0 }
+        guard phase == .ready else { return }
+        let configurationID = cameraConfigurationID
+        camera.setZoom(requestedFactor, animated: !reduceMotion) { value in
+            guard phase != .stopped, cameraConfigurationID == configurationID
+            else { return }
+            zoomFactor = value
+        }
     }
 
     private func setExposureBias(_ requestedBias: Double) {
+        guard phase == .ready else { return }
+        let configurationID = cameraConfigurationID
         exposureBias = requestedBias
         camera.setExposureBias(Float(requestedBias)) { result in
+            guard phase != .stopped, cameraConfigurationID == configurationID
+            else { return }
             switch result {
             case .success(let value): exposureBias = Double(value)
             case .failure: errorMessage = .cameraErrorExposure

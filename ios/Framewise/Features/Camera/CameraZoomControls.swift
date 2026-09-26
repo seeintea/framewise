@@ -13,6 +13,7 @@ struct CameraZoomControls: View {
     let isEnabled: Bool
     let onSelectZoomFactor: (CGFloat) -> Void
     let controlRotation: Angle
+    var isFrontCamera = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -43,19 +44,14 @@ struct CameraZoomControls: View {
                 }
                 .buttonStyle(CameraZoomButtonStyle())
                 .disabled(!isEnabled)
-                .accessibilityLabel(
-                    Text(
-                        .cameraZoomAccessibilityLabel(
-                            zoom: zoomLabel(for: option)
-                        )
-                    )
-                )
+                .accessibilityLabel(accessibilityLabel(for: option))
                 .accessibilityAddTraits(isSelected(option) ? .isSelected : [])
             }
         }
     }
 
     private func zoomLabel(for option: CameraEngine.ZoomOption) -> String {
+        guard !isFrontCamera else { return option.label }
         let displayedZoom =
             isSelected(option) && !isPresetZoomSelected
             ? Double(selectedZoomFactor / oneXFactor) : nil
@@ -64,6 +60,14 @@ struct CameraZoomControls: View {
             .number.precision(.fractionLength(0...1))
         )
         return "\(value)×"
+    }
+
+    private func accessibilityLabel(for option: CameraEngine.ZoomOption) -> Text {
+        if isFrontCamera {
+            Text(verbatim: option.label)
+        } else {
+            Text(.cameraZoomAccessibilityLabel(zoom: zoomLabel(for: option)))
+        }
     }
 
     private var oneXFactor: CGFloat {

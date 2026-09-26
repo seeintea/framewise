@@ -21,9 +21,12 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 
     struct Capabilities {
+        let isFrontCamera: Bool
+        let canSwitchCamera: Bool
         let zoomOptions: [ZoomOption]
         let zoomFactor: CGFloat
         let exposureRange: ClosedRange<Float>
+        let exposureBias: Float
         let flashModes: [AVCaptureDevice.FlashMode]
     }
 
@@ -31,10 +34,12 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.framewise.camera.session")
     private let photoOutput = AVCapturePhotoOutput()
     private var device: AVCaptureDevice?
+    private var videoInput: AVCaptureDeviceInput?
     private var liveAudioInput: AVCaptureDeviceInput?
     private var isConfigured = false
     private var photoDelegate: PhotoDelegate?
     private var pinchStartZoomFactor: CGFloat?
+    private var frontZoomFactor: CGFloat?
 
     func start(completion: @escaping (Result<Capabilities, Error>) -> Void) {
         queue.async { [self] in
@@ -48,13 +53,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 guard session.isRunning, let device else {
                     throw CameraError.unavailable
                 }
-                let capabilities = Capabilities(
-                    zoomOptions: zoomOptions(for: device),
-                    zoomFactor: device.videoZoomFactor,
-                    exposureRange: device
-                        .minExposureTargetBias...device.maxExposureTargetBias,
-                    flashModes: photoOutput.supportedFlashModes
-                )
+                let capabilities = capabilities(for: device)
                 DispatchQueue.main.async { completion(.success(capabilities)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
@@ -64,11 +63,9 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func stop() {
         queue.async { [self] in
-            if let device, device.isRampingVideoZoom {
+            if let device {
                 do {
-                    try device.lockForConfiguration()
-                    defer { device.unlockForConfiguration() }
-                    device.videoZoomFactor = device.videoZoomFactor
+                    try finishZoom(for: device)
                 } catch {
                     print("Camera: could not stop zoom ramp: \(error)")
                 }
@@ -80,6 +77,70 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         }
     }
 
+    func switchCamera(
+        livePhotoEnabled: Bool,
+        completion: @escaping (Result<Capabilities, Error>) -> Void
+    ) {
+        queue.async { [self] in
+            do {
+                guard session.isRunning, photoDelegate == nil,
+                    let previousDevice = device, let previousInput = videoInput,
+                    let nextDevice = captureDevice(
+                        position: previousDevice.position == .front ? .back : .front
+                    )
+                else { throw CameraError.unavailable }
+                let nextInput = try AVCaptureDeviceInput(device: nextDevice)
+                try finishZoom(for: previousDevice)
+                pinchStartZoomFactor = nil
+                let wasLivePhotoEnabled = photoOutput.isLivePhotoCaptureEnabled
+
+                session.stopRunning()
+                session.beginConfiguration()
+                session.removeInput(previousInput)
+                guard session.canAddInput(nextInput) else {
+                    session.addInput(previousInput)
+                    session.commitConfiguration()
+                    photoOutput.isLivePhotoCaptureEnabled = wasLivePhotoEnabled
+                    configurePhotoMirroring(for: previousDevice)
+                    session.startRunning()
+                    throw CameraError.unavailable
+                }
+                session.addInput(nextInput)
+                session.commitConfiguration()
+
+                do {
+                    guard !livePhotoEnabled || photoOutput.isLivePhotoCaptureSupported
+                    else { throw CameraError.unavailable }
+                    photoOutput.isLivePhotoCaptureEnabled = livePhotoEnabled
+                    try resetDevice(nextDevice)
+                    configurePhotoMirroring(for: nextDevice)
+                    session.startRunning()
+                    guard session.isRunning else { throw CameraError.unavailable }
+                } catch {
+                    // Restore the working camera if any part of the replacement fails.
+                    if session.isRunning { session.stopRunning() }
+                    session.beginConfiguration()
+                    session.removeInput(nextInput)
+                    session.addInput(previousInput)
+                    session.commitConfiguration()
+                    photoOutput.isLivePhotoCaptureEnabled = wasLivePhotoEnabled
+                    configurePhotoMirroring(for: previousDevice)
+                    session.startRunning()
+                    throw error
+                }
+
+                device = nextDevice
+                videoInput = nextInput
+                frontZoomFactor = nextDevice.position == .front
+                    ? nextDevice.videoZoomFactor : nil
+                let capabilities = capabilities(for: nextDevice)
+                DispatchQueue.main.async { completion(.success(capabilities)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
     func setZoom(
         _ factor: CGFloat,
         animated: Bool,
@@ -87,7 +148,15 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     ) {
         queue.async { [self] in
             guard let device else { return }
-            let value = clampedZoomFactor(factor, for: device)
+            let value: CGFloat
+            if device.position == .front {
+                // Front camera commands always resolve to one of the two framing presets.
+                value = zoomOptions(for: device).min {
+                    abs($0.factor - factor) < abs($1.factor - factor)
+                }?.factor ?? device.minAvailableVideoZoomFactor
+            } else {
+                value = clampedZoomFactor(factor, for: device)
+            }
             do {
                 try device.lockForConfiguration()
                 defer { device.unlockForConfiguration() }
@@ -107,6 +176,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 } else {
                     device.videoZoomFactor = value
                 }
+                if device.position == .front { frontZoomFactor = value }
                 // Select the shortcut immediately while the device zoom animates.
                 DispatchQueue.main.async { completion(value) }
             } catch {
@@ -121,7 +191,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         completion: @escaping (CGFloat) -> Void
     ) {
         queue.async { [self] in
-            guard let device else { return }
+            guard let device, device.position == .back else { return }
             do {
                 try device.lockForConfiguration()
                 defer { device.unlockForConfiguration() }
@@ -146,6 +216,16 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func endZoomGesture() {
         queue.async { [self] in pinchStartZoomFactor = nil }
+    }
+
+    private func finishZoom(for device: AVCaptureDevice) throws {
+        guard device.isRampingVideoZoom else { return }
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        // A front-camera ramp must never leave the device between framing presets.
+        device.videoZoomFactor = device.position == .front
+            ? frontZoomFactor ?? device.minAvailableVideoZoomFactor
+            : device.videoZoomFactor
     }
 
     private func clampedZoomFactor(
@@ -275,6 +355,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 photoOutput.isLivePhotoCaptureEnabled = true
                 liveAudioInput = audioInput
+                if let device { configurePhotoMirroring(for: device) }
                 if wasRunning { session.startRunning() }
                 guard !wasRunning || session.isRunning else {
                     throw CameraError.unavailable
@@ -303,6 +384,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 session.commitConfiguration()
                 self.liveAudioInput = nil
             }
+            if let device { configurePhotoMirroring(for: device) }
             if wasRunning { session.startRunning() }
             let result: Result<Void, Error> =
                 !wasRunning || session.isRunning
@@ -317,7 +399,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         completion: @escaping (Result<CapturedPhoto, Error>) -> Void
     ) {
         queue.async { [self] in
-            guard session.isRunning else {
+            guard session.isRunning, photoDelegate == nil else {
                 DispatchQueue.main.async {
                     completion(.failure(CameraError.unavailable))
                 }
@@ -339,6 +421,15 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 return
             }
+            if let device, device.position == .front {
+                do {
+                    // Capture the selected framing even when its transition is still running.
+                    try finishZoom(for: device)
+                } catch {
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                    return
+                }
+            }
             let settings = AVCapturePhotoSettings()
             settings.photoQualityPrioritization = .balanced
             settings.flashMode = flashMode
@@ -352,9 +443,9 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             settings.livePhotoMovieFileURL = movieURL
             let delegate = PhotoDelegate(movieURL: movieURL) {
                 [weak self] result in
-                DispatchQueue.main.async {
-                    completion(result)
-                    self?.queue.async { self?.photoDelegate = nil }
+                self?.queue.async {
+                    self?.photoDelegate = nil
+                    DispatchQueue.main.async { completion(result) }
                 }
             }
             photoDelegate = delegate
@@ -367,19 +458,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         else {
             throw CameraError.permissionUnavailable
         }
-        let deviceTypes: [AVCaptureDevice.DeviceType] = [
-            .builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera,
-            .builtInWideAngleCamera,
-        ]
-        let devices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: deviceTypes,
-            mediaType: .video,
-            position: .back
-        ).devices
-        guard
-            let device = deviceTypes.compactMap({ type in
-                devices.first(where: { $0.deviceType == type })
-            }).first
+        guard let device = captureDevice(position: .back)
         else {
             throw CameraError.unavailable
         }
@@ -389,23 +468,103 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         else {
             throw CameraError.unavailable
         }
-        try device.lockForConfiguration()
-        defer { device.unlockForConfiguration() }
         session.beginConfiguration()
         session.sessionPreset = .photo
         session.addInput(input)
         session.addOutput(photoOutput)
         session.commitConfiguration()
-        // Apply the display 1× baseline after the session selects its capture format.
-        device.videoZoomFactor = clampedZoomFactor(
-            oneXZoomFactor(for: device),
-            for: device
-        )
+        // Apply the initial framing after the session selects its capture format.
+        do {
+            try resetDevice(device)
+        } catch {
+            session.beginConfiguration()
+            session.removeInput(input)
+            session.removeOutput(photoOutput)
+            session.commitConfiguration()
+            throw error
+        }
+        configurePhotoMirroring(for: device)
         self.device = device
+        videoInput = input
         isConfigured = true
     }
 
+    private func captureDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+        let deviceTypes: [AVCaptureDevice.DeviceType] = position == .front
+            ? [.builtInUltraWideCamera, .builtInWideAngleCamera]
+            : [.builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera,
+               .builtInWideAngleCamera]
+        let devices = AVCaptureDevice.DiscoverySession(
+            deviceTypes: deviceTypes,
+            mediaType: .video,
+            position: position
+        ).devices
+        return deviceTypes.compactMap { type in
+            devices.first { $0.deviceType == type }
+        }.first
+    }
+
+    private func resetDevice(_ device: AVCaptureDevice) throws {
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        device.videoZoomFactor = device.position == .front
+            ? device.minAvailableVideoZoomFactor
+            : clampedZoomFactor(oneXZoomFactor(for: device), for: device)
+        device.setExposureTargetBias(0, completionHandler: nil)
+        if device.isFocusPointOfInterestSupported {
+            device.focusPointOfInterest = CGPoint(x: 0.5, y: 0.5)
+        }
+        if device.isFocusModeSupported(.continuousAutoFocus) {
+            device.focusMode = .continuousAutoFocus
+        }
+        if device.isExposurePointOfInterestSupported {
+            device.exposurePointOfInterest = CGPoint(x: 0.5, y: 0.5)
+        }
+        if device.isExposureModeSupported(.continuousAutoExposure) {
+            device.exposureMode = .continuousAutoExposure
+        }
+    }
+
+    private func configurePhotoMirroring(for device: AVCaptureDevice) {
+        guard let connection = photoOutput.connection(with: .video),
+            connection.isVideoMirroringSupported
+        else { return }
+        connection.automaticallyAdjustsVideoMirroring = false
+        connection.isVideoMirrored = device.position == .front
+    }
+
+    private func capabilities(for device: AVCaptureDevice) -> Capabilities {
+        Capabilities(
+            isFrontCamera: device.position == .front,
+            canSwitchCamera: captureDevice(
+                position: device.position == .front ? .back : .front
+            ) != nil,
+            zoomOptions: zoomOptions(for: device),
+            zoomFactor: frontZoomFactor ?? device.videoZoomFactor,
+            exposureRange: device.minExposureTargetBias...device.maxExposureTargetBias,
+            exposureBias: device.exposureTargetBias,
+            flashModes: photoOutput.supportedFlashModes
+        )
+    }
+
     private func zoomOptions(for device: AVCaptureDevice) -> [ZoomOption] {
+        if device.position == .front {
+            let wide = device.minAvailableVideoZoomFactor
+            // A modest center crop for the narrow selfie preset; not the digital-zoom limit.
+            // Verify the framing on hardware before claiming parity with Apple's Camera app.
+            let narrow = min(wide * 1.3, device.maxAvailableVideoZoomFactor)
+            var options = [ZoomOption(
+                factor: wide,
+                label: String(localized: "camera.zoom.front.wide")
+            )]
+            if narrow > wide {
+                options.append(ZoomOption(
+                    factor: narrow,
+                    label: String(localized: "camera.zoom.front.narrow")
+                ))
+            }
+            return options
+        }
         let switches = device.virtualDeviceSwitchOverVideoZoomFactors.map(
             \.doubleValue
         )

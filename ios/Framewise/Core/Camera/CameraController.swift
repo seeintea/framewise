@@ -55,6 +55,17 @@ final class CameraController {
         engine.stop()
     }
 
+    func switchCamera(
+        livePhotoEnabled: Bool,
+        completion: @escaping (Result<CameraEngine.Capabilities, Error>) -> Void
+    ) {
+        let operationID = lifecycleID
+        engine.switchCamera(livePhotoEnabled: livePhotoEnabled) { [self] result in
+            guard lifecycleID == operationID else { return }
+            completion(result)
+        }
+    }
+
     func setZoom(
         _ factor: CGFloat,
         animated: Bool,

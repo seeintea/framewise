@@ -3,6 +3,7 @@ import SwiftUI
 
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
+    var isMirrored = false
     let onTap: (CGPoint, CGPoint) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onTap: onTap) }
@@ -11,6 +12,7 @@ struct CameraPreview: UIViewRepresentable {
         let view = PreviewView()
         view.previewLayer.videoGravity = .resizeAspectFill
         view.previewLayer.session = session
+        view.isMirrored = isMirrored
         let tap = UITapGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.didTap(_:))
@@ -24,6 +26,7 @@ struct CameraPreview: UIViewRepresentable {
         if view.previewLayer.session !== session {
             view.previewLayer.session = session
         }
+        view.isMirrored = isMirrored
     }
 
     final class Coordinator: NSObject {
@@ -47,7 +50,26 @@ struct CameraPreview: UIViewRepresentable {
 final class PreviewView: UIView {
     override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
 
+    var isMirrored = false {
+        didSet { updateMirroring() }
+    }
+
     var previewLayer: AVCaptureVideoPreviewLayer {
         layer as! AVCaptureVideoPreviewLayer
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateMirroring()
+    }
+
+    private func updateMirroring() {
+        guard let connection = previewLayer.connection,
+            connection.isVideoMirroringSupported
+        else { return }
+        connection.automaticallyAdjustsVideoMirroring = false
+        if connection.isVideoMirrored != isMirrored {
+            connection.isVideoMirrored = isMirrored
+        }
     }
 }
