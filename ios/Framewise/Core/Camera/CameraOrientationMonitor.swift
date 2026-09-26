@@ -26,12 +26,18 @@ final class CameraOrientationMonitor {
 
     private let motion = CMMotionManager()
     private var orientationObserver: NSObjectProtocol?
+    private var monitoringID = UUID()
     private var lastReliableHold: Hold?
     private var lastLandscapeHold: Hold?
+    private var focusReference: (rotation: CMRotationMatrix, timestamp: TimeInterval)?
+    private var onFocusMovement: (() -> Void)?
+    private static let focusMovementCosine = cos(30 * Double.pi / 180)
     var onHoldChange: ((Int) -> Void)?
 
     func start() {
         guard orientationObserver == nil else { return }
+        let operationID = UUID()
+        monitoringID = operationID
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         rememberDeviceOrientation()
         orientationObserver = NotificationCenter.default.addObserver(
@@ -40,7 +46,10 @@ final class CameraOrientationMonitor {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            Task { @MainActor in self.rememberDeviceOrientation() }
+            Task { @MainActor in
+                guard self.monitoringID == operationID else { return }
+                self.rememberDeviceOrientation()
+            }
         }
         guard motion.isDeviceMotionAvailable else { return }
         motion.deviceMotionUpdateInterval = 0.1
@@ -48,17 +57,64 @@ final class CameraOrientationMonitor {
             guard let self, let sample else { return }
             let x = sample.gravity.x
             let y = sample.gravity.y
-            Task { @MainActor in self.rememberGravity(x: x, y: y) }
+            let rotation = sample.attitude.rotationMatrix
+            let timestamp = sample.timestamp
+            Task { @MainActor in
+                guard self.monitoringID == operationID else { return }
+                self.rememberGravity(x: x, y: y)
+                self.checkFocusMovement(rotation: rotation, timestamp: timestamp)
+            }
         }
     }
 
     func stop() {
+        monitoringID = UUID()
+        stopMonitoringFocusMovement()
         if let orientationObserver {
             NotificationCenter.default.removeObserver(orientationObserver)
             self.orientationObserver = nil
             UIDevice.current.endGeneratingDeviceOrientationNotifications()
         }
         motion.stopDeviceMotionUpdates()
+    }
+
+    func monitorFocusMovement(onChange: @escaping () -> Void) {
+        stopMonitoringFocusMovement()
+        guard motion.isDeviceMotionActive else { return }
+        onFocusMovement = onChange
+        if let sample = motion.deviceMotion {
+            focusReference = (sample.attitude.rotationMatrix, sample.timestamp)
+        }
+    }
+
+    func stopMonitoringFocusMovement() {
+        focusReference = nil
+        onFocusMovement = nil
+    }
+
+    private func checkFocusMovement(rotation: CMRotationMatrix, timestamp: TimeInterval) {
+        guard let onChange = onFocusMovement else { return }
+        guard let reference = focusReference else {
+            focusReference = (rotation, timestamp)
+            return
+        }
+        // A queued sample from before the latest tap cannot move its reference.
+        guard timestamp > reference.timestamp else { return }
+        let cosine = Self.viewingDirectionCosine(between: reference.rotation, and: rotation)
+        guard cosine <= Self.focusMovementCosine else { return }
+        stopMonitoringFocusMovement()
+        onChange()
+    }
+
+    private static func viewingDirectionCosine(
+        between reference: CMRotationMatrix,
+        and current: CMRotationMatrix
+    ) -> Double {
+        // Core Motion maps reference coordinates into device coordinates. Its third
+        // row is the device Z axis in the reference frame: camera roll leaves it unchanged.
+        reference.m31 * current.m31
+            + reference.m32 * current.m32
+            + reference.m33 * current.m33
     }
 
     func quarterTurns(for ratio: PhotoAspectRatio) -> Int {

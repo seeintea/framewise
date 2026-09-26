@@ -87,9 +87,30 @@ final class CameraController {
 
     func focusAndExpose(
         at point: CGPoint,
+        onSceneChange: (() -> Void)? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        engine.focusAndExpose(at: point, completion: completion)
+        let operationID = lifecycleID
+        let handler = onSceneChange.map { onChange in
+            { [weak self] in
+                guard self?.lifecycleID == operationID else { return }
+                onChange()
+            }
+        }
+        if let handler {
+            orientation.monitorFocusMovement(onChange: handler)
+        } else {
+            orientation.stopMonitoringFocusMovement()
+        }
+        engine.focusAndExpose(
+            at: point,
+            onSubjectAreaChange: handler,
+            completion: completion
+        )
+    }
+
+    func stopMonitoringFocusMovement() {
+        orientation.stopMonitoringFocusMovement()
     }
 
     func setExposureBias(

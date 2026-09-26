@@ -24,6 +24,8 @@ struct CameraScreen: View {
 
     @State private var camera = CameraController()
     @State private var phase: CameraPhase = .stopped
+    @State private var shutterFeedbackID = UUID()
+    @State private var shutterFeedbackFadeDuration = 0.18
     @State private var selectedMaskId: String
     @State private var captureRatio: PhotoAspectRatio
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
@@ -36,6 +38,9 @@ struct CameraScreen: View {
     @State private var exposureBias: Double = 0
     @State private var flashModes: [AVCaptureDevice.FlashMode] = []
     @State private var focusPoint: CGPoint?
+    @State private var focusSelectionID: UUID?
+    @State private var pendingFocusResetID: UUID?
+    @State private var isResettingFocus = false
     @State private var focusFeedbackTask: Task<Void, Never>?
     @State private var isFocusFeedbackDimmed = false
     @State private var exposureInteractionActive = false
@@ -102,6 +107,10 @@ struct CameraScreen: View {
                 selectedMaskId: selectedMaskId,
                 onSelectMask: selectMask
             )
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 0.2),
+                value: controlRotation
+            )
             .padding(.horizontal, 36)
             .padding(.bottom, masks.count >= 2 ? 0 : 16)
             .onGeometryChange(for: CGFloat.self) { proxy in
@@ -133,6 +142,7 @@ struct CameraScreen: View {
                 areAnnotationsVisible: areAnnotationsVisible,
                 onToggleAnnotations: { areAnnotationsVisible.toggle() },
                 onMore: {},
+                controlRotation: controlRotation,
                 isCameraReady: phase == .ready,
                 showsMore: false
             )
@@ -149,18 +159,18 @@ struct CameraScreen: View {
             showsMaskLoadError = false
         }
         .onDisappear {
-            phase = .stopped
-            camera.stop()
+            stopCamera()
             camera.onOrientationChange = nil
-            focusFeedbackTask?.cancel()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 startCamera()
             } else {
-                self.phase = .stopped
-                camera.stop()
+                stopCamera()
             }
+        }
+        .onChange(of: phase) { _, phase in
+            if phase == .ready { resetFocusForSceneChangeIfNeeded() }
         }
         .alert(
             .cameraErrorTitle,
@@ -251,7 +261,7 @@ struct CameraScreen: View {
                     minimumExposureBias: Double(exposureRange.lowerBound),
                     maximumExposureBias: Double(exposureRange.upperBound),
                     selectedExposureBias: exposureBias,
-                    isExposureEnabled: phase == .ready,
+                    isExposureEnabled: phase == .ready && !isResettingFocus,
                     onSelectExposureBias: setExposureBias,
                     onExposureInteractionChanged: { active in
                         exposureInteractionActive = active
@@ -259,11 +269,19 @@ struct CameraScreen: View {
                             focusFeedbackTask?.cancel()
                             isFocusFeedbackDimmed = false
                         } else {
-                            scheduleFocusFeedbackTimeout()
+                            if pendingFocusResetID != nil {
+                                resetFocusForSceneChangeIfNeeded()
+                            } else {
+                                scheduleFocusFeedbackTimeout()
+                            }
                         }
                     },
                     controlRotation: controlRotation,
                     feedbackOpacity: isFocusFeedbackDimmed ? 0.5 : 1
+                )
+                .animation(
+                    reduceMotion ? nil : .easeInOut(duration: 0.2),
+                    value: controlRotation
                 )
             }
         }
@@ -282,6 +300,10 @@ struct CameraScreen: View {
                 controlRotation: controlRotation,
                 isFrontCamera: isFrontCamera
             )
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 0.2),
+                value: controlRotation
+            )
             .padding(.bottom, 12)
             .offset(y: -zoomLift)
             .onGeometryChange(for: CGRect.self) { proxy in
@@ -294,6 +316,20 @@ struct CameraScreen: View {
             width: layout.previewSize.width,
             height: layout.previewSize.height
         )
+        .overlay {
+            if !reduceMotion, phase != .stopped {
+                Color.black
+                    .keyframeAnimator(initialValue: 0.0, trigger: shutterFeedbackID) {
+                        content, opacity in
+                        content.opacity(opacity)
+                    } keyframes: { _ in
+                        LinearKeyframe(1.0, duration: 0.04)
+                        LinearKeyframe(0.0, duration: shutterFeedbackFadeDuration)
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
     }
 
     private var selectedMask: MaskContent? {
@@ -301,7 +337,8 @@ struct CameraScreen: View {
     }
 
     private var controlRotation: Angle {
-        .degrees(Double(holdQuarterTurns * 90))
+        // Capture quarter turns use the opposite sign from SwiftUI screen rotation.
+        .degrees(Double(holdQuarterTurns * -90))
     }
 
     private var flashMode: AVCaptureDevice.FlashMode {
@@ -356,21 +393,87 @@ struct CameraScreen: View {
             y: previewFrame.minY + viewPoint.y
         )
         guard !zoomFrame.contains(screenPoint) else { return }
+        let selectionID = UUID()
+        focusSelectionID = selectionID
+        pendingFocusResetID = nil
+        isResettingFocus = false
         isFocusFeedbackDimmed = false
         focusPoint = viewPoint
         scheduleFocusFeedbackTimeout()
         let configurationID = cameraConfigurationID
-        camera.focusAndExpose(at: devicePoint) { result in
-            guard phase != .stopped, cameraConfigurationID == configurationID
+        camera.focusAndExpose(
+            at: devicePoint,
+            onSceneChange: {
+                guard phase != .stopped, cameraConfigurationID == configurationID,
+                    focusSelectionID == selectionID
+                else { return }
+                pendingFocusResetID = selectionID
+                resetFocusForSceneChangeIfNeeded()
+            }
+        ) { result in
+            guard phase != .stopped, cameraConfigurationID == configurationID,
+                focusSelectionID == selectionID
             else { return }
             switch result {
             case .success:
                 exposureBias = 0
             case .failure:
-                focusPoint = nil
+                clearPointFocus()
                 errorMessage = .cameraErrorFocus
             }
         }
+    }
+
+    private func resetFocusForSceneChangeIfNeeded() {
+        guard let selectionID = pendingFocusResetID, focusSelectionID == selectionID
+        else { return }
+        guard phase == .ready, !exposureInteractionActive, !isResettingFocus else { return }
+        pendingFocusResetID = nil
+        isResettingFocus = true
+        focusFeedbackTask?.cancel()
+        let configurationID = cameraConfigurationID
+        camera.focusAndExpose(at: CGPoint(x: 0.5, y: 0.5)) { result in
+            guard phase != .stopped, cameraConfigurationID == configurationID,
+                focusSelectionID == selectionID
+            else { return }
+            isResettingFocus = false
+            switch result {
+            case .success:
+                clearPointFocus()
+                exposureBias = 0
+            case .failure:
+                scheduleFocusFeedbackTimeout()
+                errorMessage = .cameraErrorFocus
+            }
+        }
+    }
+
+    private func clearPointFocus() {
+        camera.stopMonitoringFocusMovement()
+        focusSelectionID = nil
+        pendingFocusResetID = nil
+        isResettingFocus = false
+        focusFeedbackTask?.cancel()
+        focusPoint = nil
+        isFocusFeedbackDimmed = false
+        exposureInteractionActive = false
+    }
+
+    private func stopCamera() {
+        phase = .stopped
+        endPointFocus()
+        camera.stop()
+    }
+
+    private func endPointFocus() {
+        if focusSelectionID != nil {
+            camera.focusAndExpose(at: CGPoint(x: 0.5, y: 0.5)) { result in
+                if case .failure(let error) = result {
+                    print("Camera: could not restore automatic focus: \(error)")
+                }
+            }
+        }
+        clearPointFocus()
     }
 
     private func scheduleFocusFeedbackTimeout() {
@@ -406,8 +509,7 @@ struct CameraScreen: View {
                 applyCapabilities(capabilities)
                 phase = .ready
             case .failure:
-                phase = .stopped
-                camera.stop()
+                stopCamera()
                 errorMessage = .cameraErrorUnavailable
             }
         }
@@ -428,10 +530,7 @@ struct CameraScreen: View {
         let operationID = UUID()
         cameraConfigurationID = operationID
         phase = .switchingCamera(operationID)
-        focusFeedbackTask?.cancel()
-        focusPoint = nil
-        isFocusFeedbackDimmed = false
-        exposureInteractionActive = false
+        endPointFocus()
         camera.switchCamera(livePhotoEnabled: livePhotoEnabled) { result in
             guard phase == .switchingCamera(operationID) else { return }
             switch result {
@@ -458,11 +557,13 @@ struct CameraScreen: View {
     }
 
     private func setExposureBias(_ requestedBias: Double) {
-        guard phase == .ready else { return }
+        guard phase == .ready, !isResettingFocus else { return }
         let configurationID = cameraConfigurationID
+        let selectionID = focusSelectionID
         exposureBias = requestedBias
         camera.setExposureBias(Float(requestedBias)) { result in
-            guard phase != .stopped, cameraConfigurationID == configurationID
+            guard phase != .stopped, cameraConfigurationID == configurationID,
+                focusSelectionID == selectionID
             else { return }
             switch result {
             case .success(let value): exposureBias = Double(value)
@@ -483,8 +584,7 @@ struct CameraScreen: View {
                     livePhotoEnabled = false
                     phase = .ready
                 case .failure:
-                    phase = .stopped
-                    camera.stop()
+                    stopCamera()
                     errorMessage = .cameraErrorLivePhoto
                 }
             }
@@ -505,8 +605,7 @@ struct CameraScreen: View {
                     livePhotoEnabled = true
                     phase = .ready
                 case .failure:
-                    phase = .stopped
-                    camera.stop()
+                    stopCamera()
                     errorMessage = .cameraErrorLivePhoto
                 }
             }
@@ -520,6 +619,8 @@ struct CameraScreen: View {
         let livePhotoAtShutter = livePhotoEnabled
         let operationID = UUID()
         phase = .capturing(operationID)
+        shutterFeedbackFadeDuration = livePhotoAtShutter ? 0.36 : 0.18
+        shutterFeedbackID = operationID
         camera.capture(
             ratio: ratioAtShutter,
             livePhoto: livePhotoAtShutter,

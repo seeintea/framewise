@@ -40,6 +40,14 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private var photoDelegate: PhotoDelegate?
     private var pinchStartZoomFactor: CGFloat?
     private var frontZoomFactor: CGFloat?
+    private var subjectAreaObserver: NSObjectProtocol?
+    private var subjectAreaMonitoringID = UUID()
+
+    deinit {
+        if let subjectAreaObserver {
+            NotificationCenter.default.removeObserver(subjectAreaObserver)
+        }
+    }
 
     func start(completion: @escaping (Result<Capabilities, Error>) -> Void) {
         queue.async { [self] in
@@ -63,6 +71,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func stop() {
         queue.async { [self] in
+            stopObservingSubjectAreaChanges()
             if let device {
                 do {
                     try finishZoom(for: device)
@@ -130,6 +139,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
 
                 device = nextDevice
+                stopObservingSubjectAreaChanges()
                 videoInput = nextInput
                 frontZoomFactor = nextDevice.position == .front
                     ? nextDevice.videoZoomFactor : nil
@@ -255,6 +265,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func focusAndExpose(
         at point: CGPoint,
+        onSubjectAreaChange: (() -> Void)? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         queue.async { [self] in
@@ -284,6 +295,11 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 if changed {
                     device.setExposureTargetBias(0, completionHandler: nil)
+                    device.isSubjectAreaChangeMonitoringEnabled = onSubjectAreaChange != nil
+                    stopObservingSubjectAreaChanges()
+                    if let onSubjectAreaChange {
+                        observeSubjectAreaChanges(for: device, onChange: onSubjectAreaChange)
+                    }
                 }
                 let result: Result<Void, Error> =
                     changed
@@ -292,6 +308,38 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
+        }
+    }
+
+    private func observeSubjectAreaChanges(
+        for observedDevice: AVCaptureDevice,
+        onChange: @escaping () -> Void
+    ) {
+        let monitoringID = subjectAreaMonitoringID
+        let deviceID = observedDevice.uniqueID
+        subjectAreaObserver = NotificationCenter.default.addObserver(
+            forName: AVCaptureDevice.subjectAreaDidChangeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            let eventDevice = notification.object as? AVCaptureDevice
+            let eventDeviceID = eventDevice?.uniqueID
+            self?.queue.async { [weak self] in
+                guard let self else { return }
+                guard self.subjectAreaMonitoringID == monitoringID,
+                    self.device?.uniqueID == deviceID, eventDeviceID == deviceID,
+                    self.session.isRunning
+                else { return }
+                DispatchQueue.main.async { onChange() }
+            }
+        }
+    }
+
+    private func stopObservingSubjectAreaChanges() {
+        subjectAreaMonitoringID = UUID()
+        if let subjectAreaObserver {
+            NotificationCenter.default.removeObserver(subjectAreaObserver)
+            self.subjectAreaObserver = nil
         }
     }
 
@@ -507,6 +555,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private func resetDevice(_ device: AVCaptureDevice) throws {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
+        device.isSubjectAreaChangeMonitoringEnabled = false
         device.videoZoomFactor = device.position == .front
             ? device.minAvailableVideoZoomFactor
             : clampedZoomFactor(oneXZoomFactor(for: device), for: device)

@@ -9,6 +9,8 @@ import AVFoundation
 import SwiftUI
 
 struct CameraTopBarControls: ToolbarContent {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let flashMode: AVCaptureDevice.FlashMode
     let availableFlashModes: [AVCaptureDevice.FlashMode]
     let onToggleFlash: () -> Void
@@ -17,6 +19,7 @@ struct CameraTopBarControls: ToolbarContent {
     let areAnnotationsVisible: Bool
     let onToggleAnnotations: () -> Void
     let onMore: () -> Void
+    var controlRotation = Angle.zero
     var isCameraReady = true
     var showsMore = true
 
@@ -28,6 +31,7 @@ struct CameraTopBarControls: ToolbarContent {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
+                        .rotationEffect(controlRotation)
                 }
                 .tint(flashMode == .off ? .white : .yellow)
                 .disabled(!isCameraReady || availableFlashModes.count < 2)
@@ -41,6 +45,7 @@ struct CameraTopBarControls: ToolbarContent {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 18, height: 18)
+                    .rotationEffect(controlRotation)
                 }
                 .tint(.white)
                 .disabled(!isCameraReady)
@@ -54,6 +59,7 @@ struct CameraTopBarControls: ToolbarContent {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
+                        .rotationEffect(controlRotation)
                 }
                 .tint(.white)
                 .accessibilityLabel(
@@ -74,11 +80,16 @@ struct CameraTopBarControls: ToolbarContent {
                                 .scaledToFit()
                                 .frame(width: 16, height: 16)
                         }
+                        .rotationEffect(controlRotation)
                     }
                     .tint(.white)
                     .accessibilityLabel(Text(.cameraMoreSettings))
                 }
             }
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 0.2),
+                value: controlRotation
+            )
             .padding(.horizontal, 12)
         }
     }
