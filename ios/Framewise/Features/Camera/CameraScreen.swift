@@ -32,6 +32,7 @@ struct CameraScreen: View {
     @State private var flashModes: [AVCaptureDevice.FlashMode] = []
     @State private var focusPoint: CGPoint?
     @State private var focusFeedbackTask: Task<Void, Never>?
+    @State private var isFocusFeedbackDimmed = false
     @State private var exposureInteractionActive = false
     @State private var previewBottom: CGFloat?
     @State private var shutterTop: CGFloat?
@@ -223,11 +224,13 @@ struct CameraScreen: View {
                         exposureInteractionActive = active
                         if active {
                             focusFeedbackTask?.cancel()
+                            isFocusFeedbackDimmed = false
                         } else {
-                            scheduleFocusDismissal()
+                            scheduleFocusFeedbackTimeout()
                         }
                     },
-                    controlRotation: controlRotation
+                    controlRotation: controlRotation,
+                    feedbackOpacity: isFocusFeedbackDimmed ? 0.5 : 1
                 )
             }
         }
@@ -319,22 +322,34 @@ struct CameraScreen: View {
             y: previewFrame.minY + viewPoint.y
         )
         guard !zoomFrame.contains(screenPoint) else { return }
+        isFocusFeedbackDimmed = false
         focusPoint = viewPoint
-        scheduleFocusDismissal()
+        scheduleFocusFeedbackTimeout()
         camera.focusAndExpose(at: devicePoint) { result in
-            if case .failure = result {
+            switch result {
+            case .success:
+                exposureBias = 0
+            case .failure:
                 focusPoint = nil
                 errorMessage = .cameraErrorFocus
             }
         }
     }
 
-    private func scheduleFocusDismissal() {
+    private func scheduleFocusFeedbackTimeout() {
         focusFeedbackTask?.cancel()
         focusFeedbackTask = Task {
             try? await Task.sleep(for: .seconds(3.5))
-            guard !Task.isCancelled, !exposureInteractionActive else { return }
-            focusPoint = nil
+            guard !Task.isCancelled, !exposureInteractionActive,
+                focusPoint != nil
+            else { return }
+            if exposureBias == 0 {
+                focusPoint = nil
+            } else {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+                    isFocusFeedbackDimmed = true
+                }
+            }
         }
     }
 

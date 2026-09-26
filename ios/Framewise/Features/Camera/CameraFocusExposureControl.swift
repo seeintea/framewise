@@ -16,6 +16,7 @@ struct CameraFocusExposureControl: View {
     let onSelectExposureBias: (Double) -> Void
     let onExposureInteractionChanged: (Bool) -> Void
     let controlRotation: Angle
+    var feedbackOpacity: Double = 1
 
     private let indicatorSize: CGFloat = 72
     private let spacing: CGFloat = 5
@@ -27,6 +28,7 @@ struct CameraFocusExposureControl: View {
 
             ZStack {
                 CameraFocusIndicator(size: indicatorSize)
+                    .opacity(feedbackOpacity)
                     .rotationEffect(controlRotation)
                     .position(focusPoint)
 
@@ -37,7 +39,8 @@ struct CameraFocusExposureControl: View {
                         selectedBias: selectedExposureBias,
                         isEnabled: isExposureEnabled,
                         onSelectBias: onSelectExposureBias,
-                        onInteractionChanged: onExposureInteractionChanged
+                        onInteractionChanged: onExposureInteractionChanged,
+                        feedbackOpacity: feedbackOpacity
                     )
                     .rotationEffect(controlRotation)
                     .position(exposurePosition)

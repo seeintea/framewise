@@ -154,8 +154,23 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     ) -> CGFloat {
         min(
             max(factor, device.minAvailableVideoZoomFactor),
-            min(device.maxAvailableVideoZoomFactor, 10)
+            maximumZoomFactor(for: device)
         )
+    }
+
+    private func maximumZoomFactor(for device: AVCaptureDevice) -> CGFloat {
+        // The 25× limit is relative to the same 1× baseline used by the UI.
+        min(device.maxAvailableVideoZoomFactor, oneXZoomFactor(for: device) * 25)
+    }
+
+    private func oneXZoomFactor(for device: AVCaptureDevice) -> CGFloat {
+        guard device.constituentDevices.first?.deviceType
+            == AVCaptureDevice.DeviceType.builtInUltraWideCamera,
+            let wideFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first
+        else {
+            return 1
+        }
+        return CGFloat(truncating: wideFactor)
     }
 
     func focusAndExpose(
@@ -186,6 +201,9 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     device.exposurePointOfInterest = point
                     device.exposureMode = .continuousAutoExposure
                     changed = true
+                }
+                if changed {
+                    device.setExposureTargetBias(0, completionHandler: nil)
                 }
                 let result: Result<Void, Error> =
                     changed
@@ -371,23 +389,18 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         else {
             throw CameraError.unavailable
         }
-        if device.constituentDevices.first?.deviceType
-            == AVCaptureDevice.DeviceType.builtInUltraWideCamera,
-            let wideFactor = device.virtualDeviceSwitchOverVideoZoomFactors
-                .first
-        {
-            try device.lockForConfiguration()
-            device.videoZoomFactor = min(
-                CGFloat(truncating: wideFactor),
-                device.maxAvailableVideoZoomFactor
-            )
-            device.unlockForConfiguration()
-        }
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
         session.beginConfiguration()
-        defer { session.commitConfiguration() }
         session.sessionPreset = .photo
         session.addInput(input)
         session.addOutput(photoOutput)
+        session.commitConfiguration()
+        // Apply the display 1× baseline after the session selects its capture format.
+        device.videoZoomFactor = clampedZoomFactor(
+            oneXZoomFactor(for: device),
+            for: device
+        )
         self.device = device
         isConfigured = true
     }
@@ -396,15 +409,12 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         let switches = device.virtualDeviceSwitchOverVideoZoomFactors.map(
             \.doubleValue
         )
-        let hasUltraWide =
-            device.constituentDevices.first?.deviceType
-            == AVCaptureDevice.DeviceType.builtInUltraWideCamera
-        let oneX = hasUltraWide ? CGFloat(switches.first ?? 1) : 1
+        let oneX = oneXZoomFactor(for: device)
         var factors: [CGFloat] = [
             device.minAvailableVideoZoomFactor, oneX, oneX * 2,
         ]
         factors += switches.map { CGFloat($0) }
-        let maximum = min(device.maxAvailableVideoZoomFactor, 10)
+        let maximum = maximumZoomFactor(for: device)
         return
             factors
             .filter {

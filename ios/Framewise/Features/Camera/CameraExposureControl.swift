@@ -16,6 +16,7 @@ struct CameraExposureControl: View {
     let isEnabled: Bool
     let onSelectBias: (Double) -> Void
     let onInteractionChanged: (Bool) -> Void
+    var feedbackOpacity: Double = 1
 
     @State private var biasAtDragStart: Double?
 
@@ -27,35 +28,44 @@ struct CameraExposureControl: View {
             let travel = max(geometry.size.height - 12, 0)
 
             ZStack {
-                Capsule()
-                    .fill(.yellow.opacity(0.55))
-                    .frame(width: 1)
+                ZStack {
+                    Capsule()
+                        .fill(.yellow.opacity(0.55))
+                        .frame(width: 1)
 
-                Image(systemName: "sun.max.fill")
-                    .frame(width: 14, height: 14)
-                    .offset(y: travel * (0.5 - progress))
+                    Image(systemName: "sun.max.fill")
+                        .frame(width: 14, height: 14)
+                        .offset(y: travel * (0.5 - progress))
+                }
+                .opacity(feedbackOpacity)
+                .allowsHitTesting(false)
+
+                // Keep the full touch surface independent of the dimmed drawing.
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .allowsHitTesting(isEnabled)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                if biasAtDragStart == nil {
+                                    biasAtDragStart = selectedBias
+                                    onInteractionChanged(true)
+                                }
+                                selectBias(
+                                    from: biasAtDragStart ?? selectedBias,
+                                    translationY: value.translation.height,
+                                    trackHeight: geometry.size.height
+                                )
+                            }
+                            .onEnded { _ in
+                                guard biasAtDragStart != nil else { return }
+                                biasAtDragStart = nil
+                                onInteractionChanged(false)
+                            }
+                    )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        if biasAtDragStart == nil {
-                            biasAtDragStart = selectedBias
-                            onInteractionChanged(true)
-                        }
-                        selectBias(
-                            from: biasAtDragStart ?? selectedBias,
-                            translationY: value.translation.height,
-                            trackHeight: geometry.size.height
-                        )
-                    }
-                    .onEnded { _ in
-                        guard biasAtDragStart != nil else { return }
-                        biasAtDragStart = nil
-                        onInteractionChanged(false)
-                    }
-            )
         }
         .frame(width: Self.layoutSize.width, height: Self.layoutSize.height)
         .font(.system(size: 15, weight: .medium))
