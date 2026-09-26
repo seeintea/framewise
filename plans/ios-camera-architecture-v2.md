@@ -4,7 +4,7 @@
 >
 > 创建日期：2026-09-20。
 >
-> 最近更新：2026-09-26。
+> 最近更新：2026-09-27。
 >
 > 本文描述 2026-09-20 开始的新相机实现。旧相机架构与实现已经归档在
 > [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)，
@@ -270,6 +270,142 @@ Live Photo 还需取得配对视频。资源交付后，相机即可接受下一
 
 `Core/Camera/CameraController` 在采集资源交付后把照片交给 `CameraPhotoSaver` 并释放快门。
 保存成功不显示提示；保存失败通过应用根层的通知处理，在离开相机页后仍能反馈。
+
+## 2026-09-27 拍摄与保存延迟讨论
+
+状态：仅完成当前代码审查与参考方案讨论，尚未实施性能优化，也未建立本轮真机阶段计时基线。
+本节记录新相机的现状与候选方向，不改变上文已实现的异步保存规则或成片契约。
+`plans/ios-camera-performance.md` 对应归档旧相机，其历史耗时不能作为当前实现的基线。
+
+### 用户反馈与原因边界
+
+用户反馈：已有闪屏反馈后，从拍照到处理、最终进入系统相册仍感觉慢；快门恢复与相册出现
+两个环节都明显，普通照片也存在，不限于 Live Photo。后续第一轮验证优先覆盖普通照片。
+
+此前实现优先保证单次拍摄资源完整交付，以及裁切、镜像和输出方向正确，带来两项性能代价：
+
+- 单个拍摄请求占用全局拍摄状态，完整请求结束前不能开始下一张，没有利用采集与处理重叠的能力。
+- 保存前进行全尺寸像素重绘；需要最终旋转时再绘制一次，增加自定义处理工作。
+
+这些实现选择确实增加等待或处理工作，但系统采集、计算摄影、编码和 PhotoKit 写入也需要时间。
+尚无阶段计时，不能将全部延迟归因于此前决策，或断言某个阶段占据最多耗时。
+成片要求本身继续保留，优化重点是状态划分与实现方式。
+
+### 当前实际链路
+
+依据当前 `CameraScreen`、`CameraEngine`、`CameraController`、`CameraPhotoSaver`、
+`PhotoAspectRatio`、`PhotoOutputRotation` 与 `LivePhotoProcessor` 的实际代码：
+
+```text
+按下快门 → 页面进入 capturing → AVFoundation 采集、处理和编码
+  → didFinishCaptureFor 返回完整结果 → 后续保存任务入队 → 页面恢复 ready
+
+保存任务：照片解码、方向归一化与比例裁切 → 按需最终旋转 → PhotoKit 写入系统相册
+Live Photo 另需处理配对视频，照片和视频资源准备完毕后一起写入相册
+```
+
+- `CameraEngine` 仅持有一个 `photoDelegate`，其非空时拒绝下一次拍摄；直到
+  `didFinishCaptureFor` 才清空并交付结果。Live Photo 还需取得配对视频的处理结果。
+- `CameraController` 调用 `saver.enqueue` 后立即完成拍摄回调，不等待自定义处理或相册写入。
+  因此保存已经与快门锁定解耦，不能描述为“必须落库后才能拍下一张”。
+- 普通照片始终经过 `UIGraphicsImageRenderer`，即使目标比例与原图一致也会重绘，
+  同时归一化方向；最终横版旋转使用第二次 renderer。随后从 `UIImage` 创建 Photos asset。
+- Live Photo 静态图也经过裁切、旋转与重新编码；需要变换的视频使用最高质量 preset
+  配合 `videoComposition` 导出。已有视频直接复用分支，不代表所有拍摄都需要视频重新编码。
+- 当前黑色闪屏在按下快门时触发，普通照片动画为 `0.04 + 0.18` 秒，Live Photo 为
+  `0.04 + 0.36` 秒。它只提供视觉反馈，不缩短系统处理、快门锁定或保存耗时。
+- 当前拍摄使用 `.balanced`，尚未接入 Responsive Capture、Readiness Coordinator、
+  Fast Capture Prioritization、Deferred Photo Delivery 或阶段计时。
+
+### 本轮参考方案
+
+记录日期：2026-09-27。以下开源库只用于阅读实际实现，不作为新增依赖。
+
+| 来源 | 已核对的处理方式 | 适用范围与限制 |
+| --- | --- | --- |
+| [VisionCamera v4.7.3 拍摄入口](https://github.com/mrousavy/react-native-vision-camera/blob/v4.7.3/package/ios/Core/CameraSession%2BPhoto.swift)与 [PhotoCaptureDelegate](https://github.com/mrousavy/react-native-vision-camera/blob/v4.7.3/package/ios/Core/PhotoCaptureDelegate.swift) | 每次拍摄创建独立 delegate；捕获事件与图片文件结果分开，写文件后返回路径、方向和镜像信息，Photos 保存不纳入这条结果流程。 | 可参考每张照片独立生命周期与保存职责分离，不能据此判断上层快门 UI 恢复时间或性能。[该版本配置](https://github.com/mrousavy/react-native-vision-camera/blob/v4.7.3/package/ios/Core/CameraSession%2BConfiguration.swift)仍将 Responsive/Fast Capture 列为 TODO，不能声称已采用。 |
+| [NextLevel 拍摄回调源码](https://github.com/NextLevel/NextLevel/blob/main/Sources/NextLevel.swift) | 分别通知采集、图片处理和完整捕获结束；普通照片通过 `fileDataRepresentation()` 将编码 Data 交给调用方。 | 这条普通照片路径不在库内执行裁切、像素旋转或 Photos 保存。它不承担 Framewise 的成片变换要求，不能直接据此比较速度。 |
+| [Apple：Create a more responsive camera experience](https://developer.apple.com/videos/play/wwdc2023/10105/)与 [Readiness Coordinator 文档](https://developer.apple.com/documentation/avfoundation/avcapturephotooutputreadinesscoordinator) | Responsive Capture 允许下一张采集与上一张处理重叠；readiness 用于决定是否及时接受新请求，协调后台相机队列与主线程 UI。 | API 从 iOS 17 可用，覆盖当前 iOS 18 最低版本；仍需检查当前设备与配置支持，并处理交错的多次拍摄回调。 |
+| [Apple：Saving captured photos](https://developer.apple.com/documentation/avfoundation/saving-captured-photos) | 将 `fileDataRepresentation()` 得到的编码 Data 作为 `.photo` 资源交给 PhotoKit。 | 可作为不含自定义变换的性能对照。当前比例裁切、镜像和最终物理像素方向要求不能通过直接保存原始 Data 自动满足。 |
+
+另已核对当前安装 SDK 的 `AVCapturePhotoOutput.h`：上述响应式拍摄及 readiness API 的
+iOS availability 为 17.0。Zero Shutter Lag 在现代 SDK 链接的应用中会于支持的配置下默认开启；
+实际启用状态仍需检查。它改善捕获时刻与按下快门时刻的对应，不等于减少编码或落库耗时。
+
+### 候选实施顺序，尚未实施
+
+1. 建立真机分段计时：按下快门、系统图片交付、完整 capture 结束、快门恢复、
+   自定义处理开始与结束、Photos 写入完成。另观察相册实际出现时间，不将它与写入回调
+   自动视为同一时刻。对比普通照片不同输出比例和方向，再覆盖 Live Photo。
+2. 改善下一拍等待：在支持的配置下验证 Responsive Capture 与 Readiness Coordinator，
+   为每张照片保留独立 delegate 和资源，依据就绪状态恢复快门。仍在处理的请求不能被新请求
+   覆盖；相机切换等会话变更需继续考虑进行中的请求。仅提前解禁按钮可能造成排队，
+   不足以证明实际拍摄更及时。
+3. 缩短自定义处理与保存：先以原始编码 Data 直存作为性能对照，测量当前额外处理的占比；
+   正式输出尝试将方向归一化、裁切与最终旋转合并为一次像素处理，只在满足现有契约时
+   复用原资源。不能以方向标签替代已确认的物理像素旋转要求。
+
+第一轮建议保留当前 `.balanced` 画质与成片规则；响应式采集增加内存需求，需结合保存任务
+积压情况验证，避免无界增加进行中的请求或处理任务。优化幅度以真机测量为准，暂无耗时承诺。
+
+Deferred Photo Processing 暂不列为第一轮：它先将代理照片作为 `.photoProxy` 写入相册，
+最终高质量处理稍后完成，改善连续拍摄与照片先出现的体验，不保证最终成片更早就绪。
+Apple 说明对代理照片像素或元数据的修改不会自动反映到最终照片，需后续通过 PhotoKit 调整；
+因此不能直接套用当前保存前裁切、旋转流程。Fast Capture Prioritization 会按需降低拍摄质量，
+也先不作为本轮默认方案。
+
+### 同日补充：Live Photo 的采样时间与额外等待
+
+用户进一步反馈 Live Photo 约有两秒等待，系统相机的体感没有这么长，要求核对采样时序与
+成熟实现。以下仍是讨论与代码审查，未改动拍摄或保存实现，也没有测得各阶段耗时。
+
+**采样时长不等于快门必须禁用的时长。**
+[Apple 的 Live Photo 说明](https://support.apple.com/en-us/104966)描述快门前后各约 `1.5` 秒。
+前半段来自快门之前的采集，不需要在按下之后重新等满整段；若要保留后半段，仍需等待未来
+画面产生。因此“按下之后固定两秒”不是 API 的硬性规则，也不能承诺把完整后续画面立即交付。
+
+[Apple WWDC16 的采集时序说明](https://developer.apple.com/videos/play/wwdc2016/501/)及当前
+SDK 将几个完成时刻区分开：
+
+| 时刻 | 含义 | 当前 Framewise 的使用情况 |
+| --- | --- | --- |
+| `didFinishRecordingLivePhotoMovie…` | 动态部分所需样本已收集，文件尚不一定写完；可以结束采样中的 LIVE 指示。 | 未实现此回调，未单独表达采样结束。 |
+| `didFinishProcessingLivePhotoToMovieFile…` | 系统 MOV 文件已写完，可以消费。 | 保留视频 URL，等待完整请求结束。 |
+| `didFinishCaptureFor` | 本次请求的回调全部结束，可清理请求状态。 | 交付图片与视频，释放全局拍摄状态。 |
+| 自定义处理和 Photos 写入完成 | 得到符合当前成片契约的最终相册资源。 | 已在后台执行，但须等加工结束才能创建完整 Live Photo asset。 |
+
+我们的 `AVCapturePhotoOutput` 同样提供快门之前的 Live Photo 内容；当前代码在开启功能时
+配置输出，按每次快门时没有重新开启 Live Photo 或停止、重启会话。
+系统 [自动裁掉过度移动画面的能力](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotoautotrimmingenabled)
+在支持时默认开启，当前代码未关闭。因此没有证据将每拍等待归因于缺少预采集或自动修剪。
+预采集、按运动自动缩短片段和允许请求重叠是不同机制，不能互相替代。
+
+本轮另核对了 Apple 旧版 AVCam 示例的
+[CameraViewController.swift 镜像](https://github.com/Lax/Learn-iOS-Swift-by-Examples/blob/master/AVCam/Swift/AVCam/CameraViewController.swift)
+与 [PhotoCaptureDelegate.swift 镜像](https://github.com/Lax/Learn-iOS-Swift-by-Examples/blob/master/AVCam/Swift/AVCam/PhotoCaptureDelegate.swift)：
+每张创建独立 delegate 并按 `uniqueID` 保留；源码明确处理 Live Photo 请求重叠，用进行中的
+采样数量控制 LIVE 指示，不等上一张保存完才接受下一张。采样结束只移除相应指示，完整图片
+Data 与系统 MOV 随后直接作为 `.photo`、`.pairedVideo` 写入同一 asset，未额外裁切或转码。
+这证明公开 API 可拆开请求生命周期，不能据此声称已查明系统 Camera app 的内部调度；
+旧示例的 UIKit、队列和按钮策略也不能完整照搬到当前工程，需结合系统 readiness 与负荷限制。
+
+另外核对 [LimitPoint/LivePhoto 的实际源码](https://github.com/LimitPoint/LivePhoto/blob/master/LivePhoto.swift)：
+`saveToLibrary` 直接将已有配对文件提交 PhotoKit，不重新编码。它是 Live Photo 资源工具，
+不是相机采集库；其 `generate` 将任意照片、视频重新配对时的转码不属于原生拍摄的必要步骤。
+NextLevel 未实现完整的 Live Photo 视频处理回调，上一轮普通照片参考不能据此延伸为
+完整 Live Photo 方案。上述镜像与资源库链接核对日期为 2026-09-27，链接使用其当前分支。
+
+当前额外处理发生在 `LivePhotoProcessor.process`：先完成静态图裁切、按需旋转和编码，
+再开始视频处理。视频若已满足比例且 `quarterTurns == 0` 则复用原文件，否则通过
+`videoComposition` 与 `AVAssetExportPresetHighestQuality` 重新导出整段视频，最后才写入 Photos。
+视频变换处理的是整段画面，不只是静态照片；但不能在未测量时判断导出增加了几秒。
+不能假定每次 `3:4` 都会复用视频，需记录真实尺寸、变换与所走分支。
+
+因此需分别验证两类优化：快门就绪时允许独立请求重叠，以减少用户等待；保存端减少成对资源
+的重复加工，以缩短最终成片落库。第一轮计时应补充采样结束、系统 MOV 交付、静态图处理、
+视频导出与 Photos 写入的时间，以及片段 duration、photoDisplayTime、输入/输出尺寸和
+是否直接复用视频。原始配对资源直存仅作性能对照；正式优化继续满足静态图、配对视频相同
+裁切、镜像和最终方向的要求，不为缩短等待强行截掉后续画面。
 
 ## 2026-09-24 相机核心拆分
 
