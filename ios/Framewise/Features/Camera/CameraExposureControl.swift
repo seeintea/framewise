@@ -14,6 +14,7 @@ struct CameraExposureControl: View {
     let maximumBias: Double
     let selectedBias: Double
     let isEnabled: Bool
+    let isVisuallyEnabled: Bool
     let onSelectBias: (Double) -> Void
     let onInteractionChanged: (Bool) -> Void
     var feedbackOpacity: Double = 1
@@ -48,6 +49,7 @@ struct CameraExposureControl: View {
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
+                                guard isEnabled else { return }
                                 if biasAtDragStart == nil {
                                     biasAtDragStart = selectedBias
                                     onInteractionChanged(true)
@@ -72,13 +74,14 @@ struct CameraExposureControl: View {
         .foregroundStyle(.yellow)
         .contentShape(Rectangle())
         .disabled(!isEnabled)
-        .opacity(isEnabled ? 1 : 0.45)
+        .opacity(isVisuallyEnabled ? 1 : 0.45)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(.cameraExposureLabel))
         .accessibilityValue(
             Text(verbatim: String(format: "%+.1f EV", selectedBias))
         )
         .accessibilityAdjustableAction { direction in
+            guard isEnabled else { return }
             let delta = direction == .increment ? 0.1 : -0.1
             onInteractionChanged(true)
             onSelectBias(clampedAndRounded(selectedBias + delta))

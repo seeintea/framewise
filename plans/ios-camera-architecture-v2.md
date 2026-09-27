@@ -157,8 +157,9 @@ VisionCamera 使用 `cancelVideoZoomRamp()` 的平滑停止方式。
 ## 2026-09-23 Live Photo 接入
 
 首次开启 Live Photo 时由用户在相机页主动操作；`CameraAccess` 通过权限模块请求麦克风权限。
-`CameraEngine` 在会话停止期间接入音频输入并启用 `AVCapturePhotoOutput` 的 Live Photo 能力，
-普通照片仍可使用同一个输出。按快门时分别取得静态照片数据和配对短视频文件；取得完整资源前
+原首版 `CameraEngine` 在会话停止期间接入音频输入并启用 Live Photo 能力；2026-09-27
+已调整为下节的提前准备与暂停方式。普通照片仍可使用同一个输出。按快门时分别取得静态照片
+数据和配对短视频文件；取得完整资源前
 保持拍摄状态，避免覆盖尚未完成的请求。后续处理与相册写入按 2026-09-24 的异步保存规则执行。
 
 静态照片沿用当前竖屏居中裁切及最终旋转，并在重新编码时保留原始元数据中的 Live Photo
@@ -167,6 +168,39 @@ VisionCamera 使用 `cancelVideoZoomRamp()` 的平滑停止方式。
 如果原始短视频的正立尺寸已经等于目标比例且不需旋转，则直接使用原文件，避免重新编码；
 其余情况仍需导出变换后的短视频。保存成功不再显示提示。
 Live Photo 的拍摄、相册播放与相关输出组合已由用户在真机验收。
+
+## 2026-09-27 Live Photo 开关减少预览中断
+
+用户反馈 Live Photo 开关时预览闪动。代码审查确认原开关都会停止、重启会话，并改变
+`isLivePhotoCaptureEnabled`；Apple 明确说明运行中改变该属性需要较长的管线重配置，
+会暂时冻结预览。这是本轮处理的明确中断来源，尚无真机阶段日志证明它覆盖所有闪动原因。
+
+改为在首次启动前及前后镜头替换的停止阶段，为支持的设备准备 Live Photo 管线。
+用户关闭 Live 时设置 `isLivePhotoCaptureSuspended = true`；开启时接入麦克风后恢复。
+开关本身不再调用 `stopRunning()` / `startRunning()`，也不再改管线 enabled 属性。
+音频输入通过运行会话的 `beginConfiguration()` / `commitConfiguration()` 增删：首次开启
+仍须请求麦克风权限，关闭后移除音频输入；仅准备 Live 能力不主动接入麦克风。
+
+普通照片仍不给 `livePhotoMovieFileURL`，只有本次明确选择 Live 才生成配对视频。
+Live 请求同时检查已准备、未暂停和音频输入存在；采集期间不能改 Live 配置。
+添加音频后配置不可用或会话意外停止时，移除新输入并报告失败，不留下已开启音频的半成状态。
+
+保留暂停状态跨会话停止与恢复；前后镜头切换重新查询支持能力并设置当前模式，失败回滚
+同时恢复原 enabled 和 suspended 状态。页面启动无论 Live 偏好开关都同步一次音频和暂停
+状态，避免失败重试后留下旧麦克风输入。刚开启后的 Live 片段不会包含恢复前的缓存。
+
+参考 [Apple Live 管线属性](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotocaptureenabled)、
+[暂停属性](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotocapturesuspended)
+与 [运行会话的原子配置](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration())；
+同时核对 [AVCam 源码](https://github.com/AppTyrant/AVCamBuildingACameraApp/blob/master/Swift/AVCam/CameraViewController.swift)：
+它提前准备 Live 管线，开关修改本次拍摄模式，逐次请求用视频 URL 决定是否生成 Live。
+本项目额外在关闭时暂停并移除麦克风，不照搬示例持续保留音频输入的配置。
+`preservesLivePhotoCaptureSuspendedOnSessionStop` 在 iOS 16 起可用，覆盖最低 iOS 18，
+已核对当前 SDK；工程 Swift 模式和部署版本保持不变。
+
+已通过规定的无签名 generic iOS Simulator 构建及独立代码审查，实际无闪动效果仍需真机
+确认。运行中增删音频输入并不保证所有设备完全不中断预览，首次
+系统权限弹窗也可能触发页面暂停；本轮未加入冻结帧覆盖或额外的视频帧采集。
 
 ## 2026-09-24 对焦、曝光与闪光灯控制
 
@@ -271,10 +305,52 @@ Live Photo 还需取得配对视频。资源交付后，相机即可接受下一
 `Core/Camera/CameraController` 在采集资源交付后把照片交给 `CameraPhotoSaver` 并释放快门。
 保存成功不显示提示；保存失败通过应用根层的通知处理，在离开相机页后仍能反馈。
 
+## 2026-09-27 拍摄期间保持控件外观
+
+拍摄期间继续锁定下一次拍摄、前后切换、倍率、对焦、曝光、闪光灯和 Live Photo 设置，
+但不再因这次临时锁定让快门、切换按钮、顶部按钮或曝光条变灰。拍摄阶段的控件沿用就绪
+时的颜色、透明度与选中状态，受锁定的按钮和倍率选项暂不接受触摸；实际命令入口仍检查
+`phase == .ready`，其他输入途径也不能在采集期间更改拍摄设置。
+
+启动、停止、切换设备及 Live 配置过程中的不可用表现，以及设备不支持某项能力时的禁用
+状态保持原样。曝光条继续使用真实可操作状态限制拖动，保留原有闲置淡化规则；模板选择、
+注释显隐和现有快门黑色闪屏反馈沿用既有行为。此改动只调整拍摄锁定的视觉反馈，不改变
+采集生命周期或快门恢复时机。
+
+已通过规定的无签名 generic iOS Simulator 构建及代码审查；拍摄时外观稳定、连续点按
+快门与其他受锁控件的实际体验仍待真机验收。
+
+## 2026-09-27 快门轻微触感
+
+页面处于可拍状态且已取得倍率能力时，接受快门操作后提供一次轻微触感，普通照片与
+Live Photo 相同。使用 SwiftUI `sensoryFeedback` 的 `.impact(weight: .light, intensity: 0.5)`，
+复用仅在接受快门操作后变化的 `shutterFeedbackID`；启动、切换或采集锁定期间的点击不触发。
+触感表示已接受快门操作，不等待拍摄结束或相册保存，也不作为保存成功提示。
+
+触感独立于黑色闪屏动画，“减弱动态效果”仍沿用已有视觉行为。Live 接入麦克风后设置
+`AVAudioSession.setAllowHapticsAndSystemSoundsDuringRecording(true)`，避免音频输入默认
+抑制触感；保留 AVFoundation 的自动音频会话配置，不添加新的音效。该设置失败时记录原因，
+不让触感可用性阻断正常拍照。
+
+已查阅 [Apple SwiftUI 触感文档](https://developer.apple.com/documentation/swiftui/view/sensoryfeedback(_:trigger:))
+与 [录音期间触感设置](https://developer.apple.com/documentation/avfaudio/avaudiosession/setallowhapticsandsystemsoundsduringrecording(_:))，
+并核对当前 SDK：前者从 iOS 17、后者从 iOS 13 可用，覆盖最低 iOS 18。
+已通过规定的无签名 generic iOS Simulator 构建。实际轻重与 Live 录音效果仍待真机验收。
+
 ## 2026-09-27 拍摄与保存延迟讨论
 
-状态：仅完成当前代码审查与参考方案讨论，尚未实施性能优化，也未建立本轮真机阶段计时基线。
-本节记录新相机的现状与候选方向，不改变上文已实现的异步保存规则或成片契约。
+后续图片加工优化已从实验中提取为独立文档
+[iOS 图片加工优化：实验结论与实施起点](ios-photo-processing-optimization.md)，
+在 `codex/photo-processing-optimization` 从实验前 `main`（`d6f6c1b`）重新推进。
+完整测试复盘保留在 `codex/camera-latency-validation` 的 `2d5894c`，没有整体移植实验代码。
+新分支首轮已将静态照片的方向归一化、居中裁切与最终旋转融合为一次绘制，普通照片与
+Live 静态照片共用 `PhotoAspectRatio.renderedImage(from:quarterTurns:)`，移除独立的
+`PhotoOutputRotation`。仍使用原尺寸计算、裁切坐标和 `UIImage` 方向及镜像处理方式。
+模板输出规则、编码路径、相机采集与视频流程保持现状；水印尚未实现，后续样式确认后
+可在同一次最终输出画布中绘制。验证状态记录在图片加工优化文档第 7 节。
+
+下文保留优化前 `d6f6c1b` 的代码审查与参考方案讨论，尚未建立新实现的真机阶段计时基线。
+它不改变上文已实现的异步保存规则或成片契约。
 `plans/ios-camera-performance.md` 对应归档旧相机，其历史耗时不能作为当前实现的基线。
 
 ### 用户反馈与原因边界
@@ -291,9 +367,9 @@ Live Photo 还需取得配对视频。资源交付后，相机即可接受下一
 尚无阶段计时，不能将全部延迟归因于此前决策，或断言某个阶段占据最多耗时。
 成片要求本身继续保留，优化重点是状态划分与实现方式。
 
-### 当前实际链路
+### 优化前实际链路（`d6f6c1b`）
 
-依据当前 `CameraScreen`、`CameraEngine`、`CameraController`、`CameraPhotoSaver`、
+依据该提交的 `CameraScreen`、`CameraEngine`、`CameraController`、`CameraPhotoSaver`、
 `PhotoAspectRatio`、`PhotoOutputRotation` 与 `LivePhotoProcessor` 的实际代码：
 
 ```text

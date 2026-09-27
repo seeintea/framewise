@@ -48,15 +48,12 @@ actor LivePhotoProcessor {
     ) throws -> Data {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
             let sourceType = CGImageSourceGetType(source),
-            let portrait = ratio.croppedImage(from: data)
+            let image = ratio.renderedImage(
+                from: data,
+                quarterTurns: quarterTurns
+            ),
+            let pixels = image.cgImage
         else {
-            throw ProcessingError.invalidPhoto
-        }
-        let image = PhotoOutputRotation.applied(
-            to: portrait,
-            quarterTurns: quarterTurns
-        )
-        guard let pixels = image.cgImage else {
             throw ProcessingError.invalidPhoto
         }
 

@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import AVFAudio
 import Foundation
 
 /// Owns all capture-device work on one serial queue. Permission requests stay in CameraAccess.
@@ -102,6 +103,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 try finishZoom(for: previousDevice)
                 pinchStartZoomFactor = nil
                 let wasLivePhotoEnabled = photoOutput.isLivePhotoCaptureEnabled
+                let wasLivePhotoSuspended = photoOutput.isLivePhotoCaptureSuspended
 
                 session.stopRunning()
                 session.beginConfiguration()
@@ -110,6 +112,9 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     session.addInput(previousInput)
                     session.commitConfiguration()
                     photoOutput.isLivePhotoCaptureEnabled = wasLivePhotoEnabled
+                    if wasLivePhotoEnabled {
+                        photoOutput.isLivePhotoCaptureSuspended = wasLivePhotoSuspended
+                    }
                     configurePhotoMirroring(for: previousDevice)
                     session.startRunning()
                     throw CameraError.unavailable
@@ -120,7 +125,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 do {
                     guard !livePhotoEnabled || photoOutput.isLivePhotoCaptureSupported
                     else { throw CameraError.unavailable }
-                    photoOutput.isLivePhotoCaptureEnabled = livePhotoEnabled
+                    prepareLivePhotoCapture(isActive: livePhotoEnabled)
                     try resetDevice(nextDevice)
                     configurePhotoMirroring(for: nextDevice)
                     session.startRunning()
@@ -133,6 +138,9 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     session.addInput(previousInput)
                     session.commitConfiguration()
                     photoOutput.isLivePhotoCaptureEnabled = wasLivePhotoEnabled
+                    if wasLivePhotoEnabled {
+                        photoOutput.isLivePhotoCaptureSuspended = wasLivePhotoSuspended
+                    }
                     configurePhotoMirroring(for: previousDevice)
                     session.startRunning()
                     throw error
@@ -372,15 +380,18 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     func enableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async { [self] in
             do {
-                guard isConfigured else { throw CameraError.unavailable }
-                if photoOutput.isLivePhotoCaptureEnabled {
+                guard isConfigured, photoDelegate == nil,
+                    photoOutput.isLivePhotoCaptureSupported,
+                    photoOutput.isLivePhotoCaptureEnabled,
+                    AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                else { throw CameraError.unavailable }
+                if liveAudioInput != nil {
+                    photoOutput.isLivePhotoCaptureSuspended = false
+                    allowHapticsWhileRecording()
                     DispatchQueue.main.async { completion(.success(())) }
                     return
                 }
-                guard
-                    AVCaptureDevice.authorizationStatus(for: .audio)
-                        == .authorized,
-                    let microphone = AVCaptureDevice.default(for: .audio)
+                guard let microphone = AVCaptureDevice.default(for: .audio)
                 else {
                     throw CameraError.unavailable
                 }
@@ -390,24 +401,22 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
 
                 let wasRunning = session.isRunning
-                if wasRunning { session.stopRunning() }
                 session.beginConfiguration()
                 session.addInput(audioInput)
                 session.commitConfiguration()
-                guard photoOutput.isLivePhotoCaptureSupported else {
+                guard photoOutput.isLivePhotoCaptureSupported,
+                    photoOutput.isLivePhotoCaptureEnabled,
+                    !wasRunning || session.isRunning
+                else {
                     session.beginConfiguration()
                     session.removeInput(audioInput)
                     session.commitConfiguration()
-                    if wasRunning { session.startRunning() }
                     throw CameraError.unavailable
                 }
-                photoOutput.isLivePhotoCaptureEnabled = true
+                photoOutput.isLivePhotoCaptureSuspended = false
                 liveAudioInput = audioInput
                 if let device { configurePhotoMirroring(for: device) }
-                if wasRunning { session.startRunning() }
-                guard !wasRunning || session.isRunning else {
-                    throw CameraError.unavailable
-                }
+                allowHapticsWhileRecording()
                 DispatchQueue.main.async { completion(.success(())) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
@@ -417,15 +426,16 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func disableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async { [self] in
-            guard isConfigured else {
+            guard isConfigured, photoDelegate == nil else {
                 DispatchQueue.main.async {
                     completion(.failure(CameraError.unavailable))
                 }
                 return
             }
             let wasRunning = session.isRunning
-            if wasRunning { session.stopRunning() }
-            photoOutput.isLivePhotoCaptureEnabled = false
+            if photoOutput.isLivePhotoCaptureEnabled {
+                photoOutput.isLivePhotoCaptureSuspended = true
+            }
             if let liveAudioInput {
                 session.beginConfiguration()
                 session.removeInput(liveAudioInput)
@@ -433,11 +443,20 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 self.liveAudioInput = nil
             }
             if let device { configurePhotoMirroring(for: device) }
-            if wasRunning { session.startRunning() }
             let result: Result<Void, Error> =
                 !wasRunning || session.isRunning
                 ? .success(()) : .failure(CameraError.unavailable)
             DispatchQueue.main.async { completion(result) }
+        }
+    }
+
+    private func allowHapticsWhileRecording() {
+        do {
+            try AVAudioSession.sharedInstance()
+                .setAllowHapticsAndSystemSoundsDuringRecording(true)
+        } catch {
+            // Haptic availability must not prevent an otherwise valid photo capture.
+            print("Camera: could not allow haptics while recording: \(error)")
         }
     }
 
@@ -456,7 +475,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             guard
                 !livePhoto
                     || (photoOutput.isLivePhotoCaptureEnabled
-                        && !photoOutput.isLivePhotoCaptureSuspended)
+                        && !photoOutput.isLivePhotoCaptureSuspended
+                        && liveAudioInput != nil)
             else {
                 DispatchQueue.main.async {
                     completion(.failure(CameraError.unavailable))
@@ -521,6 +541,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         session.addInput(input)
         session.addOutput(photoOutput)
         session.commitConfiguration()
+        photoOutput.preservesLivePhotoCaptureSuspendedOnSessionStop = true
+        prepareLivePhotoCapture(isActive: false)
         // Apply the initial framing after the session selects its capture format.
         do {
             try resetDevice(device)
@@ -535,6 +557,14 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         self.device = device
         videoInput = input
         isConfigured = true
+    }
+
+    /// Prepare the render pipeline while stopped; user toggles only suspend it.
+    private func prepareLivePhotoCapture(isActive: Bool) {
+        photoOutput.isLivePhotoCaptureEnabled = photoOutput.isLivePhotoCaptureSupported
+        if photoOutput.isLivePhotoCaptureEnabled {
+            photoOutput.isLivePhotoCaptureSuspended = !isActive
+        }
     }
 
     private func captureDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {

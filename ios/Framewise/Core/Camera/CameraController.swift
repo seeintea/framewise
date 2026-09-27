@@ -34,11 +34,7 @@ final class CameraController {
             case .failure:
                 completion(result)
             case .success(let capabilities):
-                guard livePhotoEnabled else {
-                    completion(.success(capabilities))
-                    return
-                }
-                engine.enableLivePhoto { result in
+                setLivePhotoEnabled(livePhotoEnabled) { result in
                     guard self.lifecycleID == operationID else { return }
                     switch result {
                     case .success: completion(.success(capabilities))

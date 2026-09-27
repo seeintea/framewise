@@ -95,6 +95,7 @@
                                 maximumExposureBias: 2,
                                 selectedExposureBias: selectedExposureBias,
                                 isExposureEnabled: true,
+                                isExposureVisuallyEnabled: true,
                                 onSelectExposureBias: {
                                     selectedExposureBias = $0
                                 },

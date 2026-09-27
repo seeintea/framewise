@@ -92,11 +92,15 @@ struct CameraScreen: View {
                 .offset(y: -geometry.safeAreaInsets.top)
         }
         .background(Color.black.ignoresSafeArea())
+        .sensoryFeedback(
+            .impact(weight: .light, intensity: 0.5),
+            trigger: shutterFeedbackID
+        )
         .overlay(alignment: .bottom) {
             CameraBottomControls(
                 isAlbumEnabled: false,
-                isCaptureEnabled: phase == .ready && !zoomOptions.isEmpty,
-                canSwitchCamera: phase == .ready && canSwitchCamera,
+                isCaptureEnabled: cameraControlsAppearReady && !zoomOptions.isEmpty,
+                canSwitchCamera: cameraControlsAppearReady && canSwitchCamera,
                 onOpenAlbum: {},
                 onCapture: capture,
                 onSwitchCamera: switchCamera,
@@ -105,7 +109,8 @@ struct CameraScreen: View {
                     CameraMaskOption(id: $0.id, title: $0.localization.title)
                 },
                 selectedMaskId: selectedMaskId,
-                onSelectMask: selectMask
+                onSelectMask: selectMask,
+                isCapturing: isCapturing
             )
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.2),
@@ -143,7 +148,8 @@ struct CameraScreen: View {
                 onToggleAnnotations: { areAnnotationsVisible.toggle() },
                 onMore: {},
                 controlRotation: controlRotation,
-                isCameraReady: phase == .ready,
+                isCameraReady: cameraControlsAppearReady,
+                isCapturing: isCapturing,
                 showsMore: false
             )
         }
@@ -262,6 +268,7 @@ struct CameraScreen: View {
                     maximumExposureBias: Double(exposureRange.upperBound),
                     selectedExposureBias: exposureBias,
                     isExposureEnabled: phase == .ready && !isResettingFocus,
+                    isExposureVisuallyEnabled: cameraControlsAppearReady && !isResettingFocus,
                     onSelectExposureBias: setExposureBias,
                     onExposureInteractionChanged: { active in
                         exposureInteractionActive = active
@@ -295,11 +302,12 @@ struct CameraScreen: View {
             CameraZoomControls(
                 zoomOptions: zoomOptions,
                 selectedZoomFactor: zoomFactor,
-                isEnabled: phase == .ready,
+                isEnabled: cameraControlsAppearReady,
                 onSelectZoomFactor: setZoom,
                 controlRotation: controlRotation,
                 isFrontCamera: isFrontCamera
             )
+            .allowsHitTesting(!isCapturing)
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.2),
                 value: controlRotation
@@ -330,6 +338,17 @@ struct CameraScreen: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    private var isCapturing: Bool {
+        if case .capturing = phase { return true }
+        return false
+    }
+
+    // Capture locks commands without changing the controls' normal appearance.
+    // The command handlers below still require the actual ready phase.
+    private var cameraControlsAppearReady: Bool {
+        phase == .ready || isCapturing
     }
 
     private var selectedMask: MaskContent? {
@@ -613,7 +632,7 @@ struct CameraScreen: View {
     }
 
     private func capture() {
-        guard phase == .ready else { return }
+        guard phase == .ready, !zoomOptions.isEmpty else { return }
         let ratioAtShutter = captureRatio
         let flashAtShutter = flashMode
         let livePhotoAtShutter = livePhotoEnabled

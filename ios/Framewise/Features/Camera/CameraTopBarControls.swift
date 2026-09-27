@@ -21,6 +21,7 @@ struct CameraTopBarControls: ToolbarContent {
     let onMore: () -> Void
     var controlRotation = Angle.zero
     var isCameraReady = true
+    var isCapturing = false
     var showsMore = true
 
     var body: some ToolbarContent {
@@ -35,6 +36,7 @@ struct CameraTopBarControls: ToolbarContent {
                 }
                 .tint(flashMode == .off ? .white : .yellow)
                 .disabled(!isCameraReady || availableFlashModes.count < 2)
+                .allowsHitTesting(!isCapturing)
                 .accessibilityLabel(flashTitle(for: flashMode))
 
                 Button(action: onToggleLivePhoto) {
@@ -49,6 +51,7 @@ struct CameraTopBarControls: ToolbarContent {
                 }
                 .tint(.white)
                 .disabled(!isCameraReady)
+                .allowsHitTesting(!isCapturing)
                 .accessibilityLabel(
                     isLivePhotoEnabled
                         ? Text(.cameraLiveDisable) : Text(.cameraLiveEnable)

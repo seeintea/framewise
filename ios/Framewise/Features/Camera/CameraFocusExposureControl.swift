@@ -13,6 +13,7 @@ struct CameraFocusExposureControl: View {
     let maximumExposureBias: Double
     let selectedExposureBias: Double
     let isExposureEnabled: Bool
+    let isExposureVisuallyEnabled: Bool
     let onSelectExposureBias: (Double) -> Void
     let onExposureInteractionChanged: (Bool) -> Void
     let controlRotation: Angle
@@ -38,6 +39,7 @@ struct CameraFocusExposureControl: View {
                         maximumBias: maximumExposureBias,
                         selectedBias: selectedExposureBias,
                         isEnabled: isExposureEnabled,
+                        isVisuallyEnabled: isExposureVisuallyEnabled,
                         onSelectBias: onSelectExposureBias,
                         onInteractionChanged: onExposureInteractionChanged,
                         feedbackOpacity: feedbackOpacity

@@ -32,8 +32,9 @@ enum PhotoAspectRatio: String, CaseIterable, Identifiable, Sendable {
         CGFloat(dimensions.width) / CGFloat(dimensions.height)
     }
 
-    /// Renders an upright pixel matrix with an exact integer aspect ratio.
-    nonisolated func croppedImage(from data: Data) -> UIImage? {
+    /// Normalizes orientation, crops in portrait coordinates, and applies the final
+    /// quarter turn in one render. Callers supply -1, 0, or 1 quarter turns.
+    nonisolated func renderedImage(from data: Data, quarterTurns: Int) -> UIImage? {
         guard let image = UIImage(data: data), let cgImage = image.cgImage
         else {
             return nil
@@ -51,19 +52,31 @@ enum PhotoAspectRatio: String, CaseIterable, Identifiable, Sendable {
             sourceHeight / dimensions.height
         )
         guard units > 0 else { return nil }
-        let outputWidth = units * dimensions.width
-        let outputHeight = units * dimensions.height
+        let cropWidth = units * dimensions.width
+        let cropHeight = units * dimensions.height
+        let outputSize = CGSize(
+            width: quarterTurns == 0 ? cropWidth : cropHeight,
+            height: quarterTurns == 0 ? cropHeight : cropWidth
+        )
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: outputWidth, height: outputHeight),
+            size: outputSize,
             format: format
         )
-        return renderer.image { _ in
+        return renderer.image { context in
+            // Transform the portrait crop into the final canvas before drawing
+            // the source. UIImage.draw handles the source orientation and mirror.
+            if quarterTurns < 0 {
+                context.cgContext.translateBy(x: 0, y: outputSize.height)
+            } else if quarterTurns > 0 {
+                context.cgContext.translateBy(x: outputSize.width, y: 0)
+            }
+            context.cgContext.rotate(by: CGFloat(quarterTurns) * .pi / 2)
             image.draw(
                 in: CGRect(
-                    x: CGFloat(outputWidth - sourceWidth) / 2,
-                    y: CGFloat(outputHeight - sourceHeight) / 2,
+                    x: CGFloat(cropWidth - sourceWidth) / 2,
+                    y: CGFloat(cropHeight - sourceHeight) / 2,
                     width: CGFloat(sourceWidth),
                     height: CGFloat(sourceHeight)
                 )

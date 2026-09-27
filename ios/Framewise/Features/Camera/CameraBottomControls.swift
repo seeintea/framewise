@@ -23,6 +23,7 @@ struct CameraBottomControls: View {
     let maskOptions: [CameraMaskOption]
     let selectedMaskId: String
     let onSelectMask: (String) -> Void
+    var isCapturing = false
 
     var body: some View {
         Group {
@@ -178,6 +179,7 @@ struct CameraBottomControls: View {
         }
         .buttonStyle(CameraBottomButtonStyle())
         .disabled(!isCaptureEnabled)
+        .allowsHitTesting(!isCapturing)
         .opacity(isCaptureEnabled ? 1 : 0.45)
         .accessibilityLabel(Text(.cameraCaptureAccessibilityLabel))
     }
@@ -206,6 +208,7 @@ struct CameraBottomControls: View {
         }
         .buttonStyle(CameraBottomButtonStyle())
         .disabled(!canSwitchCamera)
+        .allowsHitTesting(!isCapturing)
         .opacity(canSwitchCamera ? 1 : 0.45)
         .accessibilityLabel(Text(.cameraSwitchCamera))
     }

@@ -51,13 +51,12 @@ actor CameraPhotoSaver {
     ) async throws {
         switch captured {
         case .still(let data):
-            guard let portrait = ratio.croppedImage(from: data) else {
+            guard let image = ratio.renderedImage(
+                from: data,
+                quarterTurns: quarterTurns
+            ) else {
                 throw SaveError.invalidPhoto
             }
-            let image = PhotoOutputRotation.applied(
-                to: portrait,
-                quarterTurns: quarterTurns
-            )
             try await PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }
