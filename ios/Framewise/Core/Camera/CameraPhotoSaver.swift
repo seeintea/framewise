@@ -23,7 +23,7 @@ actor CameraPhotoSaver {
         _ captured: CameraEngine.CapturedPhoto,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        timing: CameraCaptureTiming
+        performance: CameraCapturePerformance
     ) {
         // The shared saver owns this user-requested work beyond the camera page's lifetime.
         Task.detached(priority: .userInitiated) { [self] in
@@ -32,10 +32,10 @@ actor CameraPhotoSaver {
                     captured,
                     ratio: ratio,
                     quarterTurns: quarterTurns,
-                    timing: timing
+                    performance: performance
                 )
             } catch {
-                timing.record("saveFailed")
+                performance.record("saveFailed")
                 await MainActor.run {
                     NotificationCenter.default.post(
                         name: .cameraPhotoSaveFailed,
@@ -50,23 +50,23 @@ actor CameraPhotoSaver {
         _ captured: CameraEngine.CapturedPhoto,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        timing: CameraCaptureTiming
+        performance: CameraCapturePerformance
     ) async throws {
-        timing.record("saveStarted")
+        performance.record("saveStarted")
         switch captured {
         case .still(let data):
             let processedPhoto = try await CameraPhotoProcessor.shared.process(
                 data,
                 ratio: ratio,
                 quarterTurns: quarterTurns,
-                timing: timing
+                performance: performance
             )
-            timing.record("libraryWriteStarted")
+            performance.record("libraryWriteStarted")
             try await PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
                 request.addResource(with: .photo, data: processedPhoto, options: nil)
             }
-            timing.record("saved")
+            performance.record("saved")
         case .live(let photoData, let movieURL):
             defer { try? FileManager.default.removeItem(at: movieURL) }
             let processed = try await livePhotoProcessor.process(
@@ -74,14 +74,14 @@ actor CameraPhotoSaver {
                 movieURL: movieURL,
                 ratio: ratio,
                 quarterTurns: quarterTurns,
-                timing: timing
+                performance: performance
             )
             defer {
                 if processed.movieURL != movieURL {
                     try? FileManager.default.removeItem(at: processed.movieURL)
                 }
             }
-            timing.record("libraryWriteStarted")
+            performance.record("libraryWriteStarted")
             try await PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
                 request.addResource(
@@ -97,7 +97,7 @@ actor CameraPhotoSaver {
                     options: movieOptions
                 )
             }
-            timing.record("saved")
+            performance.record("saved")
         }
     }
 }

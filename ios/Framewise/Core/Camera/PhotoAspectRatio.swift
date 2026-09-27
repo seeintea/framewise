@@ -34,7 +34,11 @@ enum PhotoAspectRatio: String, CaseIterable, Identifiable, Sendable {
 
     /// Normalizes orientation, crops in portrait coordinates, and applies the final
     /// quarter turn in one render. Callers supply -1, 0, or 1 quarter turns.
-    nonisolated func renderedImage(from data: Data, quarterTurns: Int) -> UIImage? {
+    nonisolated func renderedImage(
+        from data: Data,
+        quarterTurns: Int,
+        drawOverlay: ((CGSize) -> Void)? = nil
+    ) -> UIImage? {
         guard let image = UIImage(data: data), let cgImage = image.cgImage
         else {
             return nil
@@ -66,6 +70,7 @@ enum PhotoAspectRatio: String, CaseIterable, Identifiable, Sendable {
             format: format
         )
         return renderer.image { context in
+            context.cgContext.saveGState()
             // Transform the portrait crop into the final canvas before drawing
             // the source. UIImage.draw handles the source orientation and mirror.
             if quarterTurns < 0 {
@@ -82,6 +87,9 @@ enum PhotoAspectRatio: String, CaseIterable, Identifiable, Sendable {
                     height: CGFloat(sourceHeight)
                 )
             )
+            context.cgContext.restoreGState()
+            // Keep the watermark upright, independent of source orientation or mirroring.
+            drawOverlay?(outputSize)
         }
     }
 }

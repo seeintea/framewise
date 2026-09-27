@@ -7,6 +7,7 @@
 
 import AVFoundation
 import CoreGraphics
+import CoreImage
 
 /// Applies the same centered portrait crop and final quarter turn to both Live Photo resources.
 actor LivePhotoProcessor {
@@ -20,12 +21,14 @@ actor LivePhotoProcessor {
         let movieURL: URL
     }
 
+    private var watermarkContext: CIContext?
+
     func process(
         photoData: Data,
         movieURL: URL,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        timing: CameraCaptureTiming
+        performance: CameraCapturePerformance
     ) async throws -> Result {
         // The still render/encode runs on its own actor while AVFoundation
         // loads and exports the movie. Neither resource waits for the other to start.
@@ -33,18 +36,21 @@ actor LivePhotoProcessor {
             photoData,
             ratio: ratio,
             quarterTurns: quarterTurns,
-            timing: timing
+            performance: performance
         )
-        timing.record("movieProcessingStarted")
+        performance.record("movieProcessingStarted")
         let outputURL = try await processMovie(
             movieURL,
             ratio: ratio,
             quarterTurns: quarterTurns,
-            timing: timing
+            performance: performance
         )
-        timing.record("movieProcessingFinished")
+        performance.record("movieProcessingFinished")
         do {
-            return try await Result(photoData: processedPhoto, movieURL: outputURL)
+            return try await Result(
+                photoData: processedPhoto,
+                movieURL: outputURL
+            )
         } catch {
             // A successful movie export still needs cleanup if the parallel still failed.
             if outputURL != movieURL {
@@ -58,7 +64,7 @@ actor LivePhotoProcessor {
         _ inputURL: URL,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        timing: CameraCaptureTiming
+        performance: CameraCapturePerformance
     ) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
         guard
@@ -67,7 +73,9 @@ actor LivePhotoProcessor {
             throw ProcessingError.invalidMovie
         }
         let (naturalSize, preferredTransform, frameRate) = try await track.load(
-            .naturalSize, .preferredTransform, .nominalFrameRate
+            .naturalSize,
+            .preferredTransform,
+            .nominalFrameRate
         )
         let duration = try await asset.load(.duration)
         let orientedBounds = CGRect(origin: .zero, size: naturalSize)
@@ -89,14 +97,6 @@ actor LivePhotoProcessor {
             width: units * dimensions.width,
             height: units * dimensions.height
         )
-        let needsCrop = !(
-            abs(cropSize.width - orientedSize.width) < 0.5 &&
-            abs(cropSize.height - orientedSize.height) < 0.5
-        )
-        if quarterTurns == 0, !needsCrop {
-            timing.record("moviePassthrough")
-            return inputURL
-        }
         let cropOrigin = CGPoint(
             x: (orientedSize.width - cropSize.width) / 2,
             y: (orientedSize.height - cropSize.height) / 2
@@ -121,22 +121,7 @@ actor LivePhotoProcessor {
                 y: -rotatedBounds.minY
             )
         )
-        if !needsCrop {
-            // A whole-frame turn needs only a display transform. Editing the existing
-            // movie header retains audio, timed metadata and compressed video samples.
-            let movie = AVMutableMovie(url: inputURL)
-            guard let movieTrack = try await movie.loadTracks(withMediaType: .video).first
-            else { throw ProcessingError.invalidMovie }
-            movieTrack.preferredTransform = transform
-            try movie.writeHeader(
-                to: inputURL,
-                fileType: .mov,
-                options: .addMovieHeaderToDestination
-            )
-            timing.record("movieTransformUpdated")
-            return inputURL
-        }
-        timing.record("movieTranscodeStarted")
+        performance.record("movieTranscodeStarted")
         let outputSize = CGSize(
             width: abs(rotatedBounds.width),
             height: abs(rotatedBounds.height)
@@ -145,11 +130,12 @@ actor LivePhotoProcessor {
             value: 1,
             timescale: CMTimeScale(max(1, frameRate.rounded()))
         )
-        let composition = Self.videoComposition(
+        let composition = try coreImageComposition(
             track: track,
             duration: duration,
             frameDuration: frameDuration,
-            renderSize: outputSize,
+            naturalSize: naturalSize,
+            outputSize: outputSize,
             transform: transform
         )
         guard
@@ -173,44 +159,50 @@ actor LivePhotoProcessor {
         }
     }
 
-    private static func videoComposition(
+    private func coreImageComposition(
         track: AVAssetTrack,
         duration: CMTime,
         frameDuration: CMTime,
-        renderSize: CGSize,
+        naturalSize: CGSize,
+        outputSize: CGSize,
         transform: CGAffineTransform
-    ) -> AVVideoComposition {
+    ) throws -> AVVideoComposition {
+        let context: CIContext
+        if let watermarkContext {
+            context = watermarkContext
+        } else {
+            context = CIContext(options: [
+                .cacheIntermediates: false, .name: "LivePhotoWatermark",
+            ])
+            watermarkContext = context
+        }
+        let instruction = LivePhotoWatermarkCompositor.Instruction(
+            trackID: track.trackID,
+            duration: duration,
+            naturalSize: naturalSize,
+            transform: transform,
+            overlay: try CameraWatermark().coreImageOverlay(for: outputSize),
+            context: context
+        )
         if #available(iOS 26.0, *) {
-            var layer = AVVideoCompositionLayerInstruction.Configuration(
-                assetTrack: track
-            )
-            layer.setTransform(transform, at: .zero)
-            let instruction = AVVideoCompositionInstruction(
-                configuration: .init(
-                    layerInstructions: [
-                        AVVideoCompositionLayerInstruction(configuration: layer)
-                    ],
-                    timeRange: CMTimeRange(start: .zero, duration: duration)
-                )
-            )
             return AVVideoComposition(
                 configuration: .init(
+                    customVideoCompositorClass: LivePhotoWatermarkCompositor
+                        .self,
                     frameDuration: frameDuration,
                     instructions: [instruction],
-                    renderSize: renderSize,
+                    renderSize: outputSize,
                     sourceTrackIDForFrameTiming: track.trackID
                 )
             )
         }
-        let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
-        layer.setTransform(transform, at: .zero)
-        let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
-        instruction.layerInstructions = [layer]
         let composition = AVMutableVideoComposition()
+        composition.customVideoCompositorClass =
+            LivePhotoWatermarkCompositor.self
         composition.frameDuration = frameDuration
-        composition.renderSize = renderSize
         composition.instructions = [instruction]
+        composition.renderSize = outputSize
+        composition.sourceTrackIDForFrameTiming = track.trackID
         return composition
     }
 }

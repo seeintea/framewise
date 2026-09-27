@@ -133,22 +133,22 @@ final class CameraController {
         flashMode: AVCaptureDevice.FlashMode,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        let timing = CameraCaptureTiming()
+        let performance = CameraCapturePerformance()
         let quarterTurns = orientation.quarterTurns(for: ratio)
-        timing.record("shutter ratio=\(ratio.rawValue) live=\(livePhoto) turns=\(quarterTurns)")
-        engine.capture(livePhoto: livePhoto, flashMode: flashMode, timing: timing) {
+        performance.record("shutter ratio=\(ratio.rawValue) live=\(livePhoto) turns=\(quarterTurns)")
+        engine.capture(livePhoto: livePhoto, flashMode: flashMode, performance: performance) {
             [self] result in
             switch result {
             case .failure(let error):
-                timing.record("captureFailed")
+                performance.record("captureFailed")
                 completion(.failure(error))
             case .success(let captured):
-                timing.record("captureDelivered")
+                performance.record("captureDelivered")
                 saver.enqueue(
                     captured,
                     ratio: ratio,
                     quarterTurns: quarterTurns,
-                    timing: timing
+                    performance: performance
                 )
                 completion(.success(()))
             }

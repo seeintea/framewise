@@ -402,6 +402,276 @@ Live Photo 正常播放。四次快门方向快照均为 `turns=-1`，全部命�
 主要在完整 Live Photo 资源交付之前，后续若继续优化应单独调查采集和系统文件收尾，避免继续
 围绕已降至几十毫秒的应用后处理反复调参。
 
+## 2026-09-28 水印正式逻辑迁入主分支
+
+主分支迁入普通照片、Live Photo 封面和视频的「logo + 蒙版相机」水印。五种比例统一
+使用已验证的输出几何：静态图在现有最终绘制中加水印并只编码一次；视频使用复用的
+CIContext 和 LivePhotoWatermarkCompositor，按有效区域归一化、模板裁切及最终旋转
+合成水印。继续保留相机元数据、Live 配对标识、音轨与时间元数据的导出链路，照片与
+视频并行处理，沿用相册写入和临时文件清理逻辑。
+
+正式版本固定开启水印，不提供本轮实验的无水印、C/D 选择或 benchmark 启动参数。
+未迁入 B/C/D 串行对照、几何/轨道信息扫描、轮换与重叠检测、Core Animation 图层
+对照实现、实验 Scheme 参数，以及新增的细分计时和采集诊断回调。主分支原有的
+拍摄/保存生命周期日志保持原样。由于成片始终需要写入水印像素，不保留只在关闭水印
+时使用的照片像素复用、视频直通和仅修改 movie header 分支。
+
+实验代码与完整对照能力保留在 `codex/live-photo-watermark-performance` 的提交
+`6cf24f2`。下方 2026-09-27 各节是实验演进与验收记录，其中的开关、B/C/D 路径和
+计时字段描述该实验提交，不代表主分支仍提供这些接口。
+
+保留的验收结论：全比例 D 真机拍摄后续耗时基本约 3000 ms；此前 4:3 逐张日志的
+快门至保存中位数由 C 的 3544.6 ms 降至 D 的 3026.1 ms。首次拍摄偏慢仍是后续
+独立优化项，现象数据和定位要求见下方“全比例 D 真机反馈与首次拍摄优化待办”。
+
+迁移验证：规定的无签名 generic iOS Simulator 构建通过；与实验提交逐项核对，
+裁切/旋转变换、水印位图生成、Core Image composition 和 compositor 实现一致。
+本次不重新宣称做过 42 次导出或真机测量，那些结果属于下方记录的实验阶段。
+
+## 2026-09-27 保存前水印与耗时对照
+
+用户确认普通照片、Live Photo 静态封面及配对视频都加水印。第一版在最终成片右下角显示
+`design-system/brand/logo-lens-golden-v4.png` 与固定品牌文字「蒙版相机」，使用白字和半透明
+黑底，边距、图标和字号按成片短边缩放。资源由 imageset 符号链接引用品牌源文件。
+
+- 静态图在现有方向归一、居中裁切和最终旋转的同一次 renderer 中叠加，恢复坐标变换后
+  绘制水印，保证文字不跟随前置镜像或源 EXIF 旋转。继续只编码一次并传递原相机元数据和
+  Live Photo 配对标识。
+- 视频共用同一水印位图生成方式，使用独立 CALayer 树和
+  `AVVideoCompositionCoreAnimationTool`，在现有视频变换之后合成。水印位图每个视频只生成
+  一次，不逐帧绘制文字；逐帧合成的开销包含在视频导出时间内。
+- 开启水印时必须修改像素，因而跳过照片直通/无损复用、视频直通/仅修改 movie header
+  的快速路径。照片和视频仍并行处理，原有保存与临时文件清理职责不变。
+
+参考 Apple 的 [UIGraphicsImageRenderer](https://developer.apple.com/documentation/uikit/uigraphicsimagerenderer)
+及 [Core Animation 视频合成说明](https://developer.apple.com/documentation/avfoundation/avvideocompositioncoreanimationtool)。
+renderer 自 iOS 10、Core Animation 视频合成自 iOS 4 可用，覆盖最低 iOS 18。
+本机实际安装 Xcode 27；新增的 iOS 27 合成工具 Configuration 初始化使用编译器及运行系统
+双重检查，Xcode 26 / iOS 18–26 继续使用原有初始化接口，不修改工程语言模式或最低版本。
+
+Debug 默认开启水印；在 Xcode Scheme → Run → Arguments Passed On Launch 添加
+`-CameraDisableWatermark` 后重新启动，可同时关闭照片与视频水印并恢复原快速路径。
+Release 始终开启。此参数只用于本轮性能对照，不增加产品设置入口。
+
+控制台筛选 `[CameraCapture]`，按同一 UUID 关联。原 `+…ms` 仍为快门起算累计时间；
+新增 `duration=…ms` 是该阶段自身时间：
+
+| 日志 | 含义 |
+| --- | --- |
+| `watermark enabled=true/false` | 本次照片是否开启水印 |
+| `photoWatermarkPrepared duration` | 载入 logo 对象 |
+| `photoWatermarkDrawn duration` | 生成水印小位图并叠加到照片，不含整张照片解码和最终编码 |
+| `photoEncoded duration` | ImageIO 元数据准备及最终编码 |
+| `photoProcessingFinished duration` | 整张照片处理，开启/关闭水印都有此指标 |
+| `movieWatermarkPrepared duration` | 水印位图与合成图层准备 |
+| `movieExportFinished duration` | 视频导出，包含逐帧水印合成及重编码 |
+
+比较同设备、同镜头、同场景、同比例与方向下的开启/关闭两组，各自分开记录首张和至少
+10 张后续拍摄。普通照片与 Live Photo 分组，先用上轮的 `4:3 / turns=-1` 复测，再覆盖
+其他比例与镜像。分别比较中位数和最慢值：
+
+1. `photoProcessingFinished duration`：照片处理增量。
+2. `movieProcessingFinished - movieProcessingStarted`：视频处理增量。
+3. `libraryWriteStarted - saveStarted`：资源交付后的应用处理增量；照片、视频并行，不能相加。
+4. `saved - libraryWriteStarted`：相册写入变化；`saved` 的累计时间比较端到端增量。
+
+水印的总损耗包含失去快速路径后新增的解码、整图渲染和重新编码，不能只报告文字绘制时间。
+先前实测普通照片总耗时中位数约 572 ms、Live Photo 约 2.47 s 仅作历史参考，本轮需同条件
+关闭水印重测基线。当前仅完成无签名 Simulator 目标构建，未启动模拟器或操作真机；具体
+毫秒增量、五种比例与前后摄/左右旋转的水印位置、Live Photo 配对播放和声音仍待真机验收。
+
+### 水印首轮真机对照结果
+
+用户提供开启/关闭各 10 张样本，每组前 5 张 Live Photo、后 5 张普通照片，均为
+`4:3 / turns=-1`，全部成功保存。以下为各组 5 张中位数，单位 ms：
+
+| 类型 | 阶段 | 关闭 | 开启 | 中位数差 |
+| --- | --- | ---: | ---: | ---: |
+| 普通照片 | 交付后处理 | 13.1 | 235.2 | +222.1 |
+| 普通照片 | 相册写入 | 128.9 | 54.9 | −74.0 |
+| 普通照片 | 快门至保存 | 539.5 | 692.2 | +152.7 |
+| Live Photo | 交付后处理 | 38.2 | 1370.6 | +1332.4 |
+| Live Photo | 相册写入 | 151.6 | 131.8 | −19.8 |
+| Live Photo | 快门至保存 | 2535.3 | 3752.0 | +1216.7 |
+
+静态图水印绘制中位数 16.6 ms，视频水印准备 17.4 ms，视频导出 1332.8 ms。
+Live Photo 第一张封面处理 930 ms，后四张 225–288 ms；视频导出第一张 1822 ms，
+后四张 1125–1383 ms。各阶段中位数不可相加；采集、写入波动不能归为水印收益或损耗。
+这些日志确认了时间基线，不代表新增水印的画面、颜色或所有方向已获用户验收。
+
+### 首轮实验记录：同一 MOV 的 B/C/D 导出对照
+
+Debug 启动参数 `-CameraWatermarkBenchmark` 启用对照。保持水印开启，移除
+`-CameraDisableWatermark`；该轮实验时默认由 Core Animation 生成并保存正式 Live Photo。
+当前默认策略见下方“全部比例统一使用 Core Image”。
+在 `saved` 之后、删除原始 MOV 之前，串行对该原始资源运行：
+
+- B：保持相同裁切旋转、最高质量 preset，强制导出但不加水印，不能命中直通/header 路径。
+- C：当前 Core Animation 水印。
+- D：Core Image 水印，复用 `CIContext`、关闭视频中间结果缓存，每个视频只生成一次水印图。
+
+执行顺序按拍摄轮换 `B,C,D` → `C,D,B` → `D,B,C`。同一时刻只允许一组对照；
+测试导出不写入相册，成功或失败均清理临时输出。正常 `saved` 不包含后续对照时间。
+正式保存会提前运行一次 C，因此这组对照是已有拍摄流程下的测量，不是三条路径的冷启动比较。
+
+D 首轮只覆盖无需裁切的完整画面，针对当前实测的 `4:3`（也支持无裁切的 `3:4`）。
+使用 `LivePhotoWatermarkCompositor` 显式设置输出尺寸；先按每帧 clean aperture 提取
+有效画面，再应用与 B/C 相同的方向变换，最后叠加水印。不修改原始文件或创建另一份 MOV。
+检测到模板裁切时 D 仍明确失败，不能把失败算成更快的导出；这是当前实验覆盖范围的限制。
+正常产品的其他比例仍走原 Core Animation 路径。iOS 26 使用 composition configuration
+与类型化 pixel buffer API，iOS 18–25 使用对应 mutable composition 与 CVPixelBuffer API。
+
+操作步骤：
+
+1. 开启 `-CameraWatermarkBenchmark`，选择 `4:3` 和 Live Photo。
+2. 拍摄后等待 `benchmarkFinished failures=0 overlap=false`，再拍下一张；建议拍 6 张，
+   覆盖两轮执行顺序。在对照期间不要开始下一次拍摄、切换镜头或退出应用。
+3. 发送全部 `[CameraCapture]` 日志。`benchmark.B/C/D.movieCompositionPrepared duration`
+   是合成准备；`movieExportFinished duration` 是导出；`total duration` 是完整处理。
+   输出摘要记录尺寸、显示尺寸、帧率、时长、codec FourCC 数值、文件大小、音频/元数据轨数及
+   配对标识是否存在。三组参数不一致时先查原因，不直接比较速度。
+4. 完成性能对照后移除 benchmark 参数，单独添加 `-CameraUseCoreImageWatermark`，
+   用整幅 `4:3` 验证 D 的实际 Live Photo 保存、封面切换、左右方向、前置镜像和声音。
+   该参数只用于 Debug 候选路径验收，需要裁切时保存会明确失败；不要在其他比例下使用。
+
+若另一张照片的后处理进入正在运行的对照，结束日志会标记 `overlap=true`，这组数据不用于
+性能结论。这个检测不覆盖尚未交付的相机采集负载，因此仍需要等到对照结束才按下一次快门。
+失败只记录在 benchmark 日志，已经成功保存的正式照片不因此报告保存失败。
+
+先比较 C 与 B 估计图层合成的额外代价，再比较 D 与 C 判断替换是否有效。
+这不是逐阶段 CPU/GPU 耗时之和；管线可能重叠执行。不降低分辨率、帧率或主动调整编码质量。
+
+依据 Apple 的 [Core Image 视频接口](https://developer.apple.com/documentation/avfoundation/avvideocomposition/init(applyingfiltersto:applier:))
+和 [CIContext 视频性能建议](https://developer.apple.com/videos/play/wwdc2020/10008/)。
+该轮实验尚未改变默认合成方案；后续真机结果与默认路径变更见下文。
+
+本轮验证：无签名 iOS Simulator 目标构建通过，未启动模拟器或操作真机。
+另在 macOS 临时验证程序中复用当前视频处理源码，替换 UIKit 水印为非对称彩色测试图，
+覆盖镜像开/关与 `−1/0/+1` 旋转共 6 组、每组 B/C/D 三种导出。全部确认原 MOV 哈希
+不变、配对标识保留、时间元数据样本及其时间戳不变、存在音频样本、C/D 输出尺寸一致。
+严格在 0.5 秒抽帧后，C/D 的 8-bit RGBA 平均绝对差为 0.82–1.30，方向和测试水印匹配；
+默认抽帧容差会选取不同帧，不能用于这种逐像素比较。这项合成测试不代替真实 logo/文字、
+真机 PhotoKit 配对播放、实际音质、色彩/HDR 与性能验收。
+
+### 同素材对照的真机失败与事务修正
+
+用户随后提供 5 张完整对照和第 6 次卡住的日志：前 5 张正式照片均已 `saved`，
+B/C 均成功，D 均在合成准备阶段抛出当时的 `ProcessingError code=3`
+（`unexpectedRenderSize`），结束为 `failures=1 overlap=false`。D 没有导出成功样本，
+不能得出 Core Image 性能结论。B 导出中位数 563.0 ms，C 932.9 ms；逐张 C−B 差值
+中位数 383.2 ms。源视频为 HEVC，B/C 均输出 H.264，尺寸均为 1744×1308，音轨、
+3 条元数据轨与配对标识存在；首条源片较短，不能把不同片长的耗时直接解释成预热收益。
+
+第 6 次仅记录到 `captureSubmitted`，没有照片或视频交付，用户确认界面无法操作。
+日志尾部为 `deleted thread with uncommitted CATransaction`，不是完整崩溃或线程堆栈；
+现有日志不足以确认卡死根因，但后台 actor 创建 CALayer 且依赖隐式事务是已发现的问题。
+依据 [Apple CATransaction 文档](https://developer.apple.com/documentation/quartzcore/catransaction)，
+隐式事务依赖线程 run loop 提交。现在只把图层树创建移至 MainActor，并用显式 begin/commit
+及 disableActions 包住图层与合成工具创建；水印位图生成和视频导出继续在后台。
+
+D 保持尺寸校验，不强行缩放或吞掉异常。错误现在记录 expected/actual 尺寸；源/输出摘要
+补充编码尺寸、clean aperture、presentation dimensions 和 preferredTransform，区分实际
+显示区域与编码尺寸。相机补充 `captureCallReturned`、`captureWillBegin`、`willCapturePhoto`
+用于定位再次卡住时是否返回采集调用及进入系统回调，不增加超时重试或修改采集状态。
+
+事务修正后，本机使用 1744×1308 HEVC 合成素材复测 6 组旋转/镜像，18 次 B/C/D 导出
+全部通过原文件哈希、配对标识、时间元数据与音频存在性检查，同时间抽帧 C/D 平均绝对差
+1.02–1.72。未复现真机 D 尺寸不匹配，也未复现第 6 次采集卡住，不能据此声称已修复真机
+卡死。下一步先重启应用拍 1 张，获取具体尺寸错误；确认后再恢复多张对照。
+
+### 4:3 单张定位 clean aperture 与 D 合成器修正
+
+后续单张 UUID `57693E6D` 的采集调用返回、采集回调与保存均完整，`saved=4448.6 ms`，
+提供的日志没有事务警告；单张通过不能证明连续拍摄卡住的问题已解决。
+同素材 B 导出 631.4 ms、C 1167.8 ms，差 536.4 ms；D 仍未导出成功。
+新增 geometry 日志确认源编码为 1920×1440，clean aperture 为 (88,66,1744,1308)，
+而旧系统 CI 滤镜 composition 自动生成了 1920×1440 画布，和 B/C 的 1744×1308 不符。
+
+本机补建包含上述有效区域的 HEVC 素材，先复现相同尺寸错误，再替换 D 的接入方式。
+Apple 的系统 CI 回调 composition 不支持修改其属性和私有 instructions，因此不复制
+或修改这些指令。参考 [AVVideoCompositing](https://developer.apple.com/documentation/avfoundation/avvideocompositing)
+及 [MetalPetal 实际实现](https://github.com/MetalPetal/MetalPetal/blob/master/Frameworks/MetalPetal/MTIVideoComposition.swift)，
+用小型自定义合成器从源 pixel buffer 读取有效区域，由复用的 CIContext 合成到系统提供的
+输出 buffer；保留原 AVURLAsset、导出 preset 与源轨时间节奏。渲染在 AVFoundation 工作线程
+同步完成，取消等待当前帧完成，不产生额外 Task 或主线程图层操作。D 仍是实验候选，正式保存仍用 C。
+
+修正后的 macOS 合成验证覆盖镜像开/关 × −1/0/+1 旋转，共 18 次 B/C/D 导出。
+源 MOV 哈希、配对标识、带时间戳的元数据样本保留，音频样本存在，C/D 尺寸相同；
+同时间抽帧的 C/D 平均绝对像素差为 0.77–1.12（8-bit RGBA）。无签名 iOS Simulator
+构建通过。以上不代替真机性能、PhotoKit 配对播放和连续拍摄稳定性验收。
+下一步仍先拍一张 4:3 Live Photo，确认 D 完整导出、输出几何一致且
+`benchmarkFinished failures=0 overlap=false`，再恢复两轮顺序的 6 张对照。
+
+### Core Image 真机验收与默认路径
+
+随后 6 张同素材 B/C/D 对照全部 `failures=0 overlap=false`，三种执行顺序各覆盖两次。
+B/C/D 视频导出中位数分别为 651.6/1114.8/661.8 ms；逐张 C−D 导出差中位数
+459.7 ms，D−B 完整视频处理差中位数 17.3 ms。每张三条路径的输出几何、帧率、时长、
+编码格式、音轨/元数据轨数一致，配对标识存在。这是强制转码对照，不能与无水印 header
+快路径的十几毫秒处理时间混为一谈。
+
+关闭 benchmark、开启 D 实际保存后的 6 张均保存成功。快门到 saved 中位数 3026.1 ms，
+上轮 C 为 3544.6 ms；视频导出中位数由 1080.6 降至 594.7 ms，采集交付中位数基本一致。
+两轮并非同一份素材，整体差值不能全部归于算法。D 首张总计 3972.9 ms，封面处理
+968.5 ms、视频导出 1309.5 ms；后五张保存总计 2884.5–3076.7 ms。首次使用开销
+尚未定位，不据此宣称已完成首张性能优化。用户随后确认播放、水印位置、封面切换、
+画面方向和声音正常；验收针对这轮 4:3 样本，不外推到所有镜头、系统和比例。
+
+首次切换默认方案时按实际视频几何选路径：无需额外模板裁切时使用 D（Core Image），需要裁切时
+使用 C（Core Animation）。关闭水印仍保留原直通/header 快路径。这个选择同时应用于
+Debug 和 Release；不在导出失败时静默换路径。日志新增 `movieRenderMode=D/C/B needsCrop=...`。
+共享 Scheme 已停用强制 D 参数，正常使用无需任何水印实验启动参数。
+
+该阶段 Debug 的 `-CameraUseCoreImageWatermark` 保留为强制 D 验证开关，需要模板裁切时明确失败；
+新增 `-CameraUseCoreAnimationWatermark` 可强制 C 做回归对照（不要同时开启两者）。
+`-CameraWatermarkBenchmark` 仍显式测试 B/C/D，不会把 C 的结果记作 D；但现在正常保存
+会预先运行默认路径，比较历史日志时需考虑预热对象已改变。需要重现旧实验条件时强制 C。
+其他裁切比例与首次使用开销留待独立验证，不扩大本次替换范围。
+
+默认路径回归使用同样带 clean aperture 的 HEVC 合成素材：5 种比例分别调用正常处理
+入口和对应的显式 D/C 路径，共 10 次导出。同时间抽帧像素一致，源文件哈希、配对标识、
+时间元数据样本和音频存在性检查通过；强制 D 处理 1:1 仍按预期失败。该验证只确认路径
+选择和既有输出未改变，不代表裁切比例已经过本轮真机视觉验收。规定的无签名构建通过。
+
+### 全部比例统一使用 Core Image
+
+用户确认此前各比例成片正常，并要求全部扩展到 D。默认视频水印现在统一使用 Core Image，
+覆盖 `1:1`、`3:4`、`4:3`、`9:16`、`16:9`，同时用于 Debug 和 Release。
+移除按 `needsCrop` 改走 C 的分流，以及 D 对模板裁切的拒绝。复用现有的有效区域归一化、
+居中裁切位移和最终旋转变换，水印仍按最终输出尺寸绘制；不更改分辨率、帧率或编码 preset。
+普通静态照片仍使用既有单次绘制/编码路径，关闭水印仍保留直通/header 优化。
+
+C 继续作为 `-CameraUseCoreAnimationWatermark` 的显式调试对照；强制 D 参数无需开启，
+开启时也支持全部比例。B/C/D benchmark 同样可以处理裁切比例，不再有
+`coreImageRequiresWholeFrame` 错误。实际路径仍通过 `movieRenderMode=D needsCrop=...` 记录。
+
+本机使用带 (88,66,1744,1308) clean aperture 的 1920×1440 HEVC 合成素材，覆盖全部
+5 种比例、镜像开/关及两种横向旋转，共 14 组、42 次 B/C/D 导出；其中 D 通过正常
+`process` 入口验证默认选择。所有组的源文件哈希、配对标识、带时间戳的元数据样本、
+音频存在性、视频样本数、时长与 C/D 输出尺寸检查通过。同时间抽帧 C/D 的 8-bit RGBA
+平均绝对差为 0.71–1.12，水印区域 RGB 平均绝对差为 0.85–1.11。规定的无签名
+Simulator 构建通过。此次本地检查验证 D 的裁切/方向/水印输出；各比例的真机反馈见下文。
+
+### 全比例 D 真机反馈与首次拍摄优化待办
+
+2026-09-27，用户在全部比例默认切换到 D 后再次真机测试，反馈除首次拍摄较慢外，
+各比例 Live Photo 的快门到保存完成耗时基本在 **3000 ms 左右**，与此前 4:3 的测试
+结果接近。当前保留全部比例使用 D 的默认方案。本次为用户实测概述，没有新增逐张日志、
+各比例样本数或统计分布，因此不将约 3000 ms 写成精确中位数，也不推算各比例提速百分比。
+
+**后续优化项：首次拍摄偏慢。** 本轮先完成全比例水印路径统一，首次拍摄开销尚未优化，
+单独纳入后续工作，不在这次验收中视为已解决。此前 D 的 4:3 日志可作为现象参考：
+首张总耗时 3972.9 ms，后五张为 2884.5–3076.7 ms；首张封面处理 968.5 ms、
+视频导出 1309.5 ms，两者并行，不能相加。该组数字不代表这次所有比例的首次耗时。
+
+后续定位与验证要求：
+
+- 分开记录应用重新启动后的首张与后续拍摄，固定设备、镜头、场景、比例及水印设置。
+- 分别检查采集交付、封面绘制/编码、视频合成准备/导出和相册写入，定位首次额外等待；
+  初始化、缓存建立或资源竞争仅作为待验证方向，不预先认定为根因。
+- 优化后同时对比首张和后续拍摄的耗时与成片效果；若尝试预热，还需检查启动耗时及资源
+  占用，避免把首次拍照的等待简单搬到应用启动阶段。
+
 ## 2026-09-27 拍摄期间保持控件外观
 
 拍摄期间继续锁定下一次拍摄、前后切换、倍率、对焦、曝光、闪光灯和 Live Photo 设置，
@@ -443,8 +713,9 @@ Live Photo 相同。使用 SwiftUI `sensoryFeedback` 的 `.impact(weight: .light
 新分支首轮已将静态照片的方向归一化、居中裁切与最终旋转融合为一次绘制，普通照片与
 Live 静态照片共用 `PhotoAspectRatio.renderedImage(from:quarterTurns:)`，移除独立的
 `PhotoOutputRotation`。仍使用原尺寸计算、裁切坐标和 `UIImage` 方向及镜像处理方式。
-模板输出规则、编码路径、相机采集与视频流程保持现状；水印尚未实现，后续样式确认后
-可在同一次最终输出画布中绘制。验证状态记录在图片加工优化文档第 7 节。
+该次改动保持模板输出规则、编码路径、相机采集与视频流程不变；当时水印尚未实现。
+后续已在同一次最终输出画布中接入水印，见本页「保存前水印与耗时对照」。
+图片加工优化的验证状态记录在对应文档第 7 节。
 
 下文保留优化前 `d6f6c1b` 的代码审查与参考方案讨论，尚未建立新实现的真机阶段计时基线。
 它不改变上文已实现的异步保存规则或成片契约。
