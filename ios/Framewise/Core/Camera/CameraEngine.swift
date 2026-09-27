@@ -463,6 +463,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     func capture(
         livePhoto: Bool,
         flashMode: AVCaptureDevice.FlashMode,
+        timing: CameraCaptureTiming,
         completion: @escaping (Result<CapturedPhoto, Error>) -> Void
     ) {
         queue.async { [self] in
@@ -509,7 +510,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     )
                 : nil
             settings.livePhotoMovieFileURL = movieURL
-            let delegate = PhotoDelegate(movieURL: movieURL) {
+            let delegate = PhotoDelegate(movieURL: movieURL, timing: timing) {
                 [weak self] result in
                 self?.queue.async {
                     self?.photoDelegate = nil
@@ -517,6 +518,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
             }
             photoDelegate = delegate
+            timing.record("captureSubmitted")
             photoOutput.capturePhoto(with: settings, delegate: delegate)
         }
     }
@@ -686,15 +688,18 @@ extension CameraEngine {
     {
         private let completion: (Result<CapturedPhoto, Error>) -> Void
         private let movieURL: URL?
+        private let timing: CameraCaptureTiming
         private var photoData: Data?
         private var processedMovieURL: URL?
         private var processingError: Error?
 
         init(
             movieURL: URL?,
+            timing: CameraCaptureTiming,
             completion: @escaping (Result<CapturedPhoto, Error>) -> Void
         ) {
             self.movieURL = movieURL
+            self.timing = timing
             self.completion = completion
         }
 
@@ -707,9 +712,19 @@ extension CameraEngine {
                 processingError = error
             } else if let data = photo.fileDataRepresentation() {
                 photoData = data
+                timing.record("photoReceived")
             } else {
                 processingError = CameraError.unavailable
             }
+        }
+
+        func photoOutput(
+            _ output: AVCapturePhotoOutput,
+            didFinishRecordingLivePhotoMovieForEventualFileAt outputFileURL: URL,
+            resolvedSettings: AVCaptureResolvedPhotoSettings
+        ) {
+            // Recording is over, but the file is not usable until movieReceived.
+            timing.record("movieRecordingFinished")
         }
 
         func photoOutput(
@@ -724,6 +739,7 @@ extension CameraEngine {
                 processingError = error
             } else {
                 processedMovieURL = outputFileURL
+                timing.record("movieReceived")
             }
         }
 

@@ -6,7 +6,6 @@
 //
 
 import Photos
-import UIKit
 
 extension Notification.Name {
     static let cameraPhotoSaveFailed = Notification.Name(
@@ -18,22 +17,25 @@ extension Notification.Name {
 actor CameraPhotoSaver {
     static let shared = CameraPhotoSaver()
 
-    private enum SaveError: Error { case invalidPhoto }
     private let livePhotoProcessor = LivePhotoProcessor()
 
     nonisolated func enqueue(
         _ captured: CameraEngine.CapturedPhoto,
         ratio: PhotoAspectRatio,
-        quarterTurns: Int
+        quarterTurns: Int,
+        timing: CameraCaptureTiming
     ) {
-        Task.detached(priority: .utility) { [self] in
+        // The shared saver owns this user-requested work beyond the camera page's lifetime.
+        Task.detached(priority: .userInitiated) { [self] in
             do {
                 try await save(
                     captured,
                     ratio: ratio,
-                    quarterTurns: quarterTurns
+                    quarterTurns: quarterTurns,
+                    timing: timing
                 )
             } catch {
+                timing.record("saveFailed")
                 await MainActor.run {
                     NotificationCenter.default.post(
                         name: .cameraPhotoSaveFailed,
@@ -47,32 +49,39 @@ actor CameraPhotoSaver {
     private func save(
         _ captured: CameraEngine.CapturedPhoto,
         ratio: PhotoAspectRatio,
-        quarterTurns: Int
+        quarterTurns: Int,
+        timing: CameraCaptureTiming
     ) async throws {
+        timing.record("saveStarted")
         switch captured {
         case .still(let data):
-            guard let image = ratio.renderedImage(
-                from: data,
-                quarterTurns: quarterTurns
-            ) else {
-                throw SaveError.invalidPhoto
-            }
+            let processedPhoto = try await CameraPhotoProcessor.shared.process(
+                data,
+                ratio: ratio,
+                quarterTurns: quarterTurns,
+                timing: timing
+            )
+            timing.record("libraryWriteStarted")
             try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.creationRequestForAsset(from: image)
+                let request = PHAssetCreationRequest.forAsset()
+                request.addResource(with: .photo, data: processedPhoto, options: nil)
             }
+            timing.record("saved")
         case .live(let photoData, let movieURL):
             defer { try? FileManager.default.removeItem(at: movieURL) }
             let processed = try await livePhotoProcessor.process(
                 photoData: photoData,
                 movieURL: movieURL,
                 ratio: ratio,
-                quarterTurns: quarterTurns
+                quarterTurns: quarterTurns,
+                timing: timing
             )
             defer {
                 if processed.movieURL != movieURL {
                     try? FileManager.default.removeItem(at: processed.movieURL)
                 }
             }
+            timing.record("libraryWriteStarted")
             try await PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
                 request.addResource(
@@ -80,12 +89,15 @@ actor CameraPhotoSaver {
                     data: processed.photoData,
                     options: nil
                 )
+                let movieOptions = PHAssetResourceCreationOptions()
+                movieOptions.shouldMoveFile = true
                 request.addResource(
                     with: .pairedVideo,
                     fileURL: processed.movieURL,
-                    options: nil
+                    options: movieOptions
                 )
             }
+            timing.record("saved")
         }
     }
 }

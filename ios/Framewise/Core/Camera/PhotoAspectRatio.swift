@@ -60,6 +60,7 @@ enum PhotoAspectRatio: String, CaseIterable, Identifiable, Sendable {
         )
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
+        format.opaque = true
         let renderer = UIGraphicsImageRenderer(
             size: outputSize,
             format: format

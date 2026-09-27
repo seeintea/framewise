@@ -6,13 +6,11 @@
 //
 
 import AVFoundation
-import ImageIO
-import UIKit
+import CoreGraphics
 
 /// Applies the same centered portrait crop and final quarter turn to both Live Photo resources.
 actor LivePhotoProcessor {
     enum ProcessingError: Error {
-        case invalidPhoto
         case invalidMovie
         case exportUnavailable
     }
@@ -26,70 +24,41 @@ actor LivePhotoProcessor {
         photoData: Data,
         movieURL: URL,
         ratio: PhotoAspectRatio,
-        quarterTurns: Int
+        quarterTurns: Int,
+        timing: CameraCaptureTiming
     ) async throws -> Result {
-        let processedPhoto = try processPhoto(
+        // The still render/encode runs on its own actor while AVFoundation
+        // loads and exports the movie. Neither resource waits for the other to start.
+        async let processedPhoto = CameraPhotoProcessor.shared.process(
             photoData,
             ratio: ratio,
-            quarterTurns: quarterTurns
+            quarterTurns: quarterTurns,
+            timing: timing
         )
+        timing.record("movieProcessingStarted")
         let outputURL = try await processMovie(
             movieURL,
             ratio: ratio,
-            quarterTurns: quarterTurns
+            quarterTurns: quarterTurns,
+            timing: timing
         )
-        return Result(photoData: processedPhoto, movieURL: outputURL)
-    }
-
-    private func processPhoto(
-        _ data: Data,
-        ratio: PhotoAspectRatio,
-        quarterTurns: Int
-    ) throws -> Data {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-            let sourceType = CGImageSourceGetType(source),
-            let image = ratio.renderedImage(
-                from: data,
-                quarterTurns: quarterTurns
-            ),
-            let pixels = image.cgImage
-        else {
-            throw ProcessingError.invalidPhoto
+        timing.record("movieProcessingFinished")
+        do {
+            return try await Result(photoData: processedPhoto, movieURL: outputURL)
+        } catch {
+            // A successful movie export still needs cleanup if the parallel still failed.
+            if outputURL != movieURL {
+                try? FileManager.default.removeItem(at: outputURL)
+            }
+            throw error
         }
-
-        // AVFoundation stores the Live Photo content identifier in the source metadata.
-        // Keep it when replacing the pixels so Photos can pair this still with the movie.
-        let properties = NSMutableDictionary(
-            dictionary: CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
-                as? [AnyHashable: Any] ?? [:]
-        )
-        properties[kCGImagePropertyOrientation] = 1
-        properties.removeObject(forKey: kCGImagePropertyPixelWidth)
-        properties.removeObject(forKey: kCGImagePropertyPixelHeight)
-        let output = NSMutableData()
-        guard
-            let destination = CGImageDestinationCreateWithData(
-                output,
-                sourceType,
-                1,
-                nil
-            )
-        else { throw ProcessingError.invalidPhoto }
-        CGImageDestinationAddImage(
-            destination,
-            pixels,
-            properties as CFDictionary
-        )
-        guard CGImageDestinationFinalize(destination) else {
-            throw ProcessingError.invalidPhoto
-        }
-        return output as Data
     }
 
     private func processMovie(
         _ inputURL: URL,
         ratio: PhotoAspectRatio,
-        quarterTurns: Int
+        quarterTurns: Int,
+        timing: CameraCaptureTiming
     ) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
         guard
@@ -97,9 +66,9 @@ actor LivePhotoProcessor {
         else {
             throw ProcessingError.invalidMovie
         }
-        let naturalSize = try await track.load(.naturalSize)
-        let preferredTransform = try await track.load(.preferredTransform)
-        let frameRate = try await track.load(.nominalFrameRate)
+        let (naturalSize, preferredTransform, frameRate) = try await track.load(
+            .naturalSize, .preferredTransform, .nominalFrameRate
+        )
         let duration = try await asset.load(.duration)
         let orientedBounds = CGRect(origin: .zero, size: naturalSize)
             .applying(preferredTransform)
@@ -120,10 +89,12 @@ actor LivePhotoProcessor {
             width: units * dimensions.width,
             height: units * dimensions.height
         )
-        if quarterTurns == 0,
-            abs(cropSize.width - orientedSize.width) < 0.5,
+        let needsCrop = !(
+            abs(cropSize.width - orientedSize.width) < 0.5 &&
             abs(cropSize.height - orientedSize.height) < 0.5
-        {
+        )
+        if quarterTurns == 0, !needsCrop {
+            timing.record("moviePassthrough")
             return inputURL
         }
         let cropOrigin = CGPoint(
@@ -150,6 +121,22 @@ actor LivePhotoProcessor {
                 y: -rotatedBounds.minY
             )
         )
+        if !needsCrop {
+            // A whole-frame turn needs only a display transform. Editing the existing
+            // movie header retains audio, timed metadata and compressed video samples.
+            let movie = AVMutableMovie(url: inputURL)
+            guard let movieTrack = try await movie.loadTracks(withMediaType: .video).first
+            else { throw ProcessingError.invalidMovie }
+            movieTrack.preferredTransform = transform
+            try movie.writeHeader(
+                to: inputURL,
+                fileType: .mov,
+                options: .addMovieHeaderToDestination
+            )
+            timing.record("movieTransformUpdated")
+            return inputURL
+        }
+        timing.record("movieTranscodeStarted")
         let outputSize = CGSize(
             width: abs(rotatedBounds.width),
             height: abs(rotatedBounds.height)

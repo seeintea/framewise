@@ -305,6 +305,103 @@ Live Photo 还需取得配对视频。资源交付后，相机即可接受下一
 `Core/Camera/CameraController` 在采集资源交付后把照片交给 `CameraPhotoSaver` 并释放快门。
 保存成功不显示提示；保存失败通过应用根层的通知处理，在离开相机页后仍能反馈。
 
+## 2026-09-27 快门到相册耗时优化
+
+本轮实现集中在资源交付之后的处理和写入阶段，保留 `.balanced` 拍摄质量、现有输出像素尺寸、
+竖版中心裁切、静态照片最终像素方向与前置镜像规则。下文记录分阶段实现及真机验证范围。
+
+- 普通照片与 Live Photo 共用 `CameraPhotoProcessor`，将处理后的编码资源交给 PhotoKit。
+  原始资源在方向已经为 `up`、无需最终旋转、像素尺寸精确匹配现有裁切结果时直接写入。
+  若源方向校正与最终旋转恰好抵消，且无需裁切，则无损复制编码数据并将方向归一为 `up`；
+  此时源像素矩阵已经等于目标像素矩阵。其他情况继续渲染像素并编码，不能仅改变 EXIF 方向
+  来掩盖与目标比例不符的像素矩阵。
+- 图片处理由独立 actor 串行执行，避免连续拍摄时同时展开多张全尺寸位图；Live Photo 使用
+  `async let` 让静态图处理与配对视频导出重叠。视频导出成功但静态图失败时也清理导出文件。
+- 图像 renderer 使用不透明画布；保存任务使用 `.userInitiated` 优先级。
+- 完成处理的临时视频通过 `shouldMoveFile` 交给 PhotoKit，省去中间复制。相册写入完成前
+  保留资源，成功或失败后执行原有清理，失败仍通过根层通知反馈。
+
+实现依据是 Apple 的[照片资源保存示例](https://developer.apple.com/documentation/avfoundation/saving-captured-photos)、
+[临时文件移交说明](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile)
+与[不透明渲染画布说明](https://developer.apple.com/documentation/uikit/uigraphicsimagerendererformat/opaque)。
+使用的 PhotoKit 文件移交 API 自 iOS 9 可用，renderer 的 `opaque` 自 iOS 10 可用，均覆盖 iOS 18。
+
+Debug 构建中，在 Xcode 控制台筛选 `[CameraCapture]`。同一次快门以 UUID 关联，所有时间使用
+单调时钟，单位为从快门命令开始累计的毫秒。`captureSubmitted` 到 `captureDelivered` 覆盖
+采集和资源交付；`photoProcessingStarted`、`photoRendered`、`photoProcessingFinished`
+区分静态图渲染与编码；视频有独立的开始、结束或直通记录；`libraryWriteStarted` 到 `saved`
+是 PhotoKit 写入耗时。`saved` 仅在 PhotoKit 成功回调后记录，不代表相册 UI 或 iCloud 已刷新。
+
+真机对比应固定设备、镜头、场景、光线、比例、闪光灯和 Live Photo 设置，分别记录首次拍摄
+与后续至少 10 次拍摄的总耗时，比较中位数和最慢值。还需检查五种比例、前后镜像、左右横握、
+Live Photo 播放和声音，以及连续拍摄与离开页面后的保存。首轮代码完成时仅通过无签名
+Simulator 目标构建；后续真机结果见下文，未覆盖的组合和内存表现仍待验收。
+
+后续用户提供同一轮连续三张 `4:3` 实测：普通照片从快门到 PhotoKit 成功分别为
+`803 / 686 / 673 ms`；Live Photo 为 `4429 / 3168 / 3010 ms`。普通照片渲染及编码为
+`275 / 234 / 221 ms`，写入相册为 `59 / 71 / 57 ms`。Live Photo 后两张在约
+`2.22–2.35 s` 才取得完整资源，随后视频处理约 `0.67 s`，相册写入约 `0.12–0.15 s`。
+Live Photo 第一张的图片、视频处理都更慢，但样本不足以断言是首次初始化开销。
+
+据此追加两个窄路径实验：
+
+- 静态照片仅在 EXIF `right` 加最终 `−90°`，或 EXIF `left` 加最终 `+90°`，且完整像素
+  尺寸精确匹配目标时，使用 `CGImageDestinationCopyImageSource` 无损保留编码像素并清除已抵消
+  的方向标记。镜像、实际裁切或旋转不能抵消的情况仍走原 renderer。该 API 自 iOS 7 可用。
+- 配对视频不需要裁切、只需整体旋转时，使用 `AVMutableMovie` 修改视频轨道的
+  `preferredTransform` 并原地写回 movie header，保留原压缩样本、音频及时间元数据。
+  视频显示内容、尺寸和镜像映射与原变换一致，编码像素不再为整体旋转重新编码；静态照片
+  仍要求规范化像素矩阵。实际需要裁切的视频继续使用原视频合成与导出路径。相关 API 自 iOS 13 可用。
+
+依据 Apple 的[视频方向处理建议](https://developer.apple.com/library/archive/qa/qa1744/_index.html)、
+[仅替换 movie header 的说明](https://developer.apple.com/documentation/avfoundation/avmoviewritingoptions/addmovieheadertodestination)
+与 [ImageIO 无损复制 API](https://developer.apple.com/documentation/imageio/cgimagedestinationcopyimagesource(_:_:_:_:))。
+也核对了 [SDWebImage 的 ImageIO 编解码实现](https://github.com/SDWebImage/SDWebImage/blob/master/SDWebImage/Core/SDImageIOCoder.m)：
+其处理 `CGImage` 像素与 EXIF 方向的职责区分适用，但没有把它的通用编码逻辑或依赖引入相机。
+
+新增 `movieRecordingFinished` 区分录制结束与完整文件交付；`photoPixelsReused` 表示静态图
+命中旋转抵消路径，`movieTransformUpdated` 表示仅修改视频轨道变换，`movieTranscodeStarted`
+表示仍需重新编码。不能仅凭原来 `movieReceived` 的约 `2.2 s` 推断全部时间都在录像。
+
+追加验证：macOS 合成素材覆盖 720 组源方向、比例、尺寸与最终旋转组合，检查无损路径的
+像素不变、EXIF 保留和方向归一；非无损分支使用占位 renderer 拒绝，不代替 UIKit 渲染验收。
+四组左右旋转与镜像视频验证了显示四角映射、视频/音频/时间元数据的压缩样本及时间戳不变、
+配对标识保留，以及移动文件后仍可读取。此验证不代替真机 PhotoKit 配对播放与提速验收。
+
+第二轮真机反馈：用户按竖拍、横拍、竖拍、横拍顺序拍摄四张 `4:3` Live Photo，确认图片无误、
+Live Photo 正常播放。四次快门方向快照均为 `turns=-1`，全部命中 `photoPixelsReused` 与
+`movieTransformUpdated`。以下单位均为毫秒；图片与视频并行，应用处理列不可再与图片耗时相加。
+
+| 拍摄顺序 | 快门至录制结束 | 录制结束至完整视频 | 资源交付后应用处理 | 相册写入 | 快门至保存 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 竖拍 1 | 1485.7 | 772.6 | 61.4 | 250.4 | 2570.9 |
+| 横拍 2 | 1498.3 | 792.7 | 42.6 | 143.0 | 2476.9 |
+| 竖拍 3 | 1530.3 | 375.4 | 39.0 | 151.1 | 2096.1 |
+| 横拍 4 | 1495.2 | 788.1 | 34.3 | 142.2 | 2460.2 |
+
+应用处理按 `saveStarted` 到 `libraryWriteStarted` 计算，静态图片处理分别为
+`34.2 / 16.5 / 13.0 / 12.2 ms`。与上一轮后两张约 `0.67 s` 的视频处理相比，后处理阶段已
+明显缩短；总耗时中位数约 `2.47 s`。第三张更快主要来自系统视频收尾缩短约 `0.4 s`，不能
+将全部波动算作应用优化收益。这是小样本实测，不能推断跨设备或所有场景的稳定百分比。
+
+同轮用户补充四张 `4:3 / turns=-1` 普通照片，确认结果正常，均命中 `photoPixelsReused`：
+
+| 拍摄顺序 | 快门至资源交付 | 图片处理 | 相册写入 | 快门至保存 |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 419.0 | 10.4 | 144.2 | 574.2 |
+| 2 | 438.8 | 12.2 | 125.7 | 577.5 |
+| 3 | 433.2 | 10.4 | 125.9 | 570.1 |
+| 4 | 411.6 | 10.1 | 119.4 | 541.7 |
+
+图片处理按 `photoProcessingStarted` 到 `photoPixelsReused` 计算。总耗时中位数约
+`572 ms`，上一轮三张为约 `686 ms`；图片处理从约 `221–275 ms` 降到约 `10–12 ms`。
+本轮采集与相册写入时间也有变化，不能将后处理节省量直接当作端到端节省量。
+
+本轮确认范围为该设备的 `4:3 / turns=-1` 普通照片及 Live Photo 竖横拍、正常播放；不据此声明
+`turns=+1`、其他比例、前置镜像或后台保存已通过真机验收。当前剩余耗时
+主要在完整 Live Photo 资源交付之前，后续若继续优化应单独调查采集和系统文件收尾，避免继续
+围绕已降至几十毫秒的应用后处理反复调参。
+
 ## 2026-09-27 拍摄期间保持控件外观
 
 拍摄期间继续锁定下一次拍摄、前后切换、倍率、对焦、曝光、闪光灯和 Live Photo 设置，
