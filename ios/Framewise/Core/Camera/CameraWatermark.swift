@@ -10,15 +10,20 @@ import UIKit
 
 /// A small raster badge shared by stills and movies, laid out in final output coordinates.
 nonisolated struct CameraWatermark {
-    enum RenderingError: Error { case missingLogo, invalidBadge }
+    enum RenderingError: Error { case missingLogo, missingFont, invalidBadge }
 
     private let logo: UIImage
+    private let wordmarkFont: UIFont
 
     init() throws {
         guard let logo = UIImage(named: "WatermarkLogo") else {
             throw RenderingError.missingLogo
         }
+        guard let wordmarkFont = UIFont(name: "DingTalk-JinBuTi", size: 1) else {
+            throw RenderingError.missingFont
+        }
         self.logo = logo
+        self.wordmarkFont = wordmarkFont
     }
 
     private func badge(for size: CGSize) -> (image: UIImage, frame: CGRect) {
@@ -30,7 +35,7 @@ nonisolated struct CameraWatermark {
         // This fixed brand wordmark intentionally stays Chinese in every locale.
         let title = "蒙版相机" as NSString
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: unit * 0.028, weight: .semibold),
+            .font: wordmarkFont.withSize(unit * 0.028),
             .foregroundColor: UIColor.white,
         ]
         let textSize = title.size(withAttributes: attributes)
@@ -40,16 +45,16 @@ nonisolated struct CameraWatermark {
         )
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
-        let image = UIGraphicsImageRenderer(size: badgeSize, format: format).image { _ in
-            UIColor.black.withAlphaComponent(0.35).setFill()
-            UIBezierPath(
-                roundedRect: CGRect(origin: .zero, size: badgeSize),
-                cornerRadius: padding
-            ).fill()
-            logo.draw(in: CGRect(
+        format.opaque = false
+        let image = UIGraphicsImageRenderer(size: badgeSize, format: format).image { context in
+            let logoFrame = CGRect(
                 x: padding, y: (badgeSize.height - logoSide) / 2,
                 width: logoSide, height: logoSide
-            ))
+            )
+            context.cgContext.saveGState()
+            UIBezierPath(roundedRect: logoFrame, cornerRadius: logoSide * 0.25).addClip()
+            logo.draw(in: logoFrame)
+            context.cgContext.restoreGState()
             title.draw(at: CGPoint(
                 x: padding + logoSide + gap,
                 y: (badgeSize.height - textSize.height) / 2
