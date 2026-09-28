@@ -3,8 +3,8 @@
 > [!WARNING]
 > 本文描述的 `CameraFramingSnapshot`、`CameraOutputPlan`、`CameraPreview`、
 > `CameraCaptureService` 与 `LivePhotoProcessor` 均属于 2026-09-20 已归档的旧相机实现。
-> 对应代码保存在
-> [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)。
+> 快照目录于 2026-09-28 移除。对应代码保留在 Git 提交 `7810b0b` 的历史路径
+> `archive/ios-camera-legacy-2026-09-20/`；迁移取舍见 [新相机架构](./ios-camera-architecture-v2.md)。
 > 取景与成片一致性仍是产品要求，但本文的具体几何模型不是新实现的既定方案。
 
 > 归档前状态：2026-09-20 已完成第一阶段管线重建并通过编译，等待真机验收。

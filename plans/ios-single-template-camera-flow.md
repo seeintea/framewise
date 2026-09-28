@@ -3,9 +3,9 @@
 > [!IMPORTANT]
 > 模板 JSON、`CompositionCatalog`、`CameraTemplateRequest` 与导航解析契约仍在活跃代码中；
 > 本文涉及旧 `CameraView` 和旧相机页面渲染的实施记录已于 2026-09-20 归档。
-> 旧相机代码保存在
-> [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)，
-> 不得据此推断当前相机能力已经实现。
+> 快照目录于 2026-09-28 移除。旧相机代码保留在 Git 提交 `7810b0b` 的历史路径
+> `archive/ios-camera-legacy-2026-09-20/`；不得据此推断当前相机能力已经实现。
+> 迁移取舍见 [新相机架构](./ios-camera-architecture-v2.md)。
 
 ## 目标
 

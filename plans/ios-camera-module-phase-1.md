@@ -1,8 +1,9 @@
 # [归档] iOS 相机模块第一阶段
 
 > [!WARNING]
-> 本文记录的实现已于 2026-09-20 从活跃 iOS target 移除，旧代码保存在
-> [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)。
+> 本文记录的实现已于 2026-09-20 从活跃 iOS target 移除，快照目录于 2026-09-28 移除。
+> 旧代码保留在 Git 提交 `7810b0b` 的历史路径 `archive/ios-camera-legacy-2026-09-20/`；
+> 迁移取舍见 [新相机架构中的迁移收尾记录](./ios-camera-architecture-v2.md)。
 > 文中的“已实现”“当前实现”、模块路径、状态机和验收结果都只描述归档版本，不能作为新相机
 > 实现的事实依据。新实现请以 `ios/Framewise/` 中当前实际存在的代码为准。
 

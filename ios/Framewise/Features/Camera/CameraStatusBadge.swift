@@ -1,6 +1,6 @@
 //
 //  CameraStatusBadge.swift
-//  Framewise legacy camera snapshot
+//  Framewise
 //
 //  Created by Codex on 2026/9/19.
 //
