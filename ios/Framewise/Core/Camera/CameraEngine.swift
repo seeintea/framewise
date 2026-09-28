@@ -56,17 +56,30 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         AVCapturePhotoOutputReadinessCoordinator(photoOutput: photoOutput)
     }
 
-    func start(completion: @escaping (Result<Capabilities, Error>) -> Void) {
+    func start(
+        restoringAutomaticFocus: Bool = false,
+        completion: @escaping (Result<Capabilities, Error>) -> Void
+    ) {
         queue.async { [self] in
             do {
+                guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+                else { throw CameraError.permissionUnavailable }
                 if !isConfigured {
                     try configure()
                 }
-                if !session.isRunning {
+                if !session.isRunning || session.isInterrupted {
                     session.startRunning()
                 }
+                guard !session.isInterrupted else { throw CameraError.interrupted }
                 guard session.isRunning, let device else {
                     throw CameraError.unavailable
+                }
+                if restoringAutomaticFocus {
+                    stopObservingSubjectAreaChanges()
+                    try finishZoom(for: device)
+                    try device.lockForConfiguration()
+                    restoreAutomaticFocusAndExposure(on: device)
+                    device.unlockForConfiguration()
                 }
                 let capabilities = capabilities(for: device)
                 DispatchQueue.main.async { completion(.success(capabilities)) }
@@ -389,11 +402,18 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     func enableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async { [self] in
             do {
-                guard isConfigured, photoDelegates.isEmpty,
+                guard isConfigured,
                     photoOutput.isLivePhotoCaptureSupported,
                     photoOutput.isLivePhotoCaptureEnabled,
                     AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
                 else { throw CameraError.unavailable }
+                // Recovery can reapply the already-active mode while a capture finishes.
+                if liveAudioInput != nil, !photoOutput.isLivePhotoCaptureSuspended {
+                    allowHapticsWhileRecording()
+                    DispatchQueue.main.async { completion(.success(())) }
+                    return
+                }
+                guard photoDelegates.isEmpty else { throw CameraError.unavailable }
                 if liveAudioInput != nil {
                     photoOutput.isLivePhotoCaptureSuspended = false
                     allowHapticsWhileRecording()
@@ -435,10 +455,20 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func disableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async { [self] in
-            guard isConfigured, photoDelegates.isEmpty else {
+            guard isConfigured else {
                 DispatchQueue.main.async {
                     completion(.failure(CameraError.unavailable))
                 }
+                return
+            }
+            if liveAudioInput == nil,
+                !photoOutput.isLivePhotoCaptureEnabled || photoOutput.isLivePhotoCaptureSuspended
+            {
+                DispatchQueue.main.async { completion(.success(())) }
+                return
+            }
+            guard photoDelegates.isEmpty else {
+                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
                 return
             }
             let wasRunning = session.isRunning
@@ -488,7 +518,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         performance: CameraCapturePerformance,
         completion: @escaping (Result<CapturedPhoto, Error>) -> Void
     ) {
-        guard session.isRunning else {
+        guard session.isRunning, !session.isInterrupted else {
             DispatchQueue.main.async {
                 completion(.failure(CameraError.unavailable))
             }
@@ -611,10 +641,15 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private func resetDevice(_ device: AVCaptureDevice) throws {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
-        device.isSubjectAreaChangeMonitoringEnabled = false
         device.videoZoomFactor = device.position == .front
             ? device.minAvailableVideoZoomFactor
             : clampedZoomFactor(oneXZoomFactor(for: device), for: device)
+        restoreAutomaticFocusAndExposure(on: device)
+    }
+
+    /// The caller holds the device configuration lock.
+    private func restoreAutomaticFocusAndExposure(on device: AVCaptureDevice) {
+        device.isSubjectAreaChangeMonitoringEnabled = false
         device.setExposureTargetBias(0, completionHandler: nil)
         if device.isFocusPointOfInterestSupported {
             device.focusPointOfInterest = CGPoint(x: 0.5, y: 0.5)
@@ -702,9 +737,10 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 }
 
 extension CameraEngine {
-    fileprivate enum CameraError: Error {
+    enum CameraError: Error {
         case unavailable
         case permissionUnavailable
+        case interrupted
     }
 
     fileprivate nonisolated final class PhotoDelegate: NSObject,

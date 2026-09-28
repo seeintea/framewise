@@ -9,6 +9,8 @@ struct CameraScreen: View {
         case switchingCamera(UUID)
         case changingLivePhoto(UUID)
         case capturing
+        case interrupted(canResume: Bool)
+        case recovering
     }
 
     @Environment(\.scenePhase) private var scenePhase
@@ -126,6 +128,38 @@ struct CameraScreen: View {
                 proxy.frame(in: .named("cameraScreen")).minY
             } action: {
                 shutterTop = $0
+            }
+        }
+        .overlay {
+            switch phase {
+            case .interrupted(let canResume):
+                VStack(spacing: 12) {
+                    Image(systemName: "camera.fill")
+                        .font(.title2)
+                    Text(.cameraSessionInterruptedTitle)
+                        .font(.headline)
+                    Text(.cameraSessionInterruptedMessage)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                    if canResume {
+                        Button(.cameraAccessActionRetry) { camera.resumeSession() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                .foregroundStyle(.white)
+                .padding(24)
+                .background(.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 24)
+            case .recovering:
+                ProgressView {
+                    Text(.cameraSessionRecovering)
+                }
+                .tint(.white)
+                .foregroundStyle(.white)
+                .padding(24)
+                .background(.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 16))
+            default:
+                EmptyView()
             }
         }
         .overlay(alignment: .bottom) {
@@ -519,6 +553,33 @@ struct CameraScreen: View {
         endPointFocus()
         camera.stop()
         camera.onCaptureAvailabilityChange = nil
+        camera.onSessionEvent = nil
+    }
+
+    private func handleSessionEvent(_ event: CameraController.SessionEvent) {
+        switch event {
+        case .interrupted(let canResume):
+            suspendCameraControls()
+            phase = .interrupted(canResume: canResume)
+        case .recovering:
+            suspendCameraControls()
+            phase = .recovering
+        case .recovered(let capabilities):
+            applyCapabilities(capabilities)
+            phase = .ready
+        case .failed:
+            stopCamera()
+            errorMessage = .cameraErrorRuntime
+        }
+    }
+
+    private func suspendCameraControls() {
+        cameraConfigurationID = UUID()
+        activeCaptureIDs.removeAll()
+        isCaptureReady = false
+        isShutterFeedbackVisible = false
+        clearPointFocus()
+        camera.endZoomGesture()
     }
 
     private func endPointFocus() {
@@ -559,6 +620,7 @@ struct CameraScreen: View {
         cameraConfigurationID = operationID
         phase = .starting(operationID)
         camera.onCaptureAvailabilityChange = { isCaptureReady = $0 }
+        camera.onSessionEvent = handleSessionEvent
         camera.start(livePhotoEnabled: livePhotoEnabled) { result in
             guard phase == .starting(operationID) else { return }
             switch result {
@@ -685,7 +747,7 @@ struct CameraScreen: View {
             flashMode: flashAtShutter
         ) { result in
             guard activeCaptureIDs.remove(operationID) != nil else { return }
-            if activeCaptureIDs.isEmpty { phase = .ready }
+            if activeCaptureIDs.isEmpty, phase == .capturing { phase = .ready }
             if case .failure = result { errorMessage = .cameraErrorCapture }
         }
     }

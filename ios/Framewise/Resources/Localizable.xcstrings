@@ -449,6 +449,23 @@
         }
       }
     },
+    "camera.error.runtime" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The camera stopped unexpectedly. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相机意外停止，请重试。"
+          }
+        }
+      }
+    },
     "camera.error.save" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -700,6 +717,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "照片比例"
+          }
+        }
+      }
+    },
+    "camera.session.interrupted.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview will resume when the camera becomes available."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相机可用后会自动恢复预览。"
+          }
+        }
+      }
+    },
+    "camera.session.interrupted.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera paused"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相机暂时不可用"
+          }
+        }
+      }
+    },
+    "camera.session.recovering" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resuming camera"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在恢复相机"
           }
         }
       }
