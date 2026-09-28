@@ -38,3 +38,7 @@ npm run build
 - Uploaded images remain in the browser and are not sent anywhere.
 
 Repository template and variant images are intentionally not connected yet.
+
+Template editing and writing changes back to the repository are not implemented.
+See the [project implementation inventory](../../plans/current-status.md) and
+[remaining work](../../plans/next-steps.md) for the wider iOS migration status.

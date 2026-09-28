@@ -1,5 +1,12 @@
 # [归档] iOS 相机模块第一阶段
 
+> 文档分类：旧相机历史档案（2026-09-20 前），不再更新实施状态。
+> 下文“当前”“已实现”“待验收”“下一步”只描述归档当时，不进入现在的任务清单。
+> 当前已完成见 [功能状态](current-status.md)，待实现/待优化见 [后续工作](next-steps.md)，
+> 新相机设计见 [当前架构](ios-camera-architecture-v2.md)，新相机实验见
+> [实验记录](camera-experiments.md)。历史源码追溯范围见 [迁移记录](migration-history.md)。
+
+
 > [!WARNING]
 > 本文记录的实现已于 2026-09-20 从活跃 iOS target 移除，快照目录于 2026-09-28 移除。
 > 旧代码保留在 Git 提交 `7810b0b` 的历史路径 `archive/ios-camera-legacy-2026-09-20/`；

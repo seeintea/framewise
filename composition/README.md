@@ -1,8 +1,14 @@
 # Composition templates
 
-This directory contains the platform-neutral composition template data shared by
-iOS, Android, and Template Studio. It does not contain platform runtime objects
-or UI implementation details.
+This directory contains platform-neutral composition template data, currently
+consumed by iOS and Template Studio. It is also suitable for a future Android app;
+the current repository has no Android app implementation. It does not contain
+platform runtime objects or UI implementation details.
+
+The files described here are the current data contract. The older
+[V1 model draft](../plans/template-data-model.md) contains superseded containers
+and names; use the actual JSON and consumers when changing the schema. Project
+implementation and remaining work are tracked in [plans](../plans/README.md).
 
 ## Layout
 

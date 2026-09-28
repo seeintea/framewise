@@ -1,6 +1,9 @@
-# Framewise MVP 架构
+# [历史] Expo 静态蒙版 MVP 架构
 
-> 状态：记录已完成的静态蒙版 MVP 架构，不代表当前开发范围。当前执行范围见 `plans/product-v1.md`。
+> 状态：过时的 Expo / React Native 架构记录。本文记录第一轮静态蒙版 MVP，当时的路由、依赖、目录、权限流程和检查命令不适用于当前 SwiftUI 工程。
+>
+> 核对日期：2026-09-28。Expo 与早期 SwiftUI 代码只保留在 Git 提交 `5d1a630`；按 [AGENTS.md](../AGENTS.md) 的追溯规则查阅。
+> 当前实现见 [当前状态](./current-status.md)，产品范围见 [产品 V1](./product-v1.md)。正文的「MVP」均指历史 Expo 阶段。
 
 ## 1. 目标和范围
 
@@ -57,7 +60,7 @@ Expo SDK 57 的实现以版本化文档为准：
 
 ## 4. 模板数据边界
 
-模板模型以 `plans/template-data-model.md` 为唯一规范：
+当时模板模型使用 [旧模板数据结构](./template-data-model.md)，该容器与类型已被当前独立 JSON 文档替代：
 
 ```text
 CompositionTemplateDocumentV1
@@ -175,4 +178,4 @@ src/
 - 照片成功写入系统相册。
 - 连续拍照、镜头切换、闪光灯和双指缩放稳定可用。
 
-代码范围已经完成，当前阶段以双平台真机验收为主。
+当时记录的代码范围已经完成，双平台验收并未在本文留下完整结果；不据此认定当前 iOS 或 Android 已完成验收。

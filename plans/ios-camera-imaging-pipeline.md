@@ -1,5 +1,12 @@
 # [归档] iOS 相机取景与成片一致性
 
+> 文档分类：旧相机历史档案（2026-09-20 前），不再更新实施状态。
+> 下文“当前”“已实现”“待验收”“下一步”只描述归档当时，不进入现在的任务清单。
+> 当前已完成见 [功能状态](current-status.md)，待实现/待优化见 [后续工作](next-steps.md)，
+> 新相机设计见 [当前架构](ios-camera-architecture-v2.md)，新相机实验见
+> [实验记录](camera-experiments.md)。历史源码追溯范围见 [迁移记录](migration-history.md)。
+
+
 > [!WARNING]
 > 本文描述的 `CameraFramingSnapshot`、`CameraOutputPlan`、`CameraPreview`、
 > `CameraCaptureService` 与 `LivePhotoProcessor` 均属于 2026-09-20 已归档的旧相机实现。

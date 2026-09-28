@@ -1,8 +1,13 @@
-# Framewise Skia 构图引导实施指南
+# [历史] Expo / Skia 构图引导实施指南
+
+> 状态：过时的 React Native Skia 实施指南，保留用于理解早期渲染取舍。本文的 Canvas API、整数化策略、组件目录和执行步骤不适用于当前原生 iOS。
+>
+> 核对日期：2026-09-28。当前 iOS 使用 `Core/Canvas/MaskCanvas.swift` 与 `CanvasGeometry.swift`；后者直接把归一化值映射为浮点 `CGFloat`，没有沿用本文的 `Math.round` 规则。
+> 平台无关的几何与文案分离原则仍可参考，当前文件格式见 [composition/README](../composition/README.md)。实现状态见 [当前状态](./current-status.md)。
 
 ## 1. 文档定位
 
-本文是 Framewise MVP 开发阶段的 Skia 实施指导，承接以下已冻结规范：
+本文是历史 Expo MVP 开发阶段的 Skia 实施指导，以下是当时采用的规范：
 
 - `plans/template-data-model.md` 定义模板、Element 和 Shape 数据。
 - `plans/architecture.md` 定义页面、相机和模块边界。

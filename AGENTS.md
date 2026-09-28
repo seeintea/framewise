@@ -1,14 +1,14 @@
 # Framewise 工程指南
 
-Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而可逆，并以当前实际存在的 Swift 代码和 Xcode 工程配置为准。不要把 `plans/` 中规划的模块或 Git 历史中的旧实现视为已经迁移完成。
+Framewise 当前以 SwiftUI 原生 iOS 应用为主，已从 Expo / React Native 原型转向原生工程，并完成新相机的基础拍摄、处理与保存链路。产品体验和真机验收仍在推进。保持改动小而可逆，以当前 Swift 代码和 Xcode target 配置为准。
 
 ## 事实依据
 
 - 做出假设前，先检查当前 Swift 代码、`ios/Framewise.xcodeproj` 和对应 target 的 build settings。
-- `plans/` 记录产品与架构方向，只作为上下文，不代表相关功能已经实现。
-- 2026-09-20 之前的原生 iOS 相机快照已于 2026-09-28 从当前工作树移除，旧源码保留在 Git 提交 `7810b0b` 的历史路径 `archive/ios-camera-legacy-2026-09-20/`。旧源码及标题带“归档”的相机文档只用于追溯旧行为，不是新相机的设计依据，也不能据此判断当前能力已经实现；迁移取舍见 `plans/ios-camera-architecture-v2.md` 的迁移收尾记录。
-- 新相机的已确认设计逐步记录在 `plans/ios-camera-architecture-v2.md`；未写入该文档的旧相机行为不自动成为重写要求，实际完成状态仍以当前 Swift 代码为准。
-- React Native 归档与早期 SwiftUI 翻译保留在提交 `5d1a630`。需要阅读时，从该提交创建独立 worktree；不要把旧代码恢复或复制到当前工作树，除非用户明确要求迁移其中的具体能力。
+- 文档入口是 [plans/README.md](plans/README.md)。[当前实现清单](plans/current-status.md)记录代码已实现的能力与验收边界；[待实现与待优化](plans/next-steps.md)记录未完成事项。规划、实验结果和历史验收不能替代当前代码证据。
+- 新相机的已确认设计见 [ios-camera-architecture-v2.md](plans/ios-camera-architecture-v2.md)。旧相机行为不自动成为重写要求；暂不迁移的行为与历史源码位置见 [迁移记录](plans/migration-history.md)。
+- Expo / React Native、早期 SwiftUI 翻译及旧相机只用于追溯。阅读历史代码时使用独立 worktree，不恢复或复制到当前工作树，除非用户明确要求迁移具体能力。
+- 过去实验的分支名称不是持久引用，不假定分支或实验提交会保留在 Git。实验按日期、方案、条件、数据和结论记录在 [camera-experiments.md](plans/camera-experiments.md)，代码是否采用以当前源码为准。
 - 使用新的 Apple 平台 API 前，阅读对应系统版本的 Apple Developer Documentation，并确认 availability。
 
 ## 技术方案迭代
@@ -19,7 +19,7 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 
 ## 运行环境与依赖
 
-- 项目使用 Xcode 26，当前最低部署版本为 iOS 18。
+- 工程以 Xcode 26 建立；使用能编译当前源码的 Xcode 与 iOS SDK。当前 `Framewise` target 最低部署版本为 iOS 18.0，仅支持 iPhone，Swift language mode 为 5，默认 actor isolation 为 MainActor。不要把本机 SDK 版本当作最低部署版本。
 - 应用 UI 使用 SwiftUI；只有 SwiftUI 无法合理满足相机预览、高频绘制或系统能力接入时才使用 UIKit、AVFoundation、Vision、Core ML 或 Metal。
 - 优先使用 Apple 系统框架。只有平台能力无法合理提供所需功能时才新增第三方依赖。
 - 如需第三方 Swift 依赖，优先使用 Swift Package Manager，并提交 `Package.resolved`；不要引入 CocoaPods、Carthage 或其他依赖管理器。
@@ -40,11 +40,10 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 - `apps/template-studio/` 是模板预览与后续编辑工具，不属于任一移动平台。
 - `composition/` 保存平台无关的构图模板数据，不依赖 SwiftUI、React 或平台 runtime 类型。
 - `design-system/` 保存跨平台 UI 的字体、SVG 图标和品牌源文件，是这些视觉资产的唯一来源。
-- 应用入口、根导航和全局组合放在 `ios/Framewise/App/`；产品功能放在 `ios/Framewise/Features/<Feature>/`。
-- 跨功能导航放在 `ios/Framewise/Navigation/`。
-- 后续真正跨 feature 的领域能力放在 `ios/Framewise/` 下职责明确的目录，例如 `CameraEngine/`、`VisionEngine/`、`CompositionEngine/` 和 `Persistence/`；不要创建笼统的 `Shared/`。
-- Feature 和领域模块不得依赖 App 层。
-- 相机、视觉和构图属于后续独立迁移范围。没有明确需求时，不要根据历史实现提前建立空模块或抽象层。
+- 当前入口和根组合是 `ios/Framewise/FramewiseApp.swift`、`AppRootView.swift`；跨功能导航在 `Navigation/`；页面在 `Features/`，相机与引导页各有子目录。不为符合旧规划而移动现有文件或创建空的 `App/`。
+- 当前系统能力在 `Core/Camera/`、`Core/Permissions/`，蒙版绘制在 `Core/Canvas/`；模板加载和解码在 `MaskDataSource.swift`、`Server/`。`MaskServer` 是本地数据入口，不是网络服务。
+- Feature 和 Core 不依赖应用入口与根组合。保持现有职责边界，不新建笼统的 `Shared/`。
+- 当前已有原生相机和 SwiftUI 蒙版绘制；Vision、Core ML、模板推荐和持久化扩展尚未实现，没有明确需求时不要根据历史方案提前建立模块。
 - 保持可序列化的构图模板数据独立于 SwiftUI View、相机 runtime 对象和屏幕像素值。
 
 ## SwiftUI 实现风格
@@ -81,6 +80,14 @@ Framewise 正在从 Expo / React Native 迁移到原生 iOS。保持改动小而
 
 - 如果本机尚未安装匹配的 iOS Platform，明确报告环境限制；不要用降低部署版本或改工程配置来掩盖缺失组件。
 - 除非用户明确要求，否则不要启动模拟器、安装应用、操作真机或执行签名归档。
+
+## 文档维护
+
+- 更新能力时同步 `plans/current-status.md` 与 `plans/next-steps.md`；区分“代码已实现”“真机已验证”和“待验证”，不要把编译通过写成产品验收完成。
+- 当前设计文档只保留仍成立的职责、契约和取舍；实验数据、被撤回方案和调查过程单独记录。历史文档在开头注明过时范围与替代入口，正文中的“当前”“已完成”只描述其历史版本。
+- `composition/README.md` 与实际 JSON / Swift 解码类型是模板数据现状的依据；旧 `CompositionPreset`、Skia 或 Expo 规范不得直接套用到当前 iOS。
+- 不写实验分支切换、待合并或永久保留承诺；只有确认仍可追溯的历史提交才作为源码引用。本地附件或临时 trace 应注明非仓库材料，关键条件和结论写入文档。
+- 纯 Markdown 改动检查链接、状态与源码的一致性和 `git diff --check`；上述构建要求适用于 Swift、资源或工程配置改动。
 
 ## Git 提交
 

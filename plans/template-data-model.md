@@ -1,8 +1,25 @@
-# Framewise 模板数据结构 V1
+# [部分过时] 早期模板数据结构 V1
+
+> 状态：旧 Expo 阶段的数据设计。几何设计原则仍可参考，顶层容器、实体类型、身份规则和文案组织已经被当前实现替代；本文不是当前 schema 的唯一规范。
+>
+> 核对日期：2026-09-28。当前文件格式与稳定 ID 规则见 [composition/README](../composition/README.md)，Swift 解码边界见 `ios/Framewise/Server/Models/`。实现状态见 [当前状态](./current-status.md)。
+
+## 与当前格式的差异
+
+| 早期设计 | 当前格式 / 实现 |
+| --- | --- |
+| 一个文档包含 `presets` | 每个模板目录包含独立的 `template.v1.json` 和 `<locale>.v1.json` |
+| `CompositionPresetV1` / `CompositionTemplateVariantV1` | Swift 使用 `MaskDefinition`、`MaskVariant` 与组合后的 `MaskContent` |
+| 语义字符串作为模板与变体 ID | 模板、变体使用稳定 UUID，语义名称保留为 `key` |
+| 标题、说明、instruction 与几何放在一起 | 用户文案放在本地化文件，几何文件保留标注锚点 |
+| 全文档 ID 与比例白名单校验 | 当前解码器按独立模板、变体与本地化引用校验；具体约束以代码为准 |
+| MVP 只使用 `3:4` | 当前模板包含独立画幅变体，相机能力与映射见 [新相机架构](./ios-camera-architecture-v2.md) |
+
+仍适用的原则包括归一化几何、Element 语义与 Shape 几何分离、不同画幅单独设计、绘制样式与 runtime 数据不进入模板。以下 TypeScript 示例保留原设计，不能直接当作当前 JSON 写入。
 
 ## 1. 文档目的
 
-本文是 Framewise 构图模板数据的 V1 规范，作为 `plans/architecture.md` 和 `plans/mvp.md` 的模板模型依据。
+本文曾是 [历史 Expo 架构](./architecture.md) 与 [历史静态蒙版 MVP](./mvp.md) 的模板模型依据。
 
 V1 只描述模板数据，不描述具体 Skia API、相机裁切算法或未来编辑器交互。模板数据需要同时服务于模板缩略图和相机实时构图引导。
 
