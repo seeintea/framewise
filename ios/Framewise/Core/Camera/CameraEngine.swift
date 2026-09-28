@@ -22,6 +22,13 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         let label: String
     }
 
+    enum LivePhotoUnavailableReason: String, Sendable {
+        case unsupported
+        case microphoneDenied = "microphone_denied"
+        case microphoneRestricted = "microphone_restricted"
+        case microphoneUnavailable = "microphone_unavailable"
+    }
+
     struct Capabilities {
         let isFrontCamera: Bool
         let canSwitchCamera: Bool
@@ -31,6 +38,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         let exposureBias: Float
         let flashModes: [AVCaptureDevice.FlashMode]
         let supportsHEIF: Bool
+        let isLivePhotoEnabled: Bool
+        let livePhotoUnavailableReason: LivePhotoUnavailableReason?
     }
 
     let session = AVCaptureSession()
@@ -39,6 +48,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private var device: AVCaptureDevice?
     private var videoInput: AVCaptureDeviceInput?
     private var liveAudioInput: AVCaptureDeviceInput?
+    private var livePhotoUnavailableReason: LivePhotoUnavailableReason?
     private var isConfigured = false
     private var photoDelegates: [Int64: PhotoDelegate] = [:]
     private var pinchStartZoomFactor: CGFloat?
@@ -59,18 +69,43 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func start(
         restoringAutomaticFocus: Bool = false,
+        performance: CameraSessionPerformance,
         completion: @escaping (Result<Capabilities, Error>) -> Void
     ) {
+        let queueStart = ContinuousClock.now
         queue.async { [self] in
+            performance.record("session_queue_wait", since: queueStart)
             do {
-                guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+                let permissionStart = ContinuousClock.now
+                let isAuthorized = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+                performance.record(
+                    "camera_permission_check", since: permissionStart,
+                    outcome: isAuthorized ? .success : .failure
+                )
+                guard isAuthorized
                 else { throw CameraError.permissionUnavailable }
+                let configurationStart = ContinuousClock.now
                 if !isConfigured {
-                    try configure()
+                    do {
+                        try configure()
+                        performance.record("session_configuration", since: configurationStart)
+                    } catch {
+                        performance.record("session_configuration", since: configurationStart, outcome: .failure)
+                        throw error
+                    }
+                } else {
+                    performance.record("session_configuration", since: configurationStart, outcome: .skipped)
                 }
-                if !session.isRunning || session.isInterrupted {
+                let sessionStart = ContinuousClock.now
+                let needsStart = !session.isRunning || session.isInterrupted
+                if needsStart {
                     session.startRunning()
                 }
+                performance.record(
+                    "session_start", since: sessionStart,
+                    outcome: session.isInterrupted ? .interrupted
+                        : !session.isRunning ? .failure : needsStart ? .success : .skipped
+                )
                 guard !session.isInterrupted else { throw CameraError.interrupted }
                 guard session.isRunning, let device else {
                     throw CameraError.unavailable
@@ -91,7 +126,10 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 
     func stop() {
+        let performance = CameraSessionPerformance(operation: .stop)
+        let queueStart = ContinuousClock.now
         queue.async { [self] in
+            performance.record("session_queue_wait", since: queueStart)
             stopObservingSubjectAreaChanges()
             if let device {
                 do {
@@ -101,17 +139,24 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
             }
             pinchStartZoomFactor = nil
-            if session.isRunning {
+            let stopStart = ContinuousClock.now
+            let wasRunning = session.isRunning
+            if wasRunning {
                 session.stopRunning()
             }
+            performance.record("session_stop", since: stopStart, outcome: wasRunning ? .success : .skipped)
+            performance.record("stop_total")
         }
     }
 
     func switchCamera(
         livePhotoEnabled: Bool,
+        performance: CameraSessionPerformance,
         completion: @escaping (Result<Capabilities, Error>) -> Void
     ) {
+        let queueStart = ContinuousClock.now
         queue.async { [self] in
+            performance.record("session_queue_wait", since: queueStart)
             do {
                 guard session.isRunning, photoDelegates.isEmpty,
                     let previousDevice = device, let previousInput = videoInput,
@@ -124,11 +169,17 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 pinchStartZoomFactor = nil
                 let wasLivePhotoEnabled = photoOutput.isLivePhotoCaptureEnabled
                 let wasLivePhotoSuspended = photoOutput.isLivePhotoCaptureSuspended
+                let previousAudioInput = liveAudioInput
+                let previousLivePhotoIssue = livePhotoUnavailableReason
 
+                let stopStart = ContinuousClock.now
                 session.stopRunning()
+                performance.record("session_stop", since: stopStart)
+                let configurationStart = ContinuousClock.now
                 session.beginConfiguration()
                 session.removeInput(previousInput)
                 guard session.canAddInput(nextInput) else {
+                    performance.record("session_configuration", since: configurationStart, outcome: .failure)
                     session.addInput(previousInput)
                     session.commitConfiguration()
                     photoOutput.isLivePhotoCaptureEnabled = wasLivePhotoEnabled
@@ -142,15 +193,20 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 session.addInput(nextInput)
                 session.commitConfiguration()
+                performance.record("session_configuration", since: configurationStart)
 
                 do {
-                    guard !livePhotoEnabled || photoOutput.isLivePhotoCaptureSupported
-                    else { throw CameraError.unavailable }
-                    prepareLivePhotoCapture(isActive: livePhotoEnabled)
+                    prepareLivePhotoCapture(isActive: false)
                     try resetDevice(nextDevice)
+                    try configureLivePhoto(livePhotoEnabled, performance: performance)
                     configurePhotoMirroring(for: nextDevice)
                     prepareResponsiveCapture()
+                    let sessionStart = ContinuousClock.now
                     session.startRunning()
+                    performance.record(
+                        "session_start", since: sessionStart,
+                        outcome: session.isRunning ? .success : .failure
+                    )
                     guard session.isRunning else { throw CameraError.unavailable }
                 } catch {
                     // Restore the working camera if any part of the replacement fails.
@@ -158,7 +214,13 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     session.beginConfiguration()
                     session.removeInput(nextInput)
                     session.addInput(previousInput)
+                    if liveAudioInput !== previousAudioInput {
+                        if let liveAudioInput { session.removeInput(liveAudioInput) }
+                        if let previousAudioInput { session.addInput(previousAudioInput) }
+                        liveAudioInput = previousAudioInput
+                    }
                     session.commitConfiguration()
+                    livePhotoUnavailableReason = previousLivePhotoIssue
                     photoOutput.isLivePhotoCaptureEnabled = wasLivePhotoEnabled
                     if wasLivePhotoEnabled {
                         photoOutput.isLivePhotoCaptureSuspended = wasLivePhotoSuspended
@@ -400,94 +462,130 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         }
     }
 
-    func enableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
+    func setLivePhotoEnabled(
+        _ isEnabled: Bool,
+        performance: CameraSessionPerformance,
+        completion: @escaping (Result<Capabilities, Error>) -> Void
+    ) {
+        let queueStart = ContinuousClock.now
         queue.async { [self] in
+            performance.record("live_photo_queue_wait", since: queueStart)
             do {
-                guard isConfigured,
-                    photoOutput.isLivePhotoCaptureSupported,
-                    photoOutput.isLivePhotoCaptureEnabled,
-                    AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
-                else { throw CameraError.unavailable }
-                // Recovery can reapply the already-active mode while a capture finishes.
-                if liveAudioInput != nil, !photoOutput.isLivePhotoCaptureSuspended {
-                    allowHapticsWhileRecording()
-                    DispatchQueue.main.async { completion(.success(())) }
-                    return
-                }
-                guard photoDelegates.isEmpty else { throw CameraError.unavailable }
-                if liveAudioInput != nil {
-                    photoOutput.isLivePhotoCaptureSuspended = false
-                    allowHapticsWhileRecording()
-                    DispatchQueue.main.async { completion(.success(())) }
-                    return
-                }
-                guard let microphone = AVCaptureDevice.default(for: .audio)
-                else {
-                    throw CameraError.unavailable
-                }
-                let audioInput = try AVCaptureDeviceInput(device: microphone)
-                guard session.canAddInput(audioInput) else {
-                    throw CameraError.unavailable
-                }
-
-                let wasRunning = session.isRunning
-                session.beginConfiguration()
-                session.addInput(audioInput)
-                session.commitConfiguration()
-                guard photoOutput.isLivePhotoCaptureSupported,
-                    photoOutput.isLivePhotoCaptureEnabled,
-                    !wasRunning || session.isRunning
-                else {
-                    session.beginConfiguration()
-                    session.removeInput(audioInput)
-                    session.commitConfiguration()
-                    throw CameraError.unavailable
-                }
-                photoOutput.isLivePhotoCaptureSuspended = false
-                liveAudioInput = audioInput
-                if let device { configurePhotoMirroring(for: device) }
-                allowHapticsWhileRecording()
-                DispatchQueue.main.async { completion(.success(())) }
+                try configureLivePhoto(isEnabled, performance: performance)
+                guard let device else { throw CameraError.unavailable }
+                let capabilities = capabilities(for: device)
+                DispatchQueue.main.async { completion(.success(capabilities)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
 
-    func disableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
-        queue.async { [self] in
-            guard isConfigured else {
-                DispatchQueue.main.async {
-                    completion(.failure(CameraError.unavailable))
-                }
-                return
-            }
-            if liveAudioInput == nil,
-                !photoOutput.isLivePhotoCaptureEnabled || photoOutput.isLivePhotoCaptureSuspended
-            {
-                DispatchQueue.main.async { completion(.success(())) }
-                return
-            }
-            guard photoDelegates.isEmpty else {
-                DispatchQueue.main.async { completion(.failure(CameraError.unavailable)) }
-                return
-            }
-            let wasRunning = session.isRunning
-            if photoOutput.isLivePhotoCaptureEnabled {
-                photoOutput.isLivePhotoCaptureSuspended = true
-            }
-            if let liveAudioInput {
-                session.beginConfiguration()
-                session.removeInput(liveAudioInput)
-                session.commitConfiguration()
-                self.liveAudioInput = nil
-            }
-            if let device { configurePhotoMirroring(for: device) }
-            let result: Result<Void, Error> =
-                !wasRunning || session.isRunning
-                ? .success(()) : .failure(CameraError.unavailable)
-            DispatchQueue.main.async { completion(result) }
+    private func configureLivePhoto(
+        _ isEnabled: Bool, performance: CameraSessionPerformance
+    ) throws {
+        let start = ContinuousClock.now
+        var outcome = CameraSessionPerformance.Outcome.success
+        defer {
+            performance.record(
+                "live_photo_configuration", since: start, outcome: outcome,
+                detail: livePhotoUnavailableReason?.rawValue ?? (isEnabled ? "enabled" : "disabled")
+            )
         }
+        do {
+            guard isConfigured else { throw CameraError.unavailable }
+            if !isEnabled {
+                try disableLivePhoto()
+                livePhotoUnavailableReason = nil
+                return
+            }
+            let reason: LivePhotoUnavailableReason?
+            if !photoOutput.isLivePhotoCaptureSupported {
+                reason = .unsupported
+            } else {
+                switch AVCaptureDevice.authorizationStatus(for: .audio) {
+                case .authorized: reason = try enableLivePhoto()
+                case .denied: reason = .microphoneDenied
+                case .restricted: reason = .microphoneRestricted
+                case .notDetermined: reason = .microphoneUnavailable
+                @unknown default: reason = .microphoneUnavailable
+                }
+            }
+            if let reason {
+                // Only unavailable Live capability falls back; configuration errors still fail.
+                try disableLivePhoto()
+                livePhotoUnavailableReason = reason
+                outcome = .fallback
+            } else {
+                livePhotoUnavailableReason = nil
+            }
+        } catch {
+            outcome = .failure
+            throw error
+        }
+    }
+
+    private func enableLivePhoto() throws -> LivePhotoUnavailableReason? {
+        guard photoOutput.isLivePhotoCaptureEnabled else { throw CameraError.unavailable }
+        // Recovery can reapply the already-active mode while a capture finishes.
+        if liveAudioInput != nil, !photoOutput.isLivePhotoCaptureSuspended {
+            allowHapticsWhileRecording()
+            return nil
+        }
+        guard photoDelegates.isEmpty else { throw CameraError.unavailable }
+        if liveAudioInput != nil {
+            photoOutput.isLivePhotoCaptureSuspended = false
+            allowHapticsWhileRecording()
+            return nil
+        }
+        guard let microphone = AVCaptureDevice.default(for: .audio)
+        else { return .microphoneUnavailable }
+        let audioInput: AVCaptureDeviceInput
+        do {
+            audioInput = try AVCaptureDeviceInput(device: microphone)
+        } catch {
+            // A device input creation failure is an unavailable microphone, not a video failure.
+            return .microphoneUnavailable
+        }
+        guard session.canAddInput(audioInput) else { return .microphoneUnavailable }
+        let wasRunning = session.isRunning
+        session.beginConfiguration()
+        session.addInput(audioInput)
+        session.commitConfiguration()
+        guard photoOutput.isLivePhotoCaptureSupported,
+            photoOutput.isLivePhotoCaptureEnabled,
+            !wasRunning || session.isRunning
+        else {
+            session.beginConfiguration()
+            session.removeInput(audioInput)
+            session.commitConfiguration()
+            if !photoOutput.isLivePhotoCaptureSupported { return .unsupported }
+            throw CameraError.unavailable
+        }
+        photoOutput.isLivePhotoCaptureSuspended = false
+        liveAudioInput = audioInput
+        if let device { configurePhotoMirroring(for: device) }
+        allowHapticsWhileRecording()
+        return nil
+    }
+
+    private func disableLivePhoto() throws {
+        if liveAudioInput == nil,
+            !photoOutput.isLivePhotoCaptureEnabled || photoOutput.isLivePhotoCaptureSuspended
+        { return }
+        guard photoDelegates.isEmpty else { throw CameraError.unavailable }
+        let wasRunning = session.isRunning
+        if photoOutput.isLivePhotoCaptureEnabled {
+            photoOutput.isLivePhotoCaptureSuspended = true
+        }
+        if let liveAudioInput {
+            session.beginConfiguration()
+            session.removeInput(liveAudioInput)
+            session.commitConfiguration()
+            self.liveAudioInput = nil
+        }
+        if let device { configurePhotoMirroring(for: device) }
+        guard !wasRunning || session.isRunning else { throw CameraError.unavailable }
     }
 
     private func allowHapticsWhileRecording() {
@@ -685,7 +783,10 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             exposureRange: device.minExposureTargetBias...device.maxExposureTargetBias,
             exposureBias: device.exposureTargetBias,
             flashModes: photoOutput.supportedFlashModes,
-            supportsHEIF: photoOutput.availablePhotoCodecTypes.contains(.hevc)
+            supportsHEIF: photoOutput.availablePhotoCodecTypes.contains(.hevc),
+            isLivePhotoEnabled: photoOutput.isLivePhotoCaptureEnabled
+                && !photoOutput.isLivePhotoCaptureSuspended && liveAudioInput != nil,
+            livePhotoUnavailableReason: livePhotoUnavailableReason
         )
     }
 

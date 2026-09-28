@@ -670,6 +670,74 @@
         }
       }
     },
+    "camera.live.fallback.microphoneDenied" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone access is off. Continuing with ordinary photos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "麦克风权限未开启，已切换为普通照片。"
+          }
+        }
+      }
+    },
+    "camera.live.fallback.microphoneRestricted" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone access is restricted. Continuing with ordinary photos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "麦克风权限受限，已切换为普通照片。"
+          }
+        }
+      }
+    },
+    "camera.live.fallback.microphoneUnavailable" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone is unavailable. Continuing with ordinary photos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "麦克风暂时不可用，已切换为普通照片。"
+          }
+        }
+      }
+    },
+    "camera.live.fallback.unsupported" : {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This camera does not support Live Photos. Continuing with ordinary photos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前镜头不支持实况，已切换为普通照片。"
+          }
+        }
+      }
+    },
     "camera.live.enable" : {
       "extractionState" : "manual",
       "localizations" : {

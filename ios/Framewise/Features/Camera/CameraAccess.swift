@@ -11,13 +11,15 @@ import SwiftUI
 
 struct CameraAccess: View {
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage("camera.livePhotoEnabled") private var livePhotoEnabled = false
+    @AppStorage("camera.livePhotoEnabled") private var prefersLivePhoto = false
 
     let masks: [MaskContent]
     let initialMaskId: String
 
     @State private var state = State.checking
     @State private var showsPermissionAlert = false
+    @State private var permissionRequestID = UUID()
+    @State private var permissionRequestTask: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -27,7 +29,7 @@ struct CameraAccess: View {
                     masks: masks,
                     initialMaskId: initialMaskId,
                     requestMicrophoneAccess: requestMicrophoneAccess,
-                    livePhotoEnabled: $livePhotoEnabled
+                    prefersLivePhoto: $prefersLivePhoto
                 )
 
             case .requesting:
@@ -53,6 +55,11 @@ struct CameraAccess: View {
         .task {
             reloadStatus()
         }
+        .onDisappear {
+            permissionRequestID = UUID()
+            permissionRequestTask?.cancel()
+            permissionRequestTask = nil
+        }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active, state != .requesting else { return }
             reloadStatus()
@@ -63,32 +70,20 @@ struct CameraAccess: View {
                 Button(.cameraAccessActionContinue) {
                     requestAccess()
                 }
-                if livePhotoEnabled {
-                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
-                }
                 Button(.cameraAccessActionCancel, role: .cancel) {}
 
             case .denied:
                 Button(.cameraAccessActionOpenSettings) {
                     openSettings()
                 }
-                if livePhotoEnabled {
-                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
-                }
                 Button(.cameraAccessActionCancel, role: .cancel) {}
 
             case .restricted:
-                if livePhotoEnabled {
-                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
-                }
                 Button(.cameraAccessActionAcknowledge, role: .cancel) {}
 
             case .unavailable:
                 Button(.cameraAccessActionRetry) {
                     reloadStatus()
-                }
-                if livePhotoEnabled {
-                    Button(.cameraLiveDisable) { disableLivePhotoPreference() }
                 }
                 Button(.cameraAccessActionCancel, role: .cancel) {}
 
@@ -101,50 +96,87 @@ struct CameraAccess: View {
     }
 
     private func requestAccess() {
-        guard state == .notDetermined else { return }
-        let permissions = requiredPermissions
+        guard state == .notDetermined || state == .authorized else { return }
+        let performance = CameraSessionPerformance(operation: .permissions)
+        let requestID = UUID()
+        permissionRequestID = requestID
         state = .requesting
         showsPermissionAlert = false
-
-        Task {
-            for permission in permissions {
-                let result = await Permissions.request([permission])
-                guard result[permission].isAuthorized else { break }
+        permissionRequestTask = Task {
+            var outcome = CameraSessionPerformance.Outcome.success
+            defer { performance.record("permissions_total", outcome: outcome) }
+            for permission in requiredPermissions {
+                let result = await request(permission, performance: performance)
+                guard !Task.isCancelled, permissionRequestID == requestID else {
+                    outcome = .cancelled
+                    return
+                }
+                if !result.isAuthorized {
+                    outcome = .failure
+                    break
+                }
             }
-
+            if Permissions.check(requiredPermissions).isAuthorized, prefersLivePhoto {
+                let microphone = await request(.microphone, performance: performance)
+                guard !Task.isCancelled, permissionRequestID == requestID else {
+                    outcome = .cancelled
+                    return
+                }
+                if !microphone.isAuthorized { outcome = .fallback }
+            }
+            permissionRequestTask = nil
             reloadStatus()
         }
     }
 
     private func reloadStatus() {
-        let permissions = requiredPermissions
-        state = State(
-            result: Permissions.check(permissions),
-            permissions: permissions
+        let performance = CameraSessionPerformance(operation: .permissions)
+        let start = ContinuousClock.now
+        let result = Permissions.check(requiredPermissions)
+        state = State(result: result, permissions: requiredPermissions)
+        let microphone = prefersLivePhoto ? Permissions.check([.microphone])[.microphone] : nil
+        performance.record(
+            "permission_check", since: start,
+            outcome: result.isAuthorized ? .success : .failure,
+            detail: "camera=\(result[.camera]) photos=\(result[.photoLibraryAdd]) microphone=\(microphone.map { String(describing: $0) } ?? "not_requested")"
         )
         showsPermissionAlert = state.needsGuidance
-    }
-
-    private func openSettings() {
-        Task {
-            await Permissions.openSettings()
+        if state == .authorized, prefersLivePhoto, microphone == .notDetermined {
+            performance.record("permissions_total", outcome: .skipped, detail: "microphone_request_needed")
+            requestAccess()
+        } else {
+            let outcome: CameraSessionPerformance.Outcome = !result.isAuthorized ? .failure
+                : prefersLivePhoto && microphone?.isAuthorized != true ? .fallback : .success
+            performance.record("permissions_total", outcome: outcome)
         }
     }
 
+    private func openSettings() {
+        Task { await Permissions.openSettings() }
+    }
+
     private func requestMicrophoneAccess() async -> Bool {
-        let result = await Permissions.request([.microphone])
+        let performance = CameraSessionPerformance(operation: .permissions)
+        let result = await request(.microphone, performance: performance)
+        performance.record("permissions_total", outcome: result.isAuthorized ? .success : .fallback)
         return result.isAuthorized
     }
 
-    private func disableLivePhotoPreference() {
-        livePhotoEnabled = false
-        reloadStatus()
+    private func request(
+        _ permission: Permissions.Kind, performance: CameraSessionPerformance
+    ) async -> PermissionStatus {
+        let start = ContinuousClock.now
+        let result = await Permissions.request([permission])[permission]
+        performance.record(
+            "permission_request", since: start,
+            outcome: result.isAuthorized ? .success : permission == .microphone ? .fallback : .failure,
+            detail: "\(permission)=\(result)"
+        )
+        return result
     }
 
-    private var requiredPermissions: [Permissions.Kind] {
-        livePhotoEnabled ? [.camera, .photoLibraryAdd, .microphone]
-            : [.camera, .photoLibraryAdd]
-    }
+    // The microphone is optional: unavailable Live Photo must not block still photography.
+    private var requiredPermissions: [Permissions.Kind] { [.camera, .photoLibraryAdd] }
 
     private var alertTitle: LocalizedStringResource {
         switch state {

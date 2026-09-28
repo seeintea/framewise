@@ -33,7 +33,8 @@ final class CameraController: NSObject,
     private var isRecovering = false
     private var canResumeInterruption = false
     private var isRunning = false
-    private var livePhotoEnabled = false
+    private var prefersLivePhoto = false
+    private var readinessPerformance: CameraSessionPerformance?
     private var capabilities: CameraEngine.Capabilities?
     private var pendingPhotoCount = 0
     // Include downstream processing and library writes in the trial's memory bound.
@@ -65,6 +66,10 @@ final class CameraController: NSObject,
     }
 
     private func publishCaptureAvailability() {
+        if canCapture, let readinessPerformance {
+            readinessPerformance.record("capture_ready")
+            self.readinessPerformance = nil
+        }
         onCaptureAvailabilityChange?(canCapture)
     }
 
@@ -78,38 +83,57 @@ final class CameraController: NSObject,
         livePhotoEnabled: Bool,
         completion: @escaping (Result<CameraEngine.Capabilities, Error>) -> Void
     ) {
+        let performance = CameraSessionPerformance(operation: .startup)
         let operationID = UUID()
         lifecycleID = operationID
         sessionOperationID = operationID
         shouldRun = true
-        self.livePhotoEnabled = livePhotoEnabled
+        self.prefersLivePhoto = livePhotoEnabled
         hasStarted = false
         isRecovering = false
         canResumeInterruption = false
         isRunning = false
+        readinessPerformance?.record("capture_ready", outcome: .cancelled)
+        readinessPerformance = nil
         publishCaptureAvailability()
         observeSession(lifecycleID: operationID)
         orientation.start()
-        engine.start { [self] result in
-            guard shouldRun, sessionOperationID == operationID else { return }
+        engine.start(performance: performance) { [self] result in
+            guard shouldRun, sessionOperationID == operationID else {
+                performance.record("startup_total", outcome: .cancelled)
+                return
+            }
             if case .failure(CameraEngine.CameraError.interrupted) = result {
+                performance.record("startup_total", outcome: .interrupted)
                 handleInterruption(canResume: false)
                 return
             }
             switch result {
             case .failure:
+                performance.record("startup_total", outcome: .failure)
                 completion(result)
-            case .success(let capabilities):
-                setLivePhotoEnabled(livePhotoEnabled) { result in
-                    guard self.shouldRun, self.sessionOperationID == operationID else { return }
+            case .success:
+                setLivePhotoEnabled(livePhotoEnabled, performance: performance) { result in
+                    guard self.shouldRun, self.sessionOperationID == operationID else {
+                        performance.record("startup_total", outcome: .cancelled)
+                        return
+                    }
                     switch result {
-                    case .success:
+                    case .success(let capabilities):
+                        performance.record(
+                            "startup_total",
+                            outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback,
+                            detail: "camera=\(capabilities.isFrontCamera ? "front" : "back") live_requested=\(livePhotoEnabled) live_active=\(capabilities.isLivePhotoEnabled)"
+                        )
+                        self.readinessPerformance = performance
                         self.capabilities = capabilities
                         self.hasStarted = true
                         self.isRunning = true
                         self.publishCaptureAvailability()
                         completion(.success(capabilities))
-                    case .failure(let error): completion(.failure(error))
+                    case .failure(let error):
+                        performance.record("startup_total", outcome: .failure)
+                        completion(.failure(error))
                     }
                 }
             }
@@ -120,6 +144,8 @@ final class CameraController: NSObject,
         lifecycleID = UUID()
         sessionOperationID = UUID()
         sessionObservers.removeAll()
+        readinessPerformance?.record("capture_ready", outcome: .cancelled)
+        readinessPerformance = nil
         shouldRun = false
         hasStarted = false
         isRecovering = false
@@ -188,6 +214,8 @@ final class CameraController: NSObject,
         isRecovering = false
         isRunning = false
         canResumeInterruption = canResume
+        readinessPerformance?.record("capture_ready", outcome: .interrupted)
+        readinessPerformance = nil
         publishCaptureAvailability()
         orientation.stopMonitoringFocusMovement()
         onSessionEvent?(.interrupted(canResume: canResume))
@@ -196,33 +224,49 @@ final class CameraController: NSObject,
     /// Reuse the configured inputs and Live Photo mode; do not rebuild the pipeline.
     func resumeSession() {
         guard shouldRun, !isRunning, !isRecovering else { return }
+        let performance = CameraSessionPerformance(operation: .recovery)
         let operationID = UUID()
         sessionOperationID = operationID
         isRecovering = true
         isRunning = false
         publishCaptureAvailability()
         onSessionEvent?(.recovering)
-        engine.start(restoringAutomaticFocus: true) { [weak self] result in
-            guard let self, self.shouldRun, self.sessionOperationID == operationID else { return }
+        engine.start(restoringAutomaticFocus: true, performance: performance) { [weak self] result in
+            guard let self, self.shouldRun, self.sessionOperationID == operationID else {
+                performance.record("recovery_total", outcome: .cancelled)
+                return
+            }
             switch result {
-            case .success(let capabilities):
-                self.setLivePhotoEnabled(self.livePhotoEnabled) { result in
-                    guard self.shouldRun, self.sessionOperationID == operationID else { return }
+            case .success:
+                self.setLivePhotoEnabled(self.prefersLivePhoto, performance: performance) { result in
+                    guard self.shouldRun, self.sessionOperationID == operationID else {
+                        performance.record("recovery_total", outcome: .cancelled)
+                        return
+                    }
                     self.isRecovering = false
                     switch result {
-                    case .success:
+                    case .success(let capabilities):
+                        performance.record(
+                            "recovery_total",
+                            outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback,
+                            detail: "camera=\(capabilities.isFrontCamera ? "front" : "back") live_requested=\(self.prefersLivePhoto) live_active=\(capabilities.isLivePhotoEnabled)"
+                        )
+                        self.readinessPerformance = performance
                         self.capabilities = capabilities
                         self.hasStarted = true
                         self.isRunning = true
                         self.publishCaptureAvailability()
                         self.onSessionEvent?(.recovered(capabilities))
                     case .failure:
+                        performance.record("recovery_total", outcome: .failure)
                         self.failSession()
                     }
                 }
             case .failure(CameraEngine.CameraError.interrupted):
+                performance.record("recovery_total", outcome: .interrupted)
                 self.handleInterruption(canResume: self.canResumeInterruption)
             case .failure:
+                performance.record("recovery_total", outcome: .failure)
                 self.failSession()
             }
         }
@@ -237,10 +281,20 @@ final class CameraController: NSObject,
         livePhotoEnabled: Bool,
         completion: @escaping (Result<CameraEngine.Capabilities, Error>) -> Void
     ) {
+        let performance = CameraSessionPerformance(operation: .switchCamera)
         let operationID = sessionOperationID
-        engine.switchCamera(livePhotoEnabled: livePhotoEnabled) { [self] result in
-            guard shouldRun, sessionOperationID == operationID else { return }
-            if case .success(let capabilities) = result { self.capabilities = capabilities }
+        engine.switchCamera(livePhotoEnabled: livePhotoEnabled, performance: performance) { [self] result in
+            guard shouldRun, sessionOperationID == operationID else {
+                performance.record("switch_total", outcome: .cancelled)
+                return
+            }
+            switch result {
+            case .success(let capabilities):
+                self.capabilities = capabilities
+                self.prefersLivePhoto = livePhotoEnabled
+                performance.record("switch_total", outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback, detail: capabilities.isLivePhotoEnabled ? "live" : "still")
+            case .failure: performance.record("switch_total", outcome: .failure)
+            }
             completion(result)
         }
     }
@@ -301,18 +355,24 @@ final class CameraController: NSObject,
 
     func setLivePhotoEnabled(
         _ enabled: Bool,
-        completion: @escaping (Result<Void, Error>) -> Void
+        performance: CameraSessionPerformance = CameraSessionPerformance(operation: .livePhoto),
+        completion: @escaping (Result<CameraEngine.Capabilities, Error>) -> Void
     ) {
         let operationID = sessionOperationID
-        let handler: (Result<Void, Error>) -> Void = { [weak self] result in
-            guard let self, self.shouldRun, self.sessionOperationID == operationID else { return }
-            if case .success = result { self.livePhotoEnabled = enabled }
+        engine.setLivePhotoEnabled(enabled, performance: performance) { [weak self] result in
+            guard let self, self.shouldRun, self.sessionOperationID == operationID else {
+                performance.record("live_photo_result", outcome: .cancelled)
+                completion(.failure(CancellationError()))
+                return
+            }
+            switch result {
+            case .success(let capabilities):
+                self.prefersLivePhoto = enabled
+                self.capabilities = capabilities
+                performance.record("live_photo_result", outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback)
+            case .failure: performance.record("live_photo_result", outcome: .failure)
+            }
             completion(result)
-        }
-        if enabled {
-            engine.enableLivePhoto(completion: handler)
-        } else {
-            engine.disableLivePhoto(completion: handler)
         }
     }
 

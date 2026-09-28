@@ -22,7 +22,7 @@ struct CameraScreen: View {
     let masks: [MaskContent]
     let initialMaskId: String
     let requestMicrophoneAccess: () async -> Bool
-    @Binding var livePhotoEnabled: Bool
+    @Binding var prefersLivePhoto: Bool
 
     @State private var camera = CameraController()
     @State private var phase: CameraPhase = .stopped
@@ -37,6 +37,8 @@ struct CameraScreen: View {
     @State private var zoomFactor: CGFloat = 1
     @GestureState private var selfieZoomTarget: CGFloat?
     @State private var isFrontCamera = false
+    @State private var livePhotoEnabled = false
+    @State private var livePhotoUnavailableReason: CameraEngine.LivePhotoUnavailableReason?
     @State private var canSwitchCamera = false
     @State private var cameraConfigurationID = UUID()
     @State private var exposureRange: ClosedRange<Float> = 0...0
@@ -61,12 +63,12 @@ struct CameraScreen: View {
         masks: [MaskContent],
         initialMaskId: String,
         requestMicrophoneAccess: @escaping () async -> Bool,
-        livePhotoEnabled: Binding<Bool>
+        prefersLivePhoto: Binding<Bool>
     ) {
         self.masks = masks
         self.initialMaskId = initialMaskId
         self.requestMicrophoneAccess = requestMicrophoneAccess
-        self._livePhotoEnabled = livePhotoEnabled
+        self._prefersLivePhoto = prefersLivePhoto
         self._selectedMaskId = State(initialValue: initialMaskId)
         let initialMask = masks.first { $0.id == initialMaskId }
         self._captureRatio = State(
@@ -162,6 +164,34 @@ struct CameraScreen: View {
                 EmptyView()
             }
         }
+        .overlay(alignment: .top) {
+            if let reason = livePhotoUnavailableReason {
+                HStack(spacing: 10) {
+                    Image(systemName: "livephoto.slash")
+                        .foregroundStyle(.yellow)
+                    Text(livePhotoFallbackMessage(for: reason))
+                        .font(.footnote)
+                    Spacer(minLength: 4)
+                    if reason == .microphoneDenied || reason == .microphoneRestricted {
+                        Button(.cameraAccessActionOpenSettings) {
+                            Task { await Permissions.openSettings() }
+                        }
+                        .font(.footnote.weight(.semibold))
+                    }
+                    Button {
+                        livePhotoUnavailableReason = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel(Text(.cameraErrorOk))
+                }
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            }
+        }
         .overlay(alignment: .bottom) {
             if showsMaskLoadError {
                 Text("模版加载失败")
@@ -229,9 +259,9 @@ struct CameraScreen: View {
                     errorMessage = nil
                     startCamera()
                 }
-                if livePhotoEnabled {
+                if prefersLivePhoto {
                     Button(.cameraLiveDisable) {
-                        livePhotoEnabled = false
+                        prefersLivePhoto = false
                         errorMessage = nil
                         startCamera()
                     }
@@ -621,7 +651,7 @@ struct CameraScreen: View {
         phase = .starting(operationID)
         camera.onCaptureAvailabilityChange = { isCaptureReady = $0 }
         camera.onSessionEvent = handleSessionEvent
-        camera.start(livePhotoEnabled: livePhotoEnabled) { result in
+        camera.start(livePhotoEnabled: prefersLivePhoto) { result in
             guard phase == .starting(operationID) else { return }
             switch result {
             case .success(let capabilities):
@@ -642,6 +672,19 @@ struct CameraScreen: View {
         exposureRange = capabilities.exposureRange
         exposureBias = Double(capabilities.exposureBias)
         flashModes = capabilities.flashModes
+        livePhotoEnabled = capabilities.isLivePhotoEnabled
+        livePhotoUnavailableReason = capabilities.livePhotoUnavailableReason
+    }
+
+    private func livePhotoFallbackMessage(
+        for reason: CameraEngine.LivePhotoUnavailableReason
+    ) -> LocalizedStringResource {
+        switch reason {
+        case .unsupported: .cameraLiveFallbackUnsupported
+        case .microphoneDenied: .cameraLiveFallbackMicrophoneDenied
+        case .microphoneRestricted: .cameraLiveFallbackMicrophoneRestricted
+        case .microphoneUnavailable: .cameraLiveFallbackMicrophoneUnavailable
+        }
     }
 
     private func switchCamera() {
@@ -650,7 +693,7 @@ struct CameraScreen: View {
         cameraConfigurationID = operationID
         phase = .switchingCamera(operationID)
         endPointFocus()
-        camera.switchCamera(livePhotoEnabled: livePhotoEnabled) { result in
+        camera.switchCamera(livePhotoEnabled: prefersLivePhoto) { result in
             guard phase == .switchingCamera(operationID) else { return }
             switch result {
             case .success(let capabilities):
@@ -693,40 +736,33 @@ struct CameraScreen: View {
 
     private func toggleLivePhoto() {
         guard phase == .ready else { return }
+        let shouldEnable = !livePhotoEnabled
         let operationID = UUID()
         phase = .changingLivePhoto(operationID)
-        if livePhotoEnabled {
-            camera.setLivePhotoEnabled(false) { result in
-                guard phase == .changingLivePhoto(operationID) else { return }
-                switch result {
-                case .success:
-                    livePhotoEnabled = false
-                    phase = .ready
-                case .failure:
-                    stopCamera()
-                    errorMessage = .cameraErrorLivePhoto
-                }
-            }
+        if !shouldEnable {
+            applyLivePhotoPreference(false, operationID: operationID)
             return
         }
+        // Keep the user's intent if the system permission prompt pauses this page.
+        prefersLivePhoto = true
         Task {
-            guard await requestMicrophoneAccess() else {
-                guard phase == .changingLivePhoto(operationID) else { return }
-                phase = .ready
-                errorMessage = .cameraErrorMicrophone
-                return
-            }
+            _ = await requestMicrophoneAccess()
             guard phase == .changingLivePhoto(operationID) else { return }
-            camera.setLivePhotoEnabled(true) { result in
-                guard phase == .changingLivePhoto(operationID) else { return }
-                switch result {
-                case .success:
-                    livePhotoEnabled = true
-                    phase = .ready
-                case .failure:
-                    stopCamera()
-                    errorMessage = .cameraErrorLivePhoto
-                }
+            applyLivePhotoPreference(true, operationID: operationID)
+        }
+    }
+
+    private func applyLivePhotoPreference(_ shouldEnable: Bool, operationID: UUID) {
+        camera.setLivePhotoEnabled(shouldEnable) { result in
+            guard phase == .changingLivePhoto(operationID) else { return }
+            switch result {
+            case .success(let capabilities):
+                prefersLivePhoto = shouldEnable
+                applyCapabilities(capabilities)
+                phase = .ready
+            case .failure:
+                stopCamera()
+                errorMessage = .cameraErrorLivePhoto
             }
         }
     }

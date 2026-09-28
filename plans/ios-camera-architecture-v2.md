@@ -10,6 +10,64 @@
 > [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)，
 > 不作为本文的默认设计依据。
 
+## 2026-09-28 Live Photo 自动降级与启动性能日志
+
+普通照片只要求相机与相册 add-only 权限。Live 偏好开启且麦克风权限尚未决定时，
+`CameraAccess` 仍申请麦克风权限；拒绝或受限后继续进入普通拍照，不再要求用户先关闭 Live。
+启动、主动开关、镜头切换和会话恢复都以当前支持能力与权限为准，发布实际 Live 状态：
+
+- 当前镜头不支持 Live、麦克风拒绝/受限、麦克风设备缺失、设备输入创建或接入不可用时，
+  自动暂停 Live 并移除音频输入，保持普通照片可用。页面 Live 图标和每次拍摄采用实际模式，
+  显示可关闭的降级原因提示；权限拒绝或受限时可进入系统设置。
+- 用户的持久化 Live 偏好保留。重新进入、恢复会话或切回支持的镜头时重新尝试该偏好，
+  成功后恢复实际 Live 模式。用户在已经启用 Live 时主动关闭，清除偏好与降级提示。
+- 无法替换视频输入、设备配置失败或会话无法运行仍按配置错误处理，不伪装成普通照片成功。
+  切换失败时恢复原视频输入、音频输入、Live enabled/suspended 与镜像状态。
+- 已在目标模式时允许恢复流程幂等重用；需要改变模式时仍不能与未完成的采集重叠。
+  权限请求任务离开页面后失效，旧 Live 配置回调不能覆盖新启动周期的实际状态。
+
+按 [Apple 的 Live 支持说明](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotocapturesupported)，
+支持能力会随会话预设和设备格式变化；镜头切换后重新查询并配置。
+继续在会话停止时预先启用支持 Live 的输出管线，运行中通过
+[isLivePhotoCaptureSuspended](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotocapturesuspended)
+切换模式，避免反复修改 enabled 所触发的管线重建。保持现有启动顺序和拍摄质量设置。
+
+新增 `CameraSessionPerformance`，通过 `Logger.info` 在 Debug 和 Release 记录
+`[CameraSession]`。每次权限操作、启动、恢复、切换镜头、Live 配置或停止具有独立 UUID；
+同一次启动的串行队列、会话配置和 Live 配置沿用一个 UUID。每行包含 `build`、`operation`、
+`phase`、`duration`（本阶段毫秒）、`elapsed`（操作开始后的累计毫秒）、`outcome` 与 `detail`。
+结果区分 `success`、`fallback`、`failure`、`interrupted`、`cancelled` 和 `skipped`。
+`Logger` 在 iOS 14 起可用，`ContinuousClock` 在 iOS 16 起可用，覆盖工程最低 iOS 18。
+使用 Xcode 或 Console 采集时启用 Info 级别并筛选 `CameraSession`；这些日志默认写入系统内存
+日志存储，不增加应用自己的日志文件。
+
+| 阶段 | 时间边界与说明 |
+| --- | --- |
+| `begin` | 操作计时起点，便于定位未完成的操作 |
+| `permission_check` / `permission_request` | 权限检查或请求；请求耗时包含系统授权弹窗等待，也可能直接返回已决定的权限 |
+| `permissions_total` | 一次权限操作总耗时，麦克风不可用标为 fallback；与会话启动分开计时 |
+| `session_queue_wait` | 会话命令提交至串行队列开始执行 |
+| `camera_permission_check` | 会话队列上的相机授权校验 |
+| `session_configuration` | 创建输入、接入输出、预置 Live/响应式采集与设备初始配置；已配置的会话标为 skipped |
+| `session_start` / `session_stop` | 同步 `startRunning` / `stopRunning` 调用 |
+| `live_photo_queue_wait` / `live_photo_configuration` | Live 命令排队及实际配置/降级耗时，detail 记录原因 |
+| `live_photo_result` | Live 配置返回 MainActor 的结果，累计时间包括返回队列等待 |
+| `startup_total` / `recovery_total` | Controller 命令开始至会话运行且实际 Live 模式发布；记录当前镜头与请求/实际 Live 状态 |
+| `capture_ready` | 启动或恢复后首次满足系统 readiness 与保存任务数量上限的累计耗时；停止/中断前未就绪则记录相应结果 |
+| `switch_total` / `stop_total` | 切换镜头或停止操作累计耗时 |
+
+`startup_total` 不包含进入页面前的导航、权限弹窗或 SwiftUI 布局；`capture_ready` 也不表示首帧
+预览已显示。它们不与不同 UUID 的权限耗时直接相加。现有 `[CameraCapture]` 拍摄到保存日志
+保持原范围，本次不新增 JPEG 对照采集或预热优化。
+
+已通过无签名 generic iOS Simulator 的 Debug 与 Release 构建，确认 Release 产物保留日志。
+临时 macOS 替身检查运行真实 Controller，以及从当前 Access/Engine 提取的权限流程、启停、
+切换、Live 配置与能力发布方法，覆盖权限拒绝/受限、麦克风缺失/创建失败/接入失败、不支持
+Live 的前置降级、切回后置恢复、采集中幂等配置、权限请求取消、旧回调失效和输入/设备锁/
+启动失败回滚。该检查不会启动相机，
+不能替代实际 AVFoundation 输入协商、预览和成片验收。仍需真机验证拒绝麦克风后普通拍照、
+支持能力变化后的镜头切换、系统设置授权后重入，以及采集一份 Debug/Release 启动日志。
+
 ## 2026-09-28 优先使用 HEIF
 
 `CameraEngine` 在会话启动、切换镜头和恢复后，从已接入视频输入的照片输出查询
@@ -67,8 +125,9 @@ iPhone 编码速度。
   恢复过程中再次发生运行时错误、初次启动失败或其他运行时错误，停止会话并提示用户重试，
   不循环重启。
 - 恢复继续使用当前视频输入与照片输出，重新校验相机权限、读取真实镜头能力，并同步最后
-  成功设置的 Live Photo 模式。已经处于目标 Live 模式时不重配正在完成的拍摄；需要实际切换
-  模式时仍禁止与采集重叠。权限请求继续由 `CameraAccess` 管理。
+  请求的 Live Photo 偏好，并按当前能力发布实际模式（见自动降级章节）。已经处于目标模式时
+  不重配正在完成的拍摄；需要实际切换模式时仍禁止与采集重叠。权限请求继续由
+  `CameraAccess` 管理。
 - 清除旧点按反馈与手势状态；成功恢复时回到中心连续自动对焦、自动测光和 `0 EV`。倍率按
   当前设备实际值重新发布，前置尚未完成的倍率动画落到已选取景档位。
 - 中断前已经发起的拍摄继续接收系统成功或失败回调；这些旧回调不能把暂停或恢复中的页面
@@ -146,8 +205,9 @@ Live Photo、前后切换与曝光控制在此基础拍照链路稳定后继续�
   手势只选择一个档位，继续同向捏合不重复发出命令，反向切换可松手后再次捏合。
   `GestureState` 保存本次目标，正常结束或取消时自动清除，复用现有快捷倍率命令。
 - `CameraEngine` 在串行会话队列中替换视频输入，保留同一会话、照片输出与已有音频输入。
-  切换期间禁止拍照和设备控制；新设备无法接入、Live Photo 不支持或设备配置失败时恢复原
-  输入。UI 重新读取原设备能力，并提示切换失败。
+  切换期间禁止拍照和设备控制；新设备无法接入或设备配置失败时恢复原输入与音频状态。
+  Live Photo 不支持时成功切换并降级为普通照片（2026-09-28 更新）。真正失败时 UI 重新读取
+  原设备能力，并提示切换失败。
 - 切换成功后重新发布倍率、曝光和闪光灯能力，清除旧对焦反馈，曝光补偿回到 `0 EV`。
   旧设备的异步缩放、对焦与曝光回调不会覆盖新设备状态。
 - 预览连接与照片输出连接都显式关闭自动镜像调整，前置开启镜像，后置关闭镜像。现有照片
@@ -934,8 +994,9 @@ NextLevel 未实现完整的 Live Photo 视频处理回调，上一轮普通照�
 以及相册写入。`CameraController` 对页面提供相机会话和拍摄命令，采集结束即将后续保存任务交给
 `CameraPhotoSaver`。`CameraPreview`、`CameraAccess` 和 `CameraScreen` 保留在 Feature 中。
 
-Live Photo 是持久化的用户偏好，首次默认为关闭；用户成功开启后，后续进入相机仍保持开启。
-`CameraAccess` 在偏好开启时先校验麦克风权限；进入相机后的 Live Photo 会话配置属于启动阶段。
+Live Photo 是持久化的用户偏好，首次默认为关闭；用户开启后，后续进入相机仍尝试开启。
+`CameraAccess` 在偏好开启时校验并按需申请麦克风权限；不可用时继续普通照片。进入相机后的
+Live Photo 会话配置属于启动阶段，实际模式与偏好分开（2026-09-28 更新）。
 只有用户在相机页面内主动切换时，才进入 `changingLivePhoto` 阶段。页面用单一操作阶段控制
 启动、切换和拍摄的互斥；异步保存不占用该阶段。
 
