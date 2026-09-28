@@ -8,7 +8,7 @@ struct CameraScreen: View {
         case ready
         case switchingCamera(UUID)
         case changingLivePhoto(UUID)
-        case capturing(UUID)
+        case capturing
     }
 
     @Environment(\.scenePhase) private var scenePhase
@@ -24,8 +24,11 @@ struct CameraScreen: View {
 
     @State private var camera = CameraController()
     @State private var phase: CameraPhase = .stopped
+    @State private var activeCaptureIDs: Set<UUID> = []
+    @State private var isCaptureReady = false
     @State private var shutterFeedbackID = UUID()
-    @State private var shutterFeedbackFadeDuration = 0.18
+    @State private var shutterFeedbackIsLivePhoto = false
+    @State private var isShutterFeedbackVisible = false
     @State private var selectedMaskId: String
     @State private var captureRatio: PhotoAspectRatio
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
@@ -99,7 +102,7 @@ struct CameraScreen: View {
         .overlay(alignment: .bottom) {
             CameraBottomControls(
                 isAlbumEnabled: false,
-                isCaptureEnabled: cameraControlsAppearReady && !zoomOptions.isEmpty,
+                isCaptureEnabled: canCapture,
                 canSwitchCamera: cameraControlsAppearReady && canSwitchCamera,
                 onOpenAlbum: {},
                 onCapture: capture,
@@ -110,7 +113,8 @@ struct CameraScreen: View {
                 },
                 selectedMaskId: selectedMaskId,
                 onSelectMask: selectMask,
-                isCapturing: isCapturing
+                isCapturing: isCapturing,
+                isCaptureFeedbackActive: isShutterFeedbackVisible
             )
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.2),
@@ -330,22 +334,51 @@ struct CameraScreen: View {
                     .keyframeAnimator(initialValue: 0.0, trigger: shutterFeedbackID) {
                         content, opacity in
                         content.opacity(opacity)
+                            .task(id: opacity > 0) { @MainActor in
+                                isShutterFeedbackVisible = opacity > 0
+                            }
                     } keyframes: { _ in
-                        LinearKeyframe(1.0, duration: 0.04)
-                        LinearKeyframe(0.0, duration: shutterFeedbackFadeDuration)
+                        // Restart clear on each shot, including overlapping captures.
+                        // Delay + darken + hold + reveal totals 450 ms / 760 ms.
+                        MoveKeyframe(0.0)
+                        LinearKeyframe(
+                            0.0,
+                            duration: shutterFeedbackIsLivePhoto ? 0.13 : 0.05
+                        )
+                        CubicKeyframe(
+                            1.0,
+                            duration: shutterFeedbackIsLivePhoto ? 0.16 : 0.08,
+                            startVelocity: 0,
+                            endVelocity: 0
+                        )
+                        LinearKeyframe(
+                            1.0,
+                            duration: shutterFeedbackIsLivePhoto ? 0.09 : 0.07
+                        )
+                        CubicKeyframe(
+                            0.0,
+                            duration: shutterFeedbackIsLivePhoto ? 0.38 : 0.25,
+                            startVelocity: 0,
+                            endVelocity: 0
+                        )
                     }
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
+                    .onDisappear { isShutterFeedbackVisible = false }
             }
         }
     }
 
     private var isCapturing: Bool {
-        if case .capturing = phase { return true }
-        return false
+        phase == .capturing
     }
 
-    // Capture locks commands without changing the controls' normal appearance.
+    private var canCapture: Bool {
+        cameraControlsAppearReady && isCaptureReady && !zoomOptions.isEmpty
+            && !isShutterFeedbackVisible
+    }
+
+    // Capture locks other camera controls without changing their normal appearance.
     // The command handlers below still require the actual ready phase.
     private var cameraControlsAppearReady: Bool {
         phase == .ready || isCapturing
@@ -480,8 +513,12 @@ struct CameraScreen: View {
 
     private func stopCamera() {
         phase = .stopped
+        isShutterFeedbackVisible = false
+        activeCaptureIDs.removeAll()
+        isCaptureReady = false
         endPointFocus()
         camera.stop()
+        camera.onCaptureAvailabilityChange = nil
     }
 
     private func endPointFocus() {
@@ -521,6 +558,7 @@ struct CameraScreen: View {
         let operationID = UUID()
         cameraConfigurationID = operationID
         phase = .starting(operationID)
+        camera.onCaptureAvailabilityChange = { isCaptureReady = $0 }
         camera.start(livePhotoEnabled: livePhotoEnabled) { result in
             guard phase == .starting(operationID) else { return }
             switch result {
@@ -632,21 +670,22 @@ struct CameraScreen: View {
     }
 
     private func capture() {
-        guard phase == .ready, !zoomOptions.isEmpty else { return }
+        guard canCapture, camera.canCapture else { return }
         let ratioAtShutter = captureRatio
         let flashAtShutter = flashMode
         let livePhotoAtShutter = livePhotoEnabled
         let operationID = UUID()
-        phase = .capturing(operationID)
-        shutterFeedbackFadeDuration = livePhotoAtShutter ? 0.36 : 0.18
+        activeCaptureIDs.insert(operationID)
+        phase = .capturing
+        shutterFeedbackIsLivePhoto = livePhotoAtShutter
         shutterFeedbackID = operationID
         camera.capture(
             ratio: ratioAtShutter,
             livePhoto: livePhotoAtShutter,
             flashMode: flashAtShutter
         ) { result in
-            guard phase == .capturing(operationID) else { return }
-            phase = .ready
+            guard activeCaptureIDs.remove(operationID) != nil else { return }
+            if activeCaptureIDs.isEmpty { phase = .ready }
             if case .failure = result { errorMessage = .cameraErrorCapture }
         }
     }

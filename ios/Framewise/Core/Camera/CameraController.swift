@@ -8,12 +8,48 @@
 import AVFoundation
 
 /// UI-free entry point for camera commands and the capture-to-save handoff.
+/// AVFoundation guarantees readiness delegate callbacks on the main queue.
 @MainActor
-final class CameraController {
-    private let engine = CameraEngine()
+final class CameraController: NSObject,
+    @preconcurrency AVCapturePhotoOutputReadinessCoordinatorDelegate
+{
+    private let engine: CameraEngine
+    private let readinessCoordinator: AVCapturePhotoOutputReadinessCoordinator
     private let orientation = CameraOrientationMonitor()
     private let saver = CameraPhotoSaver.shared
     private var lifecycleID = UUID()
+    private var isRunning = false
+    private var pendingPhotoCount = 0
+    // Include downstream processing and library writes in the trial's memory bound.
+    private let maximumPendingPhotos = 3
+
+    var canCapture: Bool {
+        isRunning && readinessCoordinator.captureReadiness == .ready
+            && pendingPhotoCount < maximumPendingPhotos
+    }
+
+    var onCaptureAvailabilityChange: ((Bool) -> Void)? {
+        didSet { publishCaptureAvailability() }
+    }
+
+    override init() {
+        let engine = CameraEngine()
+        self.engine = engine
+        readinessCoordinator = engine.makeReadinessCoordinator()
+        super.init()
+        readinessCoordinator.delegate = self
+    }
+
+    func readinessCoordinator(
+        _ coordinator: AVCapturePhotoOutputReadinessCoordinator,
+        captureReadinessDidChange captureReadiness: AVCapturePhotoOutput.CaptureReadiness
+    ) {
+        publishCaptureAvailability()
+    }
+
+    private func publishCaptureAvailability() {
+        onCaptureAvailabilityChange?(canCapture)
+    }
 
     var session: AVCaptureSession { engine.session }
     var onOrientationChange: ((Int) -> Void)? {
@@ -37,7 +73,10 @@ final class CameraController {
                 setLivePhotoEnabled(livePhotoEnabled) { result in
                     guard self.lifecycleID == operationID else { return }
                     switch result {
-                    case .success: completion(.success(capabilities))
+                    case .success:
+                        self.isRunning = true
+                        self.publishCaptureAvailability()
+                        completion(.success(capabilities))
                     case .failure(let error): completion(.failure(error))
                     }
                 }
@@ -47,6 +86,8 @@ final class CameraController {
 
     func stop() {
         lifecycleID = UUID()
+        isRunning = false
+        publishCaptureAvailability()
         orientation.stop()
         engine.stop()
     }
@@ -136,10 +177,24 @@ final class CameraController {
         let performance = CameraCapturePerformance()
         let quarterTurns = orientation.quarterTurns(for: ratio)
         performance.record("shutter ratio=\(ratio.rawValue) live=\(livePhoto) turns=\(quarterTurns)")
-        engine.capture(livePhoto: livePhoto, flashMode: flashMode, performance: performance) {
+        let settings = AVCapturePhotoSettings()
+        settings.photoQualityPrioritization = .balanced
+        settings.flashMode = flashMode
+        if livePhoto {
+            settings.livePhotoMovieFileURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("Framewise-\(UUID().uuidString).mov")
+        }
+        pendingPhotoCount += 1
+        readinessCoordinator.startTrackingCaptureRequest(using: settings)
+        publishCaptureAvailability()
+        let requestID = settings.uniqueID
+        engine.capture(settings: settings, performance: performance) {
             [self] result in
             switch result {
             case .failure(let error):
+                readinessCoordinator.stopTrackingCaptureRequest(using: requestID)
+                pendingPhotoCount -= 1
+                publishCaptureAvailability()
                 performance.record("captureFailed")
                 completion(.failure(error))
             case .success(let captured):
@@ -149,7 +204,10 @@ final class CameraController {
                     ratio: ratio,
                     quarterTurns: quarterTurns,
                     performance: performance
-                )
+                ) { [self] in
+                    pendingPhotoCount -= 1
+                    publishCaptureAvailability()
+                }
                 completion(.success(()))
             }
         }

@@ -23,7 +23,8 @@ actor CameraPhotoSaver {
         _ captured: CameraEngine.CapturedPhoto,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        performance: CameraCapturePerformance
+        performance: CameraCapturePerformance,
+        completion: @escaping @MainActor @Sendable () -> Void
     ) {
         // The shared saver owns this user-requested work beyond the camera page's lifetime.
         Task.detached(priority: .userInitiated) { [self] in
@@ -43,6 +44,7 @@ actor CameraPhotoSaver {
                     )
                 }
             }
+            await completion()
         }
     }
 

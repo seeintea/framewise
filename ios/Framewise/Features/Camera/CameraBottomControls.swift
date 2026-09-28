@@ -24,6 +24,7 @@ struct CameraBottomControls: View {
     let selectedMaskId: String
     let onSelectMask: (String) -> Void
     var isCapturing = false
+    var isCaptureFeedbackActive = false
 
     var body: some View {
         Group {
@@ -167,20 +168,28 @@ struct CameraBottomControls: View {
 
     private var captureButton: some View {
         Button(action: onCapture) {
-            ZStack {
-                Circle()
-                    .strokeBorder(.white.opacity(0.58), lineWidth: 3)
-                    .frame(width: 72, height: 72)
+            let label = Circle()
+                .fill(.white)
+                .frame(width: 60, height: 60)
+                .frame(width: 72, height: 72)
+                .contentShape(Circle())
 
-                Circle()
-                    .fill(.white)
-                    .frame(width: 60, height: 60)
+            if #available(iOS 26.0, *) {
+                label
+                    .glassEffect(.regular, in: Circle())
+            } else {
+                label
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay {
+                        Circle()
+                            .strokeBorder(.white.opacity(0.25), lineWidth: 0.5)
+                    }
             }
         }
-        .buttonStyle(CameraBottomButtonStyle())
-        .disabled(!isCaptureEnabled)
-        .allowsHitTesting(!isCapturing)
-        .opacity(isCaptureEnabled ? 1 : 0.45)
+        .buttonStyle(.plain)
+        .disabled(!isCaptureEnabled && !isCaptureFeedbackActive)
+        .allowsHitTesting(!isCaptureFeedbackActive)
+        .opacity(isCaptureEnabled || isCaptureFeedbackActive ? 1 : 0.45)
         .accessibilityLabel(Text(.cameraCaptureAccessibilityLabel))
     }
 

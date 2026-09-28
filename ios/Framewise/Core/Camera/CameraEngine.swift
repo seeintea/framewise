@@ -8,6 +8,7 @@
 import AVFoundation
 import AVFAudio
 import Foundation
+import Synchronization
 
 /// Owns all capture-device work on one serial queue. Permission requests stay in CameraAccess.
 nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
@@ -38,7 +39,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private var videoInput: AVCaptureDeviceInput?
     private var liveAudioInput: AVCaptureDeviceInput?
     private var isConfigured = false
-    private var photoDelegate: PhotoDelegate?
+    private var photoDelegates: [Int64: PhotoDelegate] = [:]
     private var pinchStartZoomFactor: CGFloat?
     private var frontZoomFactor: CGFloat?
     private var subjectAreaObserver: NSObjectProtocol?
@@ -48,6 +49,11 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         if let subjectAreaObserver {
             NotificationCenter.default.removeObserver(subjectAreaObserver)
         }
+    }
+
+    @MainActor
+    func makeReadinessCoordinator() -> AVCapturePhotoOutputReadinessCoordinator {
+        AVCapturePhotoOutputReadinessCoordinator(photoOutput: photoOutput)
     }
 
     func start(completion: @escaping (Result<Capabilities, Error>) -> Void) {
@@ -93,7 +99,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     ) {
         queue.async { [self] in
             do {
-                guard session.isRunning, photoDelegate == nil,
+                guard session.isRunning, photoDelegates.isEmpty,
                     let previousDevice = device, let previousInput = videoInput,
                     let nextDevice = captureDevice(
                         position: previousDevice.position == .front ? .back : .front
@@ -116,6 +122,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                         photoOutput.isLivePhotoCaptureSuspended = wasLivePhotoSuspended
                     }
                     configurePhotoMirroring(for: previousDevice)
+                    prepareResponsiveCapture()
                     session.startRunning()
                     throw CameraError.unavailable
                 }
@@ -128,6 +135,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                     prepareLivePhotoCapture(isActive: livePhotoEnabled)
                     try resetDevice(nextDevice)
                     configurePhotoMirroring(for: nextDevice)
+                    prepareResponsiveCapture()
                     session.startRunning()
                     guard session.isRunning else { throw CameraError.unavailable }
                 } catch {
@@ -142,6 +150,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                         photoOutput.isLivePhotoCaptureSuspended = wasLivePhotoSuspended
                     }
                     configurePhotoMirroring(for: previousDevice)
+                    prepareResponsiveCapture()
                     session.startRunning()
                     throw error
                 }
@@ -380,7 +389,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     func enableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async { [self] in
             do {
-                guard isConfigured, photoDelegate == nil,
+                guard isConfigured, photoDelegates.isEmpty,
                     photoOutput.isLivePhotoCaptureSupported,
                     photoOutput.isLivePhotoCaptureEnabled,
                     AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
@@ -426,7 +435,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
 
     func disableLivePhoto(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async { [self] in
-            guard isConfigured, photoDelegate == nil else {
+            guard isConfigured, photoDelegates.isEmpty else {
                 DispatchQueue.main.async {
                     completion(.failure(CameraError.unavailable))
                 }
@@ -461,66 +470,70 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 
     func capture(
-        livePhoto: Bool,
-        flashMode: AVCaptureDevice.FlashMode,
+        settings: sending AVCapturePhotoSettings,
         performance: CameraCapturePerformance,
         completion: @escaping (Result<CapturedPhoto, Error>) -> Void
     ) {
+        // Transfer the prepared, non-Sendable settings to the session queue safely.
+        let request = Mutex(settings)
         queue.async { [self] in
-            guard session.isRunning, photoDelegate == nil else {
-                DispatchQueue.main.async {
-                    completion(.failure(CameraError.unavailable))
-                }
-                return
+            request.withLock { settings in
+                submitCapture(settings: settings, performance: performance, completion: completion)
             }
-            guard
-                !livePhoto
-                    || (photoOutput.isLivePhotoCaptureEnabled
-                        && !photoOutput.isLivePhotoCaptureSuspended
-                        && liveAudioInput != nil)
-            else {
-                DispatchQueue.main.async {
-                    completion(.failure(CameraError.unavailable))
-                }
-                return
-            }
-            guard photoOutput.supportedFlashModes.contains(flashMode) else {
-                DispatchQueue.main.async {
-                    completion(.failure(CameraError.unavailable))
-                }
-                return
-            }
-            if let device, device.position == .front {
-                do {
-                    // Capture the selected framing even when its transition is still running.
-                    try finishZoom(for: device)
-                } catch {
-                    DispatchQueue.main.async { completion(.failure(error)) }
-                    return
-                }
-            }
-            let settings = AVCapturePhotoSettings()
-            settings.photoQualityPrioritization = .balanced
-            settings.flashMode = flashMode
-            let movieURL =
-                livePhoto
-                ? FileManager.default.temporaryDirectory
-                    .appendingPathComponent(
-                        "Framewise-\(UUID().uuidString).mov"
-                    )
-                : nil
-            settings.livePhotoMovieFileURL = movieURL
-            let delegate = PhotoDelegate(movieURL: movieURL, performance: performance) {
-                [weak self] result in
-                self?.queue.async {
-                    self?.photoDelegate = nil
-                    DispatchQueue.main.async { completion(result) }
-                }
-            }
-            photoDelegate = delegate
-            performance.record("captureSubmitted")
-            photoOutput.capturePhoto(with: settings, delegate: delegate)
         }
+    }
+
+    private func submitCapture(
+        settings: AVCapturePhotoSettings,
+        performance: CameraCapturePerformance,
+        completion: @escaping (Result<CapturedPhoto, Error>) -> Void
+    ) {
+        guard session.isRunning else {
+            DispatchQueue.main.async {
+                completion(.failure(CameraError.unavailable))
+            }
+            return
+        }
+        guard
+            settings.livePhotoMovieFileURL == nil
+                || (photoOutput.isLivePhotoCaptureEnabled
+                    && !photoOutput.isLivePhotoCaptureSuspended
+                    && liveAudioInput != nil)
+        else {
+            DispatchQueue.main.async {
+                completion(.failure(CameraError.unavailable))
+            }
+            return
+        }
+        guard photoOutput.supportedFlashModes.contains(settings.flashMode) else {
+            DispatchQueue.main.async {
+                completion(.failure(CameraError.unavailable))
+            }
+            return
+        }
+        if let device, device.position == .front {
+            do {
+                // Capture the selected framing even when its transition is still running.
+                try finishZoom(for: device)
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+        }
+        let requestID = settings.uniqueID
+        let delegate = PhotoDelegate(
+            movieURL: settings.livePhotoMovieFileURL,
+            performance: performance
+        ) {
+            [weak self] result in
+            self?.queue.async {
+                self?.photoDelegates[requestID] = nil
+                DispatchQueue.main.async { completion(result) }
+            }
+        }
+        photoDelegates[requestID] = delegate
+        performance.record("captureSubmitted")
+        photoOutput.capturePhoto(with: settings, delegate: delegate)
     }
 
     private func configure() throws {
@@ -545,6 +558,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         session.commitConfiguration()
         photoOutput.preservesLivePhotoCaptureSuspendedOnSessionStop = true
         prepareLivePhotoCapture(isActive: false)
+        prepareResponsiveCapture()
         // Apply the initial framing after the session selects its capture format.
         do {
             try resetDevice(device)
@@ -566,6 +580,16 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         photoOutput.isLivePhotoCaptureEnabled = photoOutput.isLivePhotoCaptureSupported
         if photoOutput.isLivePhotoCaptureEnabled {
             photoOutput.isLivePhotoCaptureSuspended = !isActive
+        }
+    }
+
+    /// Configure while stopped because these options rebuild the capture pipeline.
+    private func prepareResponsiveCapture() {
+        if photoOutput.isZeroShutterLagSupported {
+            photoOutput.isZeroShutterLagEnabled = true
+        }
+        if photoOutput.isResponsiveCaptureSupported {
+            photoOutput.isResponsiveCaptureEnabled = true
         }
     }
 
