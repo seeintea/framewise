@@ -30,6 +30,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         let exposureRange: ClosedRange<Float>
         let exposureBias: Float
         let flashModes: [AVCaptureDevice.FlashMode]
+        let supportsHEIF: Bool
     }
 
     let session = AVCaptureSession()
@@ -683,7 +684,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             zoomFactor: frontZoomFactor ?? device.videoZoomFactor,
             exposureRange: device.minExposureTargetBias...device.maxExposureTargetBias,
             exposureBias: device.exposureTargetBias,
-            flashModes: photoOutput.supportedFlashModes
+            flashModes: photoOutput.supportedFlashModes,
+            supportsHEIF: photoOutput.availablePhotoCodecTypes.contains(.hevc)
         )
     }
 
@@ -772,7 +774,11 @@ extension CameraEngine {
                 processingError = error
             } else if let data = photo.fileDataRepresentation() {
                 photoData = data
-                performance.record("photoReceived")
+                #if DEBUG
+                    performance.record("photoReceived bytes=\(data.count)")
+                #else
+                    performance.record("photoReceived")
+                #endif
             } else {
                 processingError = CameraError.unavailable
             }
@@ -799,7 +805,13 @@ extension CameraEngine {
                 processingError = error
             } else {
                 processedMovieURL = outputFileURL
-                performance.record("movieReceived")
+                #if DEBUG
+                    performance.record(
+                        "movieReceived duration=\(duration.seconds) photoTime=\(photoDisplayTime.seconds)"
+                    )
+                #else
+                    performance.record("movieReceived")
+                #endif
             }
         }
 

@@ -10,6 +10,51 @@
 > [`archive/ios-camera-legacy-2026-09-20/`](../archive/ios-camera-legacy-2026-09-20/README.md)，
 > 不作为本文的默认设计依据。
 
+## 2026-09-28 优先使用 HEIF
+
+`CameraEngine` 在会话启动、切换镜头和恢复后，从已接入视频输入的照片输出查询
+`availablePhotoCodecTypes`。当前输出支持 `.hevc` 时，每次拍摄创建 HEIF 设置；否则使用默认
+JPEG 设置。普通照片与 Live Photo 的静态照片采用同一选择。照片处理继续按实际源文件类型
+编码裁切、旋转和水印后的像素，保留源照片元数据，包括 Live Photo 配对标识。
+
+选择方式遵循 [Apple 的照片采集示例](https://developer.apple.com/documentation/avfoundation/capturing-still-and-live-photos)
+与 [availablePhotoCodecTypes](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/availablephotocodectypes)。
+HEVC 照片编码在 iOS 11 起可用，覆盖工程最低 iOS 18。继续使用 `.balanced` 拍摄质量和
+Image I/O 默认编码质量；本次没有调整视频处理或增加预热。
+
+Debug 日志保留每张照片从快门到相册写入完成的同一 UUID 和时间轴，并增加当前镜头、请求
+编码、实际输入与输出类型、文件字节数、最终像素尺寸，以及 `photoEncodeStarted` 编码起点。
+Live Photo 额外记录原视频时长和关键照片在视频中的时间，以便辨别视频工作量差异。
+
+耗时直接与已有采集数据比较，不新增 JPEG 对照开关或对照采集流程。相同设备、镜头、比例、
+闪光灯与 Live 模式分别统计首拍和后续拍摄，关注以下边界：
+
+| 指标 | 时间边界 |
+| --- | --- |
+| 采集完成 | `shutter` → `captureDelivered` |
+| 静态照片解码、裁切与水印 | `photoProcessingStarted` → `photoRendered` |
+| 静态照片编码 | `photoEncodeStarted` → `photoProcessingFinished` |
+| 与旧日志比较编码阶段 | `photoRendered` → `photoProcessingFinished`，包含元数据准备 |
+| 相册写入 | `libraryWriteStarted` → `saved` |
+| 总等待 | `shutter` → `saved` |
+
+Live Photo 的静态照片和视频处理可以并行，不能把两段耗时相加当作总等待；同条件视频转码
+耗时也应单独核对。`saved` 表示 PhotoKit 写入成功，不包含相册界面的缩略图刷新。
+
+已通过无签名 generic iOS Simulator 构建。临时替身依赖检查真实 `CameraController` 的普通/
+Live 编码选择、不支持 HEIF 时回退、切换与恢复后能力更新、旧回调失效和每拍独立设置。
+另在 macOS 执行真实 `CameraPhotoProcessor` 的 Image I/O 编码路径，验证 HEIF 输入与输出
+类型一致、像素可解码、尺寸与方向标签、Live Photo 配对标识、EXIF/GPS 保留及无效输入失败。
+该检查替换了 UIKit 绘制，不验证 iOS 水印、镜像或实际相册 Live Photo 播放，也不用于测量
+iPhone 编码速度。
+
+2026-09-28 真机日志包含六张 Live 与随后三张普通照片，均成功保存为 HEIC。与最近同尺寸、
+带水印且并行处理的 JPEG 记录比较，后续拍摄总保存中位数：普通约 729 → 888 ms，Live
+约 3004 → 3247 ms；照片编码分别增加约 29 / 49 ms。采集、视频处理与相册写入也有变化，
+不能把全部总时间差归因于 HEIF。首张 Live 为 4099 ms，仍在历史首次拍摄波动范围内。
+逐张数据、旧日志来源与比较边界见 [HEIF 真机比较](ios-camera-heif-validation-2026-09-28.md)。
+各比例与横竖方向、水印、前置镜像，以及 Live Photo 的动态播放和声音仍需成片验收。
+
 ## 2026-09-28 会话中断与运行时错误恢复
 
 `CameraController` 在当前页面启动周期内监听相机会话的中断、中断结束与运行时错误通知。

@@ -23,6 +23,9 @@ actor CameraPhotoProcessor {
                 let sourceProperties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
                     as? [CFString: Any]
             else { throw ProcessingError.invalidPhoto }
+            #if DEBUG
+                performance.record("photoSource type=\(sourceType) bytes=\(data.count)")
+            #endif
 
             let watermark = try CameraWatermark()
             guard let image = ratio.renderedImage(
@@ -39,13 +42,20 @@ actor CameraPhotoProcessor {
             properties.removeObject(forKey: kCGImagePropertyPixelWidth)
             properties.removeObject(forKey: kCGImagePropertyPixelHeight)
             let output = NSMutableData()
+            performance.record("photoEncodeStarted")
             guard let destination = CGImageDestinationCreateWithData(output, sourceType, 1, nil)
             else { throw ProcessingError.invalidPhoto }
             CGImageDestinationAddImage(destination, pixels, properties as CFDictionary)
             guard CGImageDestinationFinalize(destination) else {
                 throw ProcessingError.invalidPhoto
             }
-            performance.record("photoProcessingFinished")
+            #if DEBUG
+                performance.record(
+                    "photoProcessingFinished type=\(sourceType) bytes=\(output.length) width=\(pixels.width) height=\(pixels.height)"
+                )
+            #else
+                performance.record("photoProcessingFinished")
+            #endif
             return output as Data
         }
     }

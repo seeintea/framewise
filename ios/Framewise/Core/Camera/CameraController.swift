@@ -34,6 +34,7 @@ final class CameraController: NSObject,
     private var canResumeInterruption = false
     private var isRunning = false
     private var livePhotoEnabled = false
+    private var capabilities: CameraEngine.Capabilities?
     private var pendingPhotoCount = 0
     // Include downstream processing and library writes in the trial's memory bound.
     private let maximumPendingPhotos = 3
@@ -103,6 +104,7 @@ final class CameraController: NSObject,
                     guard self.shouldRun, self.sessionOperationID == operationID else { return }
                     switch result {
                     case .success:
+                        self.capabilities = capabilities
                         self.hasStarted = true
                         self.isRunning = true
                         self.publishCaptureAvailability()
@@ -209,6 +211,7 @@ final class CameraController: NSObject,
                     self.isRecovering = false
                     switch result {
                     case .success:
+                        self.capabilities = capabilities
                         self.hasStarted = true
                         self.isRunning = true
                         self.publishCaptureAvailability()
@@ -237,6 +240,7 @@ final class CameraController: NSObject,
         let operationID = sessionOperationID
         engine.switchCamera(livePhotoEnabled: livePhotoEnabled) { [self] result in
             guard shouldRun, sessionOperationID == operationID else { return }
+            if case .success(let capabilities) = result { self.capabilities = capabilities }
             completion(result)
         }
     }
@@ -320,8 +324,15 @@ final class CameraController: NSObject,
     ) {
         let performance = CameraCapturePerformance()
         let quarterTurns = orientation.quarterTurns(for: ratio)
-        performance.record("shutter ratio=\(ratio.rawValue) live=\(livePhoto) turns=\(quarterTurns)")
-        let settings = AVCapturePhotoSettings()
+        let useHEIF = capabilities?.supportsHEIF == true
+        #if DEBUG
+            performance.record(
+                "shutter ratio=\(ratio.rawValue) live=\(livePhoto) turns=\(quarterTurns) camera=\(capabilities?.isFrontCamera == true ? "front" : "back") codec=\(useHEIF ? "heif" : "jpeg")"
+            )
+        #endif
+        let settings = useHEIF
+            ? AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+            : AVCapturePhotoSettings()
         settings.photoQualityPrioritization = .balanced
         settings.flashMode = flashMode
         if livePhoto {
