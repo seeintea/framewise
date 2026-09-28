@@ -245,7 +245,7 @@ private struct CenteredMaskOptionsLayout: Layout {
         return CGSize(
             width: proposal.width
                 ?? sizes.reduce(0) { $0 + $1.width }
-                    + spacing * CGFloat(max(subviews.count - 1, 0)),
+                + spacing * CGFloat(max(subviews.count - 1, 0)),
             height: proposal.height ?? sizes.map(\.height).max() ?? 0
         )
     }

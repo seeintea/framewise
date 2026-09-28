@@ -30,8 +30,8 @@ nonisolated enum CameraPermission {
     }
 }
 
-private extension PermissionStatus {
-    nonisolated init(_ status: AVAuthorizationStatus) {
+extension PermissionStatus {
+    fileprivate nonisolated init(_ status: AVAuthorizationStatus) {
         switch status {
         case .notDetermined:
             self = .notDetermined

@@ -28,11 +28,13 @@ actor CameraPhotoProcessor {
             #endif
 
             let watermark = try CameraWatermark()
-            guard let image = ratio.renderedImage(
-                from: data,
-                quarterTurns: quarterTurns,
-                drawOverlay: { size in watermark.draw(in: size) }
-            ), let pixels = image.cgImage else { throw ProcessingError.invalidPhoto }
+            guard
+                let image = ratio.renderedImage(
+                    from: data,
+                    quarterTurns: quarterTurns,
+                    drawOverlay: { size in watermark.draw(in: size) }
+                ), let pixels = image.cgImage
+            else { throw ProcessingError.invalidPhoto }
             try Task.checkCancellation()
             performance.record("photoRendered")
 

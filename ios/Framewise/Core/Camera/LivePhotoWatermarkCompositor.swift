@@ -16,8 +16,10 @@ nonisolated final class LivePhotoWatermarkCompositor: NSObject, AVVideoCompositi
         let overlay: CIImage
         let context: CIContext
 
-        init(trackID: CMPersistentTrackID, duration: CMTime, naturalSize: CGSize,
-             transform: CGAffineTransform, overlay: CIImage, context: CIContext) {
+        init(
+            trackID: CMPersistentTrackID, duration: CMTime, naturalSize: CGSize,
+            transform: CGAffineTransform, overlay: CIImage, context: CIContext
+        ) {
             self.trackID = trackID
             timeRange = CMTimeRange(start: .zero, duration: duration)
             self.naturalSize = naturalSize
@@ -34,11 +36,13 @@ nonisolated final class LivePhotoWatermarkCompositor: NSObject, AVVideoCompositi
     }
 
     var sourcePixelBufferAttributes: [String: any Sendable]? {
-        [kCVPixelBufferPixelFormatTypeKey as String: [
-            kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
-            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-            kCVPixelFormatType_32BGRA
-        ]]
+        [
+            kCVPixelBufferPixelFormatTypeKey as String: [
+                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                kCVPixelFormatType_32BGRA,
+            ]
+        ]
     }
 
     var requiredPixelBufferAttributesForRenderContext: [String: any Sendable] {
@@ -65,13 +69,16 @@ nonisolated final class LivePhotoWatermarkCompositor: NSObject, AVVideoCompositi
                     throw RenderingError.missingSourceOrInstruction
                 }
                 if #available(iOS 26.0, *) {
-                    guard let source = request.sourceReadOnlyPixelBuffer(byTrackID: instruction.trackID)
+                    guard
+                        let source = request.sourceReadOnlyPixelBuffer(
+                            byTrackID: instruction.trackID)
                     else { throw RenderingError.missingSourceOrInstruction }
                     let output = try request.renderContext.makeMutablePixelBuffer()
                     try source.withUnsafeBuffer { sourceBuffer in
                         try output.withUnsafeBuffer { outputBuffer in
-                            try Self.render(sourceBuffer, to: outputBuffer,
-                                            instruction: instruction, renderContext: request.renderContext)
+                            try Self.render(
+                                sourceBuffer, to: outputBuffer,
+                                instruction: instruction, renderContext: request.renderContext)
                         }
                     }
                     request.finish(withComposedPixelBuffer: CVReadOnlyPixelBuffer(output))
@@ -80,8 +87,9 @@ nonisolated final class LivePhotoWatermarkCompositor: NSObject, AVVideoCompositi
                     else { throw RenderingError.missingSourceOrInstruction }
                     guard let output = request.renderContext.newPixelBuffer()
                     else { throw RenderingError.outputBufferUnavailable }
-                    try Self.render(source, to: output, instruction: instruction,
-                                    renderContext: request.renderContext)
+                    try Self.render(
+                        source, to: output, instruction: instruction,
+                        renderContext: request.renderContext)
                     request.finish(withComposedVideoFrame: output)
                 }
             } catch {
@@ -105,16 +113,21 @@ nonisolated final class LivePhotoWatermarkCompositor: NSObject, AVVideoCompositi
         let image = CIImage(cvPixelBuffer: source)
             .cropped(to: cleanRect)
             .transformed(by: CGAffineTransform(translationX: -cleanRect.minX, y: -cleanRect.minY))
-            .transformed(by: CGAffineTransform(
-                scaleX: instruction.naturalSize.width / cleanRect.width,
-                y: instruction.naturalSize.height / cleanRect.height
-            ))
-        let flipSource = CGAffineTransform(a: 1, b: 0, c: 0, d: -1,
-                                          tx: 0, ty: instruction.naturalSize.height)
-        let flipOutput = CGAffineTransform(a: 1, b: 0, c: 0, d: -1,
-                                          tx: 0, ty: renderContext.size.height)
-        let transformed = image.transformed(by: flipSource
-            .concatenating(instruction.transform).concatenating(flipOutput))
+            .transformed(
+                by: CGAffineTransform(
+                    scaleX: instruction.naturalSize.width / cleanRect.width,
+                    y: instruction.naturalSize.height / cleanRect.height
+                ))
+        let flipSource = CGAffineTransform(
+            a: 1, b: 0, c: 0, d: -1,
+            tx: 0, ty: instruction.naturalSize.height)
+        let flipOutput = CGAffineTransform(
+            a: 1, b: 0, c: 0, d: -1,
+            tx: 0, ty: renderContext.size.height)
+        let transformed = image.transformed(
+            by:
+                flipSource
+                .concatenating(instruction.transform).concatenating(flipOutput))
         let result = instruction.overlay.composited(over: transformed)
             .cropped(to: CGRect(origin: .zero, size: renderContext.size))
             .transformed(by: renderContext.renderTransform)

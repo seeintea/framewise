@@ -5,8 +5,8 @@
 //  Created by yukkuri on 2026/9/24.
 //
 
-import AVFoundation
 import AVFAudio
+import AVFoundation
 import Foundation
 import Synchronization
 
@@ -90,11 +90,13 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                         try configure()
                         performance.record("session_configuration", since: configurationStart)
                     } catch {
-                        performance.record("session_configuration", since: configurationStart, outcome: .failure)
+                        performance.record(
+                            "session_configuration", since: configurationStart, outcome: .failure)
                         throw error
                     }
                 } else {
-                    performance.record("session_configuration", since: configurationStart, outcome: .skipped)
+                    performance.record(
+                        "session_configuration", since: configurationStart, outcome: .skipped)
                 }
                 let sessionStart = ContinuousClock.now
                 let needsStart = !session.isRunning || session.isInterrupted
@@ -103,7 +105,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 }
                 performance.record(
                     "session_start", since: sessionStart,
-                    outcome: session.isInterrupted ? .interrupted
+                    outcome: session.isInterrupted
+                        ? .interrupted
                         : !session.isRunning ? .failure : needsStart ? .success : .skipped
                 )
                 guard !session.isInterrupted else { throw CameraError.interrupted }
@@ -144,7 +147,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             if wasRunning {
                 session.stopRunning()
             }
-            performance.record("session_stop", since: stopStart, outcome: wasRunning ? .success : .skipped)
+            performance.record(
+                "session_stop", since: stopStart, outcome: wasRunning ? .success : .skipped)
             performance.record("stop_total")
         }
     }
@@ -179,7 +183,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 session.beginConfiguration()
                 session.removeInput(previousInput)
                 guard session.canAddInput(nextInput) else {
-                    performance.record("session_configuration", since: configurationStart, outcome: .failure)
+                    performance.record(
+                        "session_configuration", since: configurationStart, outcome: .failure)
                     session.addInput(previousInput)
                     session.commitConfiguration()
                     photoOutput.isLivePhotoCaptureEnabled = wasLivePhotoEnabled
@@ -234,7 +239,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
                 device = nextDevice
                 stopObservingSubjectAreaChanges()
                 videoInput = nextInput
-                frontZoomFactor = nextDevice.position == .front
+                frontZoomFactor =
+                    nextDevice.position == .front
                     ? nextDevice.videoZoomFactor : nil
                 let capabilities = capabilities(for: nextDevice)
                 DispatchQueue.main.async { completion(.success(capabilities)) }
@@ -254,9 +260,10 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             let value: CGFloat
             if device.position == .front {
                 // Front camera commands always resolve to one of the two framing presets.
-                value = zoomOptions(for: device).min {
-                    abs($0.factor - factor) < abs($1.factor - factor)
-                }?.factor ?? device.minAvailableVideoZoomFactor
+                value =
+                    zoomOptions(for: device).min {
+                        abs($0.factor - factor) < abs($1.factor - factor)
+                    }?.factor ?? device.minAvailableVideoZoomFactor
             } else {
                 value = clampedZoomFactor(factor, for: device)
             }
@@ -326,7 +333,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
         // A front-camera ramp must never leave the device between framing presets.
-        device.videoZoomFactor = device.position == .front
+        device.videoZoomFactor =
+            device.position == .front
             ? frontZoomFactor ?? device.minAvailableVideoZoomFactor
             : device.videoZoomFactor
     }
@@ -347,8 +355,9 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 
     private func oneXZoomFactor(for device: AVCaptureDevice) -> CGFloat {
-        guard device.constituentDevices.first?.deviceType
-            == AVCaptureDevice.DeviceType.builtInUltraWideCamera,
+        guard
+            device.constituentDevices.first?.deviceType
+                == AVCaptureDevice.DeviceType.builtInUltraWideCamera,
             let wideFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first
         else {
             return 1
@@ -572,7 +581,9 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private func disableLivePhoto() throws {
         if liveAudioInput == nil,
             !photoOutput.isLivePhotoCaptureEnabled || photoOutput.isLivePhotoCaptureSuspended
-        { return }
+        {
+            return
+        }
         guard photoDelegates.isEmpty else { throw CameraError.unavailable }
         let wasRunning = session.isRunning
         if photoOutput.isLivePhotoCaptureEnabled {
@@ -723,10 +734,13 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     }
 
     private func captureDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-        let deviceTypes: [AVCaptureDevice.DeviceType] = position == .front
+        let deviceTypes: [AVCaptureDevice.DeviceType] =
+            position == .front
             ? [.builtInUltraWideCamera, .builtInWideAngleCamera]
-            : [.builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera,
-               .builtInWideAngleCamera]
+            : [
+                .builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera,
+                .builtInWideAngleCamera,
+            ]
         let devices = AVCaptureDevice.DiscoverySession(
             deviceTypes: deviceTypes,
             mediaType: .video,
@@ -740,7 +754,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private func resetDevice(_ device: AVCaptureDevice) throws {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
-        device.videoZoomFactor = device.position == .front
+        device.videoZoomFactor =
+            device.position == .front
             ? device.minAvailableVideoZoomFactor
             : clampedZoomFactor(oneXZoomFactor(for: device), for: device)
         restoreAutomaticFocusAndExposure(on: device)
@@ -796,15 +811,18 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             // A modest center crop for the narrow selfie preset; not the digital-zoom limit.
             // Verify the framing on hardware before claiming parity with Apple's Camera app.
             let narrow = min(wide * 1.3, device.maxAvailableVideoZoomFactor)
-            var options = [ZoomOption(
-                factor: wide,
-                label: String(localized: "camera.zoom.front.wide")
-            )]
+            var options = [
+                ZoomOption(
+                    factor: wide,
+                    label: String(localized: "camera.zoom.front.wide")
+                )
+            ]
             if narrow > wide {
-                options.append(ZoomOption(
-                    factor: narrow,
-                    label: String(localized: "camera.zoom.front.narrow")
-                ))
+                options.append(
+                    ZoomOption(
+                        factor: narrow,
+                        label: String(localized: "camera.zoom.front.narrow")
+                    ))
             }
             return options
         }

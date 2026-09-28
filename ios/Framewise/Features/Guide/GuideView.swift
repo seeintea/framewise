@@ -55,8 +55,7 @@ struct GuideView: View {
 
     let onCameraRequest: (CameraMaskRequest) -> Void
 
-    init(onCameraRequest: @escaping (CameraMaskRequest) -> Void = { _ in })
-    {
+    init(onCameraRequest: @escaping (CameraMaskRequest) -> Void = { _ in }) {
         self.onCameraRequest = onCameraRequest
     }
 

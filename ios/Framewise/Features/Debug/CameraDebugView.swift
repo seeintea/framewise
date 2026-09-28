@@ -59,7 +59,8 @@
 
         var body: some View {
             GeometryReader { geometry in
-                let availableHeight = geometry.size.height
+                let availableHeight =
+                    geometry.size.height
                     + geometry.safeAreaInsets.top
                 let layout = CameraViewportLayout(
                     aspectRatio: showsRelatedMasks
@@ -110,13 +111,16 @@
                     )
                     .onGeometryChange(for: CGFloat.self) { proxy in
                         proxy.frame(in: .named("cameraDebug")).maxY
-                    } action: { previewBottom = $0 }
+                    } action: {
+                        previewBottom = $0
+                    }
                     .overlay(alignment: .bottom) {
                         CameraZoomControls(
                             zoomOptions: zoomFactors.map { factor in
                                 CameraEngine.ZoomOption(
                                     factor: CGFloat(factor),
-                                    label: "\(factor.formatted(.number.precision(.fractionLength(0...1))))×"
+                                    label:
+                                        "\(factor.formatted(.number.precision(.fractionLength(0...1))))×"
                                 )
                             },
                             selectedZoomFactor: CGFloat(selectedZoomFactor),
@@ -154,7 +158,9 @@
                 .padding(.bottom, showsRelatedMasks ? 0 : 16)
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.frame(in: .named("cameraDebug")).minY
-                } action: { shutterTop = $0 }
+                } action: {
+                    shutterTop = $0
+                }
             }
             .overlay(alignment: .bottom) {
                 if showsMaskLoadError {
@@ -164,7 +170,7 @@
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(.black.opacity(0.8), in: Capsule())
-                    .padding(.bottom, 160)
+                        .padding(.bottom, 160)
                 }
             }
             .coordinateSpace(name: "cameraDebug")

@@ -66,7 +66,7 @@ Framewise 当前以 SwiftUI 原生 iOS 应用为主，已从 Expo / React Native
 ## 代码质量与验证
 
 - 不要关闭编译警告或用不安全写法绕过错误；如确有例外，在代码附近说明具体原因。
-- 不要在一次聚焦改动中混入无关重构、全工程格式化或 Xcode 自动升级设置。
+- 不要在一次聚焦改动中混入无关重构或 Xcode 自动升级设置；iOS 提交前的统一格式化按下方 Git 提交要求执行。
 - 完成 Swift、资源或工程配置改动前，运行：
 
   ```bash
@@ -92,6 +92,12 @@ Framewise 当前以 SwiftUI 原生 iOS 应用为主，已从 Expo / React Native
 ## Git 提交
 
 - 只有用户明确要求时才创建 commit。
+- 涉及 iOS 改动时，创建 commit 前必须在仓库根目录运行以下命令，使用根目录的 `.swift-format` 配置统一格式，并检查生成的 diff。格式化应在上述构建验证之前完成，将格式化结果一并提交。
+
+  ```bash
+  xcrun swift-format format --in-place --recursive ios/Framewise
+  ```
+
 - 一个 commit 可以包含多项共同完成的改动，不需要为了保持单一目的而强行拆分。
 - commit 标题和 body 使用英文。
 - 使用简洁的 Conventional Commit 标题，格式为 `<type>: <主要结果>`。

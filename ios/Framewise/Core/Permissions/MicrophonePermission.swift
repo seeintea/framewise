@@ -30,8 +30,8 @@ nonisolated enum MicrophonePermission {
     }
 }
 
-private extension PermissionStatus {
-    nonisolated init(_ status: AVAudioApplication.recordPermission) {
+extension PermissionStatus {
+    fileprivate nonisolated init(_ status: AVAudioApplication.recordPermission) {
         switch status {
         case .undetermined:
             self = .notDetermined

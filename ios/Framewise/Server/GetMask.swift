@@ -8,8 +8,7 @@
 import Foundation
 
 extension MaskServer {
-    func getMask(id: String, locale: String = "zh-Hans") throws -> MaskContent?
-    {
+    func getMask(id: String, locale: String = "zh-Hans") throws -> MaskContent? {
         guard let documents = try dataSource.load(id: id, locale: locale) else {
             return nil
         }

@@ -85,8 +85,8 @@ nonisolated enum Permissions {
     }
 }
 
-private extension Permissions.Kind {
-    nonisolated var status: PermissionStatus {
+extension Permissions.Kind {
+    fileprivate nonisolated var status: PermissionStatus {
         switch self {
         case .camera:
             CameraPermission.status
@@ -99,7 +99,7 @@ private extension Permissions.Kind {
         }
     }
 
-    nonisolated func request() async -> PermissionStatus {
+    fileprivate nonisolated func request() async -> PermissionStatus {
         switch self {
         case .camera:
             await CameraPermission.request()

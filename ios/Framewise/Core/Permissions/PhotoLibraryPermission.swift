@@ -39,8 +39,8 @@ nonisolated enum PhotoLibraryPermission {
     }
 }
 
-private extension PhotoLibraryPermission.AccessLevel {
-    nonisolated var photoKitValue: PHAccessLevel {
+extension PhotoLibraryPermission.AccessLevel {
+    fileprivate nonisolated var photoKitValue: PHAccessLevel {
         switch self {
         case .addOnly:
             .addOnly
@@ -50,8 +50,8 @@ private extension PhotoLibraryPermission.AccessLevel {
     }
 }
 
-private extension PermissionStatus {
-    nonisolated init(_ status: PHAuthorizationStatus) {
+extension PermissionStatus {
+    fileprivate nonisolated init(_ status: PHAuthorizationStatus) {
         switch status {
         case .notDetermined:
             self = .notDetermined

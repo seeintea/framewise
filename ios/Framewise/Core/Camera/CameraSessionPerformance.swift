@@ -20,9 +20,9 @@ nonisolated struct CameraSessionPerformance: Sendable {
         subsystem: "com.leviegu.framewise", category: "CameraSession"
     )
     #if DEBUG
-    private static let build = "debug"
+        private static let build = "debug"
     #else
-    private static let build = "release"
+        private static let build = "release"
     #endif
     private let id = UUID().uuidString
     private let startedAt = ContinuousClock.now

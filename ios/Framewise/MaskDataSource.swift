@@ -67,10 +67,12 @@ struct MaskDataSource {
         let directory: URL
         switch location {
         case .bundle(let bundle):
-            guard let url = bundle.url(
-                forResource: "templates",
-                withExtension: nil
-            ) else {
+            guard
+                let url = bundle.url(
+                    forResource: "templates",
+                    withExtension: nil
+                )
+            else {
                 throw LoadError.templatesDirectoryNotFound
             }
             directory = url
@@ -78,10 +80,12 @@ struct MaskDataSource {
             directory = url
         }
 
-        guard let enumerator = FileManager.default.enumerator(
-            at: directory,
-            includingPropertiesForKeys: nil
-        ) else {
+        guard
+            let enumerator = FileManager.default.enumerator(
+                at: directory,
+                includingPropertiesForKeys: nil
+            )
+        else {
             throw LoadError.templatesDirectoryNotFound
         }
 
@@ -98,8 +102,7 @@ struct MaskDataSource {
         return urls
     }
 
-    private func loadDocuments(at url: URL, locale: String) throws -> Documents
-    {
+    private func loadDocuments(at url: URL, locale: String) throws -> Documents {
         try loadDocuments(
             at: url,
             mask: Data(contentsOf: url),

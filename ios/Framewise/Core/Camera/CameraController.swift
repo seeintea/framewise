@@ -122,8 +122,10 @@ final class CameraController: NSObject,
                     case .success(let capabilities):
                         performance.record(
                             "startup_total",
-                            outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback,
-                            detail: "camera=\(capabilities.isFrontCamera ? "front" : "back") live_requested=\(livePhotoEnabled) live_active=\(capabilities.isLivePhotoEnabled)"
+                            outcome: capabilities.livePhotoUnavailableReason == nil
+                                ? .success : .fallback,
+                            detail:
+                                "camera=\(capabilities.isFrontCamera ? "front" : "back") live_requested=\(livePhotoEnabled) live_active=\(capabilities.isLivePhotoEnabled)"
                         )
                         self.readinessPerformance = performance
                         self.capabilities = capabilities
@@ -162,11 +164,13 @@ final class CameraController: NSObject,
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] notification in
-            let reason = (notification.userInfo?[AVCaptureSessionInterruptionReasonKey]
+            let reason =
+                (notification.userInfo?[AVCaptureSessionInterruptionReasonKey]
                 as? NSNumber).flatMap {
                     AVCaptureSession.InterruptionReason(rawValue: $0.intValue)
                 }
-            let canResume = reason == .audioDeviceInUseByAnotherClient
+            let canResume =
+                reason == .audioDeviceInUseByAnotherClient
                 || reason == .videoDeviceInUseByAnotherClient
             Task { @MainActor [weak self] in
                 guard let self, self.shouldRun, self.lifecycleID == lifecycleID else { return }
@@ -231,14 +235,16 @@ final class CameraController: NSObject,
         isRunning = false
         publishCaptureAvailability()
         onSessionEvent?(.recovering)
-        engine.start(restoringAutomaticFocus: true, performance: performance) { [weak self] result in
+        engine.start(restoringAutomaticFocus: true, performance: performance) {
+            [weak self] result in
             guard let self, self.shouldRun, self.sessionOperationID == operationID else {
                 performance.record("recovery_total", outcome: .cancelled)
                 return
             }
             switch result {
             case .success:
-                self.setLivePhotoEnabled(self.prefersLivePhoto, performance: performance) { result in
+                self.setLivePhotoEnabled(self.prefersLivePhoto, performance: performance) {
+                    result in
                     guard self.shouldRun, self.sessionOperationID == operationID else {
                         performance.record("recovery_total", outcome: .cancelled)
                         return
@@ -248,8 +254,10 @@ final class CameraController: NSObject,
                     case .success(let capabilities):
                         performance.record(
                             "recovery_total",
-                            outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback,
-                            detail: "camera=\(capabilities.isFrontCamera ? "front" : "back") live_requested=\(self.prefersLivePhoto) live_active=\(capabilities.isLivePhotoEnabled)"
+                            outcome: capabilities.livePhotoUnavailableReason == nil
+                                ? .success : .fallback,
+                            detail:
+                                "camera=\(capabilities.isFrontCamera ? "front" : "back") live_requested=\(self.prefersLivePhoto) live_active=\(capabilities.isLivePhotoEnabled)"
                         )
                         self.readinessPerformance = performance
                         self.capabilities = capabilities
@@ -283,7 +291,8 @@ final class CameraController: NSObject,
     ) {
         let performance = CameraSessionPerformance(operation: .switchCamera)
         let operationID = sessionOperationID
-        engine.switchCamera(livePhotoEnabled: livePhotoEnabled, performance: performance) { [self] result in
+        engine.switchCamera(livePhotoEnabled: livePhotoEnabled, performance: performance) {
+            [self] result in
             guard shouldRun, sessionOperationID == operationID else {
                 performance.record("switch_total", outcome: .cancelled)
                 return
@@ -292,7 +301,10 @@ final class CameraController: NSObject,
             case .success(let capabilities):
                 self.capabilities = capabilities
                 self.prefersLivePhoto = livePhotoEnabled
-                performance.record("switch_total", outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback, detail: capabilities.isLivePhotoEnabled ? "live" : "still")
+                performance.record(
+                    "switch_total",
+                    outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback,
+                    detail: capabilities.isLivePhotoEnabled ? "live" : "still")
             case .failure: performance.record("switch_total", outcome: .failure)
             }
             completion(result)
@@ -369,7 +381,9 @@ final class CameraController: NSObject,
             case .success(let capabilities):
                 self.prefersLivePhoto = enabled
                 self.capabilities = capabilities
-                performance.record("live_photo_result", outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback)
+                performance.record(
+                    "live_photo_result",
+                    outcome: capabilities.livePhotoUnavailableReason == nil ? .success : .fallback)
             case .failure: performance.record("live_photo_result", outcome: .failure)
             }
             completion(result)
@@ -390,7 +404,8 @@ final class CameraController: NSObject,
                 "shutter ratio=\(ratio.rawValue) live=\(livePhoto) turns=\(quarterTurns) camera=\(capabilities?.isFrontCamera == true ? "front" : "back") codec=\(useHEIF ? "heif" : "jpeg")"
             )
         #endif
-        let settings = useHEIF
+        let settings =
+            useHEIF
             ? AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
             : AVCapturePhotoSettings()
         settings.photoQualityPrioritization = .balanced

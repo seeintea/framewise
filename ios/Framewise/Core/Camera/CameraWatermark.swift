@@ -55,16 +55,20 @@ nonisolated struct CameraWatermark {
             UIBezierPath(roundedRect: logoFrame, cornerRadius: logoSide * 0.25).addClip()
             logo.draw(in: logoFrame)
             context.cgContext.restoreGState()
-            title.draw(at: CGPoint(
-                x: padding + logoSide + gap,
-                y: (badgeSize.height - textSize.height) / 2
-            ), withAttributes: attributes)
+            title.draw(
+                at: CGPoint(
+                    x: padding + logoSide + gap,
+                    y: (badgeSize.height - textSize.height) / 2
+                ), withAttributes: attributes)
         }
-        return (image, CGRect(
-            x: size.width - margin - badgeSize.width,
-            y: size.height - margin - badgeSize.height,
-            width: badgeSize.width, height: badgeSize.height
-        ))
+        return (
+            image,
+            CGRect(
+                x: size.width - margin - badgeSize.width,
+                y: size.height - margin - badgeSize.height,
+                width: badgeSize.width, height: badgeSize.height
+            )
+        )
     }
 
     func draw(in size: CGSize) {
@@ -75,9 +79,10 @@ nonisolated struct CameraWatermark {
     func coreImageOverlay(for size: CGSize) throws -> CIImage {
         let badge = badge(for: size)
         guard let pixels = badge.image.cgImage else { throw RenderingError.invalidBadge }
-        return CIImage(cgImage: pixels).transformed(by: CGAffineTransform(
-            translationX: badge.frame.minX,
-            y: size.height - badge.frame.maxY
-        ))
+        return CIImage(cgImage: pixels).transformed(
+            by: CGAffineTransform(
+                translationX: badge.frame.minX,
+                y: size.height - badge.frame.maxY
+            ))
     }
 }

@@ -138,14 +138,18 @@ struct CameraAccess: View {
         performance.record(
             "permission_check", since: start,
             outcome: result.isAuthorized ? .success : .failure,
-            detail: "camera=\(result[.camera]) photos=\(result[.photoLibraryAdd]) microphone=\(microphone.map { String(describing: $0) } ?? "not_requested")"
+            detail:
+                "camera=\(result[.camera]) photos=\(result[.photoLibraryAdd]) microphone=\(microphone.map { String(describing: $0) } ?? "not_requested")"
         )
         showsPermissionAlert = state.needsGuidance
         if state == .authorized, prefersLivePhoto, microphone == .notDetermined {
-            performance.record("permissions_total", outcome: .skipped, detail: "microphone_request_needed")
+            performance.record(
+                "permissions_total", outcome: .skipped, detail: "microphone_request_needed")
             requestAccess()
         } else {
-            let outcome: CameraSessionPerformance.Outcome = !result.isAuthorized ? .failure
+            let outcome: CameraSessionPerformance.Outcome =
+                !result.isAuthorized
+                ? .failure
                 : prefersLivePhoto && microphone?.isAuthorized != true ? .fallback : .success
             performance.record("permissions_total", outcome: outcome)
         }
@@ -169,7 +173,8 @@ struct CameraAccess: View {
         let result = await Permissions.request([permission])[permission]
         performance.record(
             "permission_request", since: start,
-            outcome: result.isAuthorized ? .success : permission == .microphone ? .fallback : .failure,
+            outcome: result.isAuthorized
+                ? .success : permission == .microphone ? .fallback : .failure,
             detail: "\(permission)=\(result)"
         )
         return result
@@ -209,8 +214,8 @@ struct CameraAccess: View {
     }
 }
 
-private extension CameraAccess {
-    enum State: Equatable {
+extension CameraAccess {
+    fileprivate enum State: Equatable {
         case checking
         case notDetermined
         case requesting
