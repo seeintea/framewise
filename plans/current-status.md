@@ -20,7 +20,7 @@
 | 应用与根导航 | `NavigationStack`、模板首页 / 设置两页、浮动栏进入“全部模版”列表 | [AppRootView](../ios/Framewise/AppRootView.swift)、[MainTabView](../ios/Framewise/Navigation/MainTabView.swift) |
 | 本地模板加载与解码 | 14 个模板；独立 `template.v1.json` 与 `zh-Hans.v1.json`，UUID 引用，校验 schema、默认变体与本地化 | [模板数据说明](../composition/README.md)、[MaskDataSource](../ios/Framewise/MaskDataSource.swift)、[MaskContent 解码](../ios/Framewise/Server/Models/MaskContent+Decoding.swift) |
 | 本地查询入口 | `MaskServer` 列表与按 ID 查询；没有网络服务 | [ListMasks](../ios/Framewise/Server/ListMasks.swift)、[GetMask](../ios/Framewise/Server/GetMask.swift) |
-| 列表进入相机 | 默认变体缩略图、中文标题与描述、画幅标识，点击打开该模板 | [SearchView](../ios/Framewise/Features/SearchView.swift)、[CameraMaskRequest](../ios/Framewise/Navigation/CameraMaskRequest.swift) |
+| 模板搜索与选择 | 顶部搜索框按名称与简介实时筛选，支持清空与无结果状态；双列瀑布流以默认变体的真实画幅显示色块卡片，仅叠加标题与推荐比例，文字使用浅色半透明底，较矮卡片使用紧凑排版，点击打开该模板；辅助功能大字号使用单列 | [SearchView](../ios/Framewise/Features/SearchView.swift)、[CameraMaskRequest](../ios/Framewise/Navigation/CameraMaskRequest.swift) |
 | 首页快捷拍摄 | “拍一张”固定打开“前景纵深”模板 `foreground-depth`，不是旧文档中的九宫格 | [GuideView](../ios/Framewise/Features/Guide/GuideView.swift)、[模板 JSON](../composition/templates/foreground-depth/template.v1.json) |
 | 蒙版与注释 | SwiftUI Canvas 绘制实线 / 虚线、圆、圆角矩形及本地化注释；归一化坐标，注释可隐藏 | [MaskCanvas](../ios/Framewise/Core/Canvas/MaskCanvas.swift)、[CameraMaskOverlay](../ios/Framewise/Features/Camera/CameraMaskOverlay.swift) |
 | 关联模板切换组件 | 相机可接收有序关联模板并切换；正式入口目前只传单模板 | [AppRootView](../ios/Framewise/AppRootView.swift)、[CameraScreen](../ios/Framewise/Features/Camera/CameraScreen.swift) |
@@ -66,3 +66,5 @@
 2026-09-28 首拍性能调查已结束，未产出经验证值得采用的进一步优化。Release trace 缺少拍摄标记和等待线程数据，不能解释此前 Debug 等待或证明问题消失。相关数据和限制保留在[实验记录](camera-experiments.md)。本轮文档整理没有运行应用或追加真机验收。
 
 2026-09-29 跨页面采集额度与取消捏合清理已实现，无签名 generic iOS Simulator 构建通过；使用临时 PhotoKit 替身验证了共享额度、当前页面通知、保存成功与失败后的释放及 Live 临时资源清理。替身为非仓库材料，不调用真实相册；退出重入快门及被打断捏合的真机体验仍待验证，本轮未运行应用或追加真机验收。
+
+2026-09-29 模板搜索与双列瀑布流已通过无签名 generic iOS Simulator 构建。卡片以封面内叠加标题与推荐比例的方式保持原画幅，简介不再显示，文字不增加卡片高度。使用临时 macOS SwiftUI 离屏渲染核对了五种画幅、浅 / 深色与显式放大字体时的紧凑排版；这些样例为非仓库材料，不能替代 iOS Dynamic Type 与真机验收。搜索交互与可访问性的实际体验仍待验证，本轮未启动模拟器或操作真机。
