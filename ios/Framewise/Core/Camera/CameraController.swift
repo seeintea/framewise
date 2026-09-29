@@ -36,13 +36,11 @@ final class CameraController: NSObject,
     private var prefersLivePhoto = false
     private var readinessPerformance: CameraSessionPerformance?
     private var capabilities: CameraEngine.Capabilities?
-    private var pendingPhotoCount = 0
-    // Include downstream processing and library writes in the trial's memory bound.
-    private let maximumPendingPhotos = 3
+    private var captureAvailabilityObserver: AnyCancellable?
 
     var canCapture: Bool {
         isRunning && readinessCoordinator.captureReadiness == .ready
-            && pendingPhotoCount < maximumPendingPhotos
+            && CameraPhotoSaver.hasCaptureCapacity
     }
 
     var onCaptureAvailabilityChange: ((Bool) -> Void)? {
@@ -56,6 +54,10 @@ final class CameraController: NSObject,
         readinessCoordinator = engine.makeReadinessCoordinator()
         super.init()
         readinessCoordinator.delegate = self
+        // The saver publishes capacity changes on MainActor, including work from old pages.
+        captureAvailabilityObserver = CameraPhotoSaver.captureAvailability.sink { [weak self] _ in
+            self?.publishCaptureAvailability()
+        }
     }
 
     func readinessCoordinator(
@@ -396,6 +398,10 @@ final class CameraController: NSObject,
         flashMode: AVCaptureDevice.FlashMode,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        guard canCapture, CameraPhotoSaver.reserveCaptureSlot() else {
+            completion(.failure(CameraEngine.CameraError.unavailable))
+            return
+        }
         let performance = CameraCapturePerformance()
         let thumbnailCapture = CameraAlbumThumbnail.Capture()
         let quarterTurns = orientation.quarterTurns(for: ratio)
@@ -415,7 +421,6 @@ final class CameraController: NSObject,
             settings.livePhotoMovieFileURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("Framewise-\(UUID().uuidString).mov")
         }
-        pendingPhotoCount += 1
         readinessCoordinator.startTrackingCaptureRequest(using: settings)
         publishCaptureAvailability()
         let requestID = settings.uniqueID
@@ -424,8 +429,7 @@ final class CameraController: NSObject,
             switch result {
             case .failure(let error):
                 readinessCoordinator.stopTrackingCaptureRequest(using: requestID)
-                pendingPhotoCount -= 1
-                publishCaptureAvailability()
+                CameraPhotoSaver.releaseCaptureSlot()
                 performance.record("captureFailed")
                 completion(.failure(error))
             case .success(let captured):
@@ -436,10 +440,7 @@ final class CameraController: NSObject,
                     quarterTurns: quarterTurns,
                     performance: performance,
                     thumbnailCapture: thumbnailCapture
-                ) { [self] in
-                    pendingPhotoCount -= 1
-                    publishCaptureAvailability()
-                }
+                )
                 completion(.success(()))
             }
         }

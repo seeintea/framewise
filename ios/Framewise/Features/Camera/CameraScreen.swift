@@ -38,6 +38,7 @@ struct CameraScreen: View {
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
     @State private var zoomFactor: CGFloat = 1
     @GestureState private var selfieZoomTarget: CGFloat?
+    @GestureState private var isZoomGestureActive = false
     @State private var isFrontCamera = false
     @State private var livePhotoEnabled = false
     @State private var livePhotoUnavailableReason: CameraEngine.LivePhotoUnavailableReason?
@@ -291,6 +292,10 @@ struct CameraScreen: View {
         .clipped()
         .gesture(
             MagnificationGesture()
+                .updating($isZoomGestureActive) { _, active, _ in
+                    guard phase == .ready else { return }
+                    active = true
+                }
                 .updating($selfieZoomTarget) { value, target, _ in
                     guard phase == .ready, isFrontCamera, target == nil,
                         zoomOptions.count == 2
@@ -310,13 +315,12 @@ struct CameraScreen: View {
                         else { return }
                         zoomFactor = value
                     }
-                }
-                .onEnded { _ in
-                    guard phase == .ready, !isFrontCamera else { return }
-                    camera.endZoomGesture()
                 },
             including: phase == .ready ? .all : .subviews
         )
+        .onChange(of: isZoomGestureActive) { _, isActive in
+            if !isActive { camera.endZoomGesture() }
+        }
         .onChange(of: selfieZoomTarget) { _, target in
             guard phase == .ready, isFrontCamera, let target,
                 abs(target - zoomFactor) > 0.01

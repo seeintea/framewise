@@ -5,6 +5,7 @@
 //  Created by yukkuri on 2026/9/24.
 //
 
+import Combine
 import Photos
 
 extension Notification.Name {
@@ -19,13 +20,38 @@ actor CameraPhotoSaver {
 
     private let livePhotoProcessor = LivePhotoProcessor()
 
+    // Reservations cover capture, processing and saving across all camera pages.
+    @MainActor private static var pendingPhotoCount = 0
+    @MainActor private static let maximumPendingPhotos = 3
+    @MainActor private static let captureAvailabilitySubject = CurrentValueSubject<Bool, Never>(
+        true)
+
+    @MainActor static var hasCaptureCapacity: Bool {
+        pendingPhotoCount < maximumPendingPhotos
+    }
+
+    @MainActor static var captureAvailability: AnyPublisher<Bool, Never> {
+        captureAvailabilitySubject.eraseToAnyPublisher()
+    }
+
+    @MainActor static func reserveCaptureSlot() -> Bool {
+        guard hasCaptureCapacity else { return false }
+        pendingPhotoCount += 1
+        captureAvailabilitySubject.send(hasCaptureCapacity)
+        return true
+    }
+
+    @MainActor static func releaseCaptureSlot() {
+        pendingPhotoCount -= 1
+        captureAvailabilitySubject.send(hasCaptureCapacity)
+    }
+
     nonisolated func enqueue(
         _ captured: CameraEngine.CapturedPhoto,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
         performance: CameraCapturePerformance,
-        thumbnailCapture: CameraAlbumThumbnail.Capture,
-        completion: @escaping @MainActor @Sendable () -> Void
+        thumbnailCapture: CameraAlbumThumbnail.Capture
     ) {
         // The shared saver owns this user-requested work beyond the camera page's lifetime.
         Task.detached(priority: .userInitiated) { [self] in
@@ -48,7 +74,7 @@ actor CameraPhotoSaver {
                     )
                 }
             }
-            await completion()
+            await Self.releaseCaptureSlot()
         }
     }
 

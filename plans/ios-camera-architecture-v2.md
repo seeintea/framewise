@@ -128,6 +128,8 @@ EXIF 标签掩盖错误像素方向。Live 静态图与配对视频消费同一�
 快捷切换使用系统 `ramp(toVideoZoomFactor:withRate:)`。倍率跨度为 `abs(log2(target/current))`，
 名义时长为 `min(0.15 + max(distance − 1, 0) × 0.04, 0.20)` 秒；系统平滑加速度，名义参数
 不保证实际完成时间。连续点击从当前倍率重定向，捏合立即接管；Reduce Motion 时直接赋值。
+捏合通过 `GestureState` 的结束 / 取消重置清理起始倍率，采集接管时在会话队列再次清理，
+下一次手势从设备当前倍率开始，不沿用被打断手势的基准。
 用户已接受系统动画，不引入逐帧自定义动画、双摄预采集或型号偏移补偿。
 
 前置默认宽档（设备最小可用倍率），窄档为宽档 `1.3×` 中心裁切并受设备范围限制；无法提供
@@ -165,9 +167,10 @@ EXIF 标签掩盖错误像素方向。Live 静态图与配对视频消费同一�
 ## 采集、处理与保存
 
 在支持配置下启用 Zero Shutter Lag 与 Responsive Capture；使用 readiness coordinator 和每拍
-独立 delegate，允许系统就绪时接受另一请求。当前 Controller 的进行中照片上限为 3，覆盖采集
-及保存任务，保存结束/失败后释放名额。Screen 用每拍 ID 防止交错结果互相覆盖；拍摄期间设备
-控制受锁但保持外观，快门还受 readiness 与反馈遮罩约束（普通 450 ms、Live 760 ms）。
+独立 delegate，允许系统就绪时接受另一请求。共享 `CameraPhotoSaver` 在 MainActor 管理全应用
+最多 3 张进行中照片额度，Controller 在采集前预约，采集失败或处理 / 保存结束后释放；额度覆盖
+采集及保存任务，离页重入共用，额度变化通知当前 Controller 更新快门。Screen 用每拍 ID
+防止交错结果互相覆盖；拍摄期间设备控制受锁但保持外观，快门还受 readiness 与反馈遮罩约束（普通 450 ms、Live 760 ms）。
 资源交付后即把保存交给独立任务，不等待裁切、视频导出或 PhotoKit 才完成采集回调。
 
 每拍使用独立设置，质量保持 `.balanced`。启动、镜头切换、恢复后查询 `availablePhotoCodecTypes`，

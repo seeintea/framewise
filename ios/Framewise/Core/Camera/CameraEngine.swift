@@ -628,6 +628,8 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
         performance: CameraCapturePerformance,
         completion: @escaping (Result<CapturedPhoto, Error>) -> Void
     ) {
+        // Capture takes over even if the UI gesture was cancelled before onEnded.
+        pinchStartZoomFactor = nil
         guard session.isRunning, !session.isInterrupted else {
             DispatchQueue.main.async {
                 completion(.failure(CameraError.unavailable))
