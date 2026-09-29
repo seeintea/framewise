@@ -25,7 +25,7 @@
 
 ## 待验证：模板搜索与瀑布流
 
-- 真机核对 3:4、1:1、16:9、9:16、4:3 混排时卡片整体比例、间距、滚动与点击进入相机；当前模板封面仍为色块占位，标题与默认变体推荐比例叠加在封面内，核对较矮卡片的紧凑排版与浅色半透明底的可读性。
+- 真机核对[搜索列表](../ios/Framewise/Features/Search/SearchView.swift)、[模板卡片](../ios/Framewise/Features/Search/SearchTemplateCard.swift)与[瀑布流布局](../ios/Framewise/Features/Search/SearchTemplateLayout.swift)的 3:4、1:1、16:9、9:16、4:3 混排时卡片整体比例、间距、滚动与点击进入相机；当前模板封面仍为色块占位，标题与默认变体推荐比例叠加在封面内，核对较矮卡片的紧凑排版与浅色半透明底的可读性。
 - 核对名称 / 简介筛选、清空、无结果、键盘收起，以及深色模式、Dynamic Type 与 VoiceOver；简介仅参与搜索，辅助功能大字号使用单列，VoiceOver 朗读完整标题与推荐比例。
 
 ## 待实现：模板选择闭环
