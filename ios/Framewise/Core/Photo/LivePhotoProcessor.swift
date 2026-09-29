@@ -29,26 +29,26 @@ actor LivePhotoProcessor {
         movieURL: URL,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        performance: CameraCapturePerformance,
+        recordStage: @escaping @Sendable (String) -> Void,
         onPhotoProcessed: @escaping @MainActor @Sendable (UIImage) -> Void
     ) async throws -> Result {
         // The still render/encode runs on its own actor while AVFoundation
         // loads and exports the movie. Neither resource waits for the other to start.
-        async let processedPhoto = CameraPhotoProcessor.shared.process(
+        async let processedPhoto = PhotoProcessor.shared.process(
             photoData,
             ratio: ratio,
             quarterTurns: quarterTurns,
-            performance: performance,
+            recordStage: recordStage,
             onProcessed: onPhotoProcessed
         )
-        performance.record("movieProcessingStarted")
+        recordStage("movieProcessingStarted")
         let outputURL = try await processMovie(
             movieURL,
             ratio: ratio,
             quarterTurns: quarterTurns,
-            performance: performance
+            recordStage: recordStage
         )
-        performance.record("movieProcessingFinished")
+        recordStage("movieProcessingFinished")
         do {
             return try await Result(
                 photoData: processedPhoto,
@@ -67,7 +67,7 @@ actor LivePhotoProcessor {
         _ inputURL: URL,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        performance: CameraCapturePerformance
+        recordStage: @Sendable (String) -> Void
     ) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
         guard
@@ -124,7 +124,7 @@ actor LivePhotoProcessor {
                 y: -rotatedBounds.minY
             )
         )
-        performance.record("movieTranscodeStarted")
+        recordStage("movieTranscodeStarted")
         let outputSize = CGSize(
             width: abs(rotatedBounds.width),
             height: abs(rotatedBounds.height)
@@ -184,7 +184,7 @@ actor LivePhotoProcessor {
             duration: duration,
             naturalSize: naturalSize,
             transform: transform,
-            overlay: try CameraWatermark().coreImageOverlay(for: outputSize),
+            overlay: try PhotoWatermark().coreImageOverlay(for: outputSize),
             context: context
         )
         if #available(iOS 26.0, *) {

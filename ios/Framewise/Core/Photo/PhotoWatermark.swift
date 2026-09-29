@@ -1,5 +1,5 @@
 //
-//  CameraWatermark.swift
+//  PhotoWatermark.swift
 //  Framewise
 //
 //  Created by yukkuri on 2026/9/27.
@@ -9,7 +9,7 @@ import CoreImage
 import UIKit
 
 /// A small raster badge shared by stills and movies, laid out in final output coordinates.
-nonisolated struct CameraWatermark {
+nonisolated struct PhotoWatermark {
     enum RenderingError: Error { case missingLogo, missingFont, invalidBadge }
 
     private let logo: UIImage

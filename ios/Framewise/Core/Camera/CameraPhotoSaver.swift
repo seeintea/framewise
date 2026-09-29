@@ -88,14 +88,15 @@ actor CameraPhotoSaver {
         performance.record("saveStarted")
         switch captured {
         case .still(let data):
-            let processedPhoto = try await CameraPhotoProcessor.shared.process(
+            let processedPhoto = try await PhotoProcessor.shared.process(
                 data,
                 ratio: ratio,
                 quarterTurns: quarterTurns,
-                performance: performance
-            ) { image in
-                CameraAlbumThumbnail.shared.showProcessed(image, for: thumbnailCapture)
-            }
+                recordStage: { performance.record($0) },
+                onProcessed: { image in
+                    CameraAlbumThumbnail.shared.showProcessed(image, for: thumbnailCapture)
+                }
+            )
             performance.record("libraryWriteStarted")
             try await PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
@@ -110,10 +111,11 @@ actor CameraPhotoSaver {
                 movieURL: movieURL,
                 ratio: ratio,
                 quarterTurns: quarterTurns,
-                performance: performance
-            ) { image in
-                CameraAlbumThumbnail.shared.showProcessed(image, for: thumbnailCapture)
-            }
+                recordStage: { performance.record($0) },
+                onPhotoProcessed: { image in
+                    CameraAlbumThumbnail.shared.showProcessed(image, for: thumbnailCapture)
+                }
+            )
             defer {
                 if processed.movieURL != movieURL {
                     try? FileManager.default.removeItem(at: processed.movieURL)

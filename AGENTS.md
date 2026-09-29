@@ -41,7 +41,7 @@ Framewise 当前以 SwiftUI 原生 iOS 应用为主，已从 Expo / React Native
 - `composition/` 保存平台无关的构图模板数据，不依赖 SwiftUI、React 或平台 runtime 类型。
 - `design-system/` 保存跨平台 UI 的字体、SVG 图标和品牌源文件，是这些视觉资产的唯一来源。
 - 当前入口和根组合是 `ios/Framewise/FramewiseApp.swift`、`AppRootView.swift`；跨功能导航在 `Navigation/`；页面在 `Features/`，相机与引导页各有子目录。不为符合旧规划而移动现有文件或创建空的 `App/`。
-- 当前系统能力在 `Core/Camera/`、`Core/Permissions/`，蒙版绘制在 `Core/Canvas/`；模板加载和解码在 `MaskDataSource.swift`、`Server/`。`MaskServer` 是本地数据入口，不是网络服务。
+- 相机会话、采集与保存流程在 `Core/Camera/`，采集后的图片 / Live Photo 成品加工在 `Core/Photo/`，权限在 `Core/Permissions/`，蒙版绘制在 `Core/Canvas/`；模板加载和解码在 `MaskDataSource.swift`、`Server/`。Camera 调用 Photo，Photo 不依赖 Camera 类型或共享状态。`MaskServer` 是本地数据入口，不是网络服务。
 - Feature 和 Core 不依赖应用入口与根组合。保持现有职责边界，不新建笼统的 `Shared/`。
 - 当前已有原生相机和 SwiftUI 蒙版绘制；Vision、Core ML、模板推荐和持久化扩展尚未实现，没有明确需求时不要根据历史方案提前建立模块。
 - 保持可序列化的构图模板数据独立于 SwiftUI View、相机 runtime 对象和屏幕像素值。

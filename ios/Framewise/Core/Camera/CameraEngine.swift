@@ -50,7 +50,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
     private var liveAudioInput: AVCaptureDeviceInput?
     private var livePhotoUnavailableReason: LivePhotoUnavailableReason?
     private var isConfigured = false
-    private var photoDelegates: [Int64: PhotoDelegate] = [:]
+    private var photoDelegates: [Int64: CameraPhotoCaptureDelegate] = [:]
     private var pinchStartZoomFactor: CGFloat?
     private var frontZoomFactor: CGFloat?
     private var subjectAreaObserver: NSObjectProtocol?
@@ -663,7 +663,7 @@ nonisolated final class CameraEngine: NSObject, @unchecked Sendable {
             }
         }
         let requestID = settings.uniqueID
-        let delegate = PhotoDelegate(
+        let delegate = CameraPhotoCaptureDelegate(
             movieURL: settings.livePhotoMovieFileURL,
             performance: performance
         ) {
@@ -866,102 +866,4 @@ extension CameraEngine {
         case interrupted
     }
 
-    fileprivate nonisolated final class PhotoDelegate: NSObject,
-        AVCapturePhotoCaptureDelegate
-    {
-        private let completion: (Result<CapturedPhoto, Error>) -> Void
-        private let movieURL: URL?
-        private let performance: CameraCapturePerformance
-        private var photoData: Data?
-        private var processedMovieURL: URL?
-        private var processingError: Error?
-
-        init(
-            movieURL: URL?,
-            performance: CameraCapturePerformance,
-            completion: @escaping (Result<CapturedPhoto, Error>) -> Void
-        ) {
-            self.movieURL = movieURL
-            self.performance = performance
-            self.completion = completion
-        }
-
-        func photoOutput(
-            _ output: AVCapturePhotoOutput,
-            didFinishProcessingPhoto photo: AVCapturePhoto,
-            error: Error?
-        ) {
-            if let error {
-                processingError = error
-            } else if let data = photo.fileDataRepresentation() {
-                photoData = data
-                #if DEBUG
-                    performance.record("photoReceived bytes=\(data.count)")
-                #else
-                    performance.record("photoReceived")
-                #endif
-            } else {
-                processingError = CameraError.unavailable
-            }
-        }
-
-        func photoOutput(
-            _ output: AVCapturePhotoOutput,
-            didFinishRecordingLivePhotoMovieForEventualFileAt outputFileURL: URL,
-            resolvedSettings: AVCaptureResolvedPhotoSettings
-        ) {
-            // Recording is over, but the file is not usable until movieReceived.
-            performance.record("movieRecordingFinished")
-        }
-
-        func photoOutput(
-            _ output: AVCapturePhotoOutput,
-            didFinishProcessingLivePhotoToMovieFileAt outputFileURL: URL,
-            duration: CMTime,
-            photoDisplayTime: CMTime,
-            resolvedSettings: AVCaptureResolvedPhotoSettings,
-            error: Error?
-        ) {
-            if let error {
-                processingError = error
-            } else {
-                processedMovieURL = outputFileURL
-                #if DEBUG
-                    performance.record(
-                        "movieReceived duration=\(duration.seconds) photoTime=\(photoDisplayTime.seconds)"
-                    )
-                #else
-                    performance.record("movieReceived")
-                #endif
-            }
-        }
-
-        func photoOutput(
-            _ output: AVCapturePhotoOutput,
-            didFinishCaptureFor resolvedSettings:
-                AVCaptureResolvedPhotoSettings,
-            error: Error?
-        ) {
-            let result: Result<CapturedPhoto, Error>
-            if let error = error ?? processingError {
-                result = .failure(error)
-            } else if let photoData {
-                if movieURL == nil {
-                    result = .success(.still(photoData))
-                } else if let processedMovieURL {
-                    result = .success(
-                        .live(photoData: photoData, movieURL: processedMovieURL)
-                    )
-                } else {
-                    result = .failure(CameraError.unavailable)
-                }
-            } else {
-                result = .failure(CameraError.unavailable)
-            }
-            if case .failure = result, let movieURL {
-                try? FileManager.default.removeItem(at: movieURL)
-            }
-            completion(result)
-        }
-    }
 }

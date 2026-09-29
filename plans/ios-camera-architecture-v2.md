@@ -9,7 +9,7 @@
 
 ## 当前代码边界
 
-当前源码仍使用 `Core/Camera` 和 `Core/Permissions`；文档整理不搬动代码、不提前建立新模块。
+当前源码使用 `Core/Camera`、`Core/Photo` 和 `Core/Permissions`；这些职责目录仍在同一个应用 target 内。
 工程保持最低 iOS 18、Swift 5 language mode、MainActor 默认隔离。Xcode 26 是工程工具链基线；
 部分历史检查使用本机 Xcode 27，不表示提高了最低工具链要求。
 
@@ -17,15 +17,24 @@
 | --- | --- |
 | `Core/Permissions` | 从系统读取权限状态、显式请求授权、打开系统设置；无 UI、导航或长期状态缓存 |
 | `CameraAccess` | 决定相机、相册 add-only、麦克风权限时机，承载说明与设置入口 |
-| `CameraScreen` | 页面 UI、蒙版选择、预览布局、页面生命周期、设备状态与反馈 |
+| `CameraScreen` | 页面组合、蒙版选择、预览布局、页面生命周期、设备状态及跨控件启用关系 |
+| `CameraFocusInteraction` | 页面局部对焦 / 曝光值状态、选择与配置回调隔离、延后复位、反馈淡化及取消；使用 `Binding` 接收页面的 `@State` |
+| `CameraShutterFeedback` / 相机提示 View | 快门遮罩、Live 降级、中断与恢复的独立呈现；不接管页面状态机 |
 | `CameraPreview` | 用 `AVCaptureVideoPreviewLayer` 显示传入 session，把点击位置换算到设备坐标 |
 | `CameraController` | MainActor 上的命令入口、readiness、会话事件、每拍资源到保存任务的交接 |
-| `CameraEngine` | 串行会话队列上的 AVFoundation 配置、启停、镜头与设备控制、每拍独立 delegate |
+| `CameraEngine` | 串行会话队列上的 AVFoundation 配置、启停、镜头与设备控制，以及每拍 delegate 的保活 / 释放 |
+| `CameraPhotoCaptureDelegate` | 收集单次采集的静态资源、Live 视频与错误，交付结果并清理失败拍摄的临时视频 |
 | `CameraOrientationMonitor` | Core Motion 握持方向与点按后的朝向变化监测 |
-| `CameraPhotoProcessor` / `PhotoAspectRatio` | 静态图方向归一化、整数比例中心裁切、最终旋转、水印与一次编码 |
-| `LivePhotoProcessor` / `LivePhotoWatermarkCompositor` | 配对视频几何变换、水印合成、导出与配对资源保留 |
+| `Core/Photo/PhotoAspectRatio` | 可共享的成品画幅值与尺寸计算，不解码或绘制图片 |
+| `Core/Photo/PhotoProcessor` / `PhotoWatermark` | 静态图方向归一化、整数比例中心裁切、最终旋转、水印、一次编码与成品缩略图生成 |
+| `Core/Photo/LivePhotoProcessor` / `LivePhotoWatermarkCompositor` | 配对视频几何变换、水印合成、导出与配对资源保留 |
 | `CameraPhotoSaver` | 接管采集后的处理、PhotoKit 写入、临时资源清理和失败通知 |
 | `CameraAlbumThumbnail` | MainActor 共享小尺寸拍摄预览与最新可读相册缩略图；按快门时间排序，处理保存结果、相册变化和页面观察生命周期 |
+
+Camera 调用 Photo 的加工入口，传入资源、画幅、快门时冻结的最终旋转及阶段记录 / 缩略图回调。
+Photo 不依赖 Camera 类型、PhotoKit、SwiftUI View 或相机共享状态；沿用静态加工 actor 串行、
+Live 静态 / 视频并行及现有配对元数据契约。Camera 继续拥有采集到保存的全流程时间线、
+跨页面保存生命周期、额度释放、相册写入和最终临时资源清理；Photo 清理加工自身失败时产生的资源。
 
 相机核心不读取 `MaskVariant`、模板 ID 或 SwiftUI View。模板模块只声明可序列化数据；
 蒙版覆盖层不请求权限、不操作相机会话，也不把构图线或注释写入成片。

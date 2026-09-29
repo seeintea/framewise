@@ -1,3 +1,10 @@
+//
+//  LivePhotoWatermarkCompositor.swift
+//  Framewise
+//
+//  Created by yukkuri on 2026/9/29.
+//
+
 import AVFoundation
 import CoreImage
 
