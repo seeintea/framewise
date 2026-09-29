@@ -25,6 +25,7 @@ struct CameraBottomControls: View {
     let onSelectMask: (String) -> Void
     var isCapturing = false
     var isCaptureFeedbackActive = false
+    var albumThumbnail: UIImage?
 
     var body: some View {
         Group {
@@ -131,34 +132,42 @@ struct CameraBottomControls: View {
 
     private var albumButton: some View {
         Button(action: onOpenAlbum) {
-            Image(systemName: "photo.on.rectangle")
-                .font(.system(size: 17, weight: .light))
-                .rotationEffect(controlRotation)
-                .foregroundStyle(
-                    Color(red: 216 / 255, green: 216 / 255, blue: 220 / 255)
-                )
-                .frame(width: 40, height: 40)
-                .background(
-                    Color(
-                        red: 58.0 / 255.0,
-                        green: 58.0 / 255.0,
-                        blue: 62.0 / 255.0
-                    )
-                )
-                .clipShape(Circle())
-                .padding(2)
-                .background(
-                    Color(
-                        red: 41.0 / 255.0,
-                        green: 41.0 / 255.0,
-                        blue: 44.0 / 255.0
-                    )
-                )
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(.white.opacity(0.16), lineWidth: 0.5)
+            Group {
+                if let albumThumbnail {
+                    Image(uiImage: albumThumbnail)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.system(size: 17, weight: .light))
                 }
+            }
+            .rotationEffect(controlRotation)
+            .foregroundStyle(
+                Color(red: 216 / 255, green: 216 / 255, blue: 220 / 255)
+            )
+            .frame(width: 40, height: 40)
+            .background(
+                Color(
+                    red: 58.0 / 255.0,
+                    green: 58.0 / 255.0,
+                    blue: 62.0 / 255.0
+                )
+            )
+            .clipShape(Circle())
+            .padding(2)
+            .background(
+                Color(
+                    red: 41.0 / 255.0,
+                    green: 41.0 / 255.0,
+                    blue: 44.0 / 255.0
+                )
+            )
+            .clipShape(Circle())
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(0.16), lineWidth: 0.5)
+            }
         }
         .buttonStyle(CameraBottomButtonStyle())
         .disabled(!isAlbumEnabled)

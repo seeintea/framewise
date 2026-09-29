@@ -262,6 +262,23 @@
         }
       }
     },
+    "camera.album.open-failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to open Photos. Please open the Photos app from your Home Screen."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开照片，请从主屏幕打开「照片」App。"
+          }
+        }
+      }
+    },
     "camera.album.open" : {
       "extractionState" : "manual",
       "localizations" : {

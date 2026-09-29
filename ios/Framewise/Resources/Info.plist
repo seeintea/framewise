@@ -10,6 +10,8 @@
 	<string>Framewise saves photos you capture to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Framewise accesses your photo library to show a recent photo thumbnail.</string>
+	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
+	<true/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>DingTalk JinBuTi.ttf</string>

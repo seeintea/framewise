@@ -24,6 +24,7 @@ actor CameraPhotoSaver {
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
         performance: CameraCapturePerformance,
+        thumbnailCapture: CameraAlbumThumbnail.Capture,
         completion: @escaping @MainActor @Sendable () -> Void
     ) {
         // The shared saver owns this user-requested work beyond the camera page's lifetime.
@@ -33,11 +34,14 @@ actor CameraPhotoSaver {
                     captured,
                     ratio: ratio,
                     quarterTurns: quarterTurns,
-                    performance: performance
+                    performance: performance,
+                    thumbnailCapture: thumbnailCapture
                 )
+                await CameraAlbumThumbnail.shared.finish(thumbnailCapture, succeeded: true)
             } catch {
                 performance.record("saveFailed")
                 await MainActor.run {
+                    CameraAlbumThumbnail.shared.finish(thumbnailCapture, succeeded: false)
                     NotificationCenter.default.post(
                         name: .cameraPhotoSaveFailed,
                         object: nil
@@ -52,7 +56,8 @@ actor CameraPhotoSaver {
         _ captured: CameraEngine.CapturedPhoto,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        performance: CameraCapturePerformance
+        performance: CameraCapturePerformance,
+        thumbnailCapture: CameraAlbumThumbnail.Capture
     ) async throws {
         performance.record("saveStarted")
         switch captured {
@@ -62,10 +67,13 @@ actor CameraPhotoSaver {
                 ratio: ratio,
                 quarterTurns: quarterTurns,
                 performance: performance
-            )
+            ) { image in
+                CameraAlbumThumbnail.shared.showProcessed(image, for: thumbnailCapture)
+            }
             performance.record("libraryWriteStarted")
             try await PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
+                request.creationDate = thumbnailCapture.date
                 request.addResource(with: .photo, data: processedPhoto, options: nil)
             }
             performance.record("saved")
@@ -77,7 +85,9 @@ actor CameraPhotoSaver {
                 ratio: ratio,
                 quarterTurns: quarterTurns,
                 performance: performance
-            )
+            ) { image in
+                CameraAlbumThumbnail.shared.showProcessed(image, for: thumbnailCapture)
+            }
             defer {
                 if processed.movieURL != movieURL {
                     try? FileManager.default.removeItem(at: processed.movieURL)
@@ -86,6 +96,7 @@ actor CameraPhotoSaver {
             performance.record("libraryWriteStarted")
             try await PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
+                request.creationDate = thumbnailCapture.date
                 request.addResource(
                     with: .photo,
                     data: processed.photoData,

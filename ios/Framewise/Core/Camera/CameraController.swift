@@ -397,6 +397,7 @@ final class CameraController: NSObject,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         let performance = CameraCapturePerformance()
+        let thumbnailCapture = CameraAlbumThumbnail.Capture()
         let quarterTurns = orientation.quarterTurns(for: ratio)
         let useHEIF = capabilities?.supportsHEIF == true
         #if DEBUG
@@ -433,7 +434,8 @@ final class CameraController: NSObject,
                     captured,
                     ratio: ratio,
                     quarterTurns: quarterTurns,
-                    performance: performance
+                    performance: performance,
+                    thumbnailCapture: thumbnailCapture
                 ) { [self] in
                     pendingPhotoCount -= 1
                     publishCaptureAvailability()

@@ -1,7 +1,7 @@
 # iOS 相机当前架构与确认决策
 
 > 状态：新相机已接入正式 SwiftUI 页面；实现状态与真机验收范围分开记录。
-> 创建日期：2026-09-20。整理日期：2026-09-28。
+> 创建日期：2026-09-20。整理日期：2026-09-29。
 > 本文以 `ios/Framewise/` 当前 Swift 代码和 `ios/Framewise.xcodeproj` 为依据，保留仍有效的设计。
 > 已完成能力见 [功能状态](current-status.md)，待实现/待优化见 [后续工作](next-steps.md)，
 > 测量、失败和撤回方案见 [相机实验记录](camera-experiments.md)，完整迁移节点见
@@ -25,6 +25,7 @@
 | `CameraPhotoProcessor` / `PhotoAspectRatio` | 静态图方向归一化、整数比例中心裁切、最终旋转、水印与一次编码 |
 | `LivePhotoProcessor` / `LivePhotoWatermarkCompositor` | 配对视频几何变换、水印合成、导出与配对资源保留 |
 | `CameraPhotoSaver` | 接管采集后的处理、PhotoKit 写入、临时资源清理和失败通知 |
+| `CameraAlbumThumbnail` | MainActor 共享小尺寸拍摄预览与最新可读相册缩略图；按快门时间排序，处理保存结果、相册变化和页面观察生命周期 |
 
 相机核心不读取 `MaskVariant`、模板 ID 或 SwiftUI View。模板模块只声明可序列化数据；
 蒙版覆盖层不请求权限、不操作相机会话，也不把构图线或注释写入成片。
@@ -40,7 +41,22 @@
 
 `Permissions.check`、`request` 接受所需权限数组，按传入顺序处理并去重；查询本身不弹授权框。
 Core 对外返回 `PermissionStatus`，不把平台授权 enum 扩散到导航与模板层。相册 `.addOnly`
-与 `.readWrite` 分开；尚未实现的相册缩略图能力不能提前要求读取整个相册。
+与 `.readWrite` 分开；缩略图只使用已经授予的读取权限，不因显示按钮主动申请整个相册的访问权。
+
+相册按钮使用 SwiftUI `openURL` 尝试打开 `photos-redirect://`，无需 PhotoKit 读取授权。
+该 scheme 没有 Apple 公开的稳定契约，失败时提示手动打开「照片」App，不承诺定位到具体资产。
+读取缩略图前检查 `.readWrite`；完整 / 有限授权时按 `creationDate` 降序查询最新图片，有限授权
+只覆盖用户允许的资产。使用 PhotoKit 小图请求（允许 iCloud 下载），保留查询结果以监听变化，
+离页 / 后台取消请求和观察，重新进入 / 前台恢复查询；旧请求回调不能覆盖新查询。
+
+普通照片和 Live 静态成品编码后生成最长边 256 像素的内存预览，保留裁切、方向和水印，不另存
+临时图片。Live 静态预览不等待视频导出。预览按快门时间选择，保存结果按每拍 ID 结算；失败
+撤回该拍预览并沿用全局失败提示。保存时明确设置快门时间，避免并行处理导致相册拍摄时间顺序
+倒置。状态仅保留未完成拍摄、最近一次成功保存和一张相册小图，不持久化；共享状态用于覆盖
+离页继续保存与重入相机。相册查询成功后接管已保存预览，允许删除 / 编辑反映到按钮。按钮显示
+临时预览不代表写入成功，系统「照片」App 只能看到完成保存的资产。
+
+参考：[Apple 照片权限与有限相册](https://developer.apple.com/documentation/photokit/delivering-an-enhanced-privacy-experience-in-your-photos-app)、[PhotoKit 缩略图请求](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:))。所用 PhotoKit / ImageIO / SwiftUI 能力均覆盖最低 iOS 18。
 
 相机与 add-only 权限不可用时由 `CameraAccess` 阻止进入；未决定的权限先说明用途，用户继续后
 逐项请求。回到前台重新读取系统真实状态。运行层仍检查相机授权，但不主动弹授权请求来修复错误。

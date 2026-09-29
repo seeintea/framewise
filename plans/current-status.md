@@ -1,6 +1,6 @@
 # 当前实现清单
 
-> 状态：当前代码事实。核对日期：2026-09-28。依据为当前工作树的 Swift、模板 JSON、Web 工具源码和 `Framewise` target build settings。
+> 状态：当前代码事实。核对日期：2026-09-29。依据为当前工作树的 Swift、模板 JSON、Web 工具源码和 `Framewise` target build settings。
 >
 > “已实现”表示代码链路存在，不等于所有设备与场景已通过真机验收。未完成和待验证事项统一放在[待实现与待优化](next-steps.md)，实验结果见[相机实验记录](camera-experiments.md)。
 
@@ -44,10 +44,13 @@
 | Live Photo 与降级 | 静态图 + 带声音 MOV；不支持或麦克风拒绝 / 受限 / 不可用时保留普通照片并提示原因 | [CameraEngine](../ios/Framewise/Core/Camera/CameraEngine.swift)、[LivePhotoProcessor](../ios/Framewise/Core/Camera/LivePhotoProcessor.swift) |
 | 统一处理与固定水印 | 静态图融合裁切、旋转和绘制；Live 视频用 Core Image 合成；成品固定添加右下 logo + 中文“蒙版相机”，没有用户开关 | [CameraPhotoProcessor](../ios/Framewise/Core/Camera/CameraPhotoProcessor.swift)、[CameraWatermark](../ios/Framewise/Core/Camera/CameraWatermark.swift)、[LivePhotoWatermarkCompositor](../ios/Framewise/Core/Camera/LivePhotoWatermarkCompositor.swift) |
 | 相册保存 | PhotoKit add-only 写入普通照片或 `.photo` + `.pairedVideo`；继承配对元数据、清理临时文件；离开相机后继续保存，失败由根页面提示 | [CameraPhotoSaver](../ios/Framewise/Core/Camera/CameraPhotoSaver.swift)、[LivePhotoProcessor](../ios/Framewise/Core/Camera/LivePhotoProcessor.swift)、[AppRootView](../ios/Framewise/AppRootView.swift) |
+| 相册入口与缩略图 | 点击尝试跳转系统「照片」App，失败提示；不申请读取权限。已有完整 / 有限读取授权时按拍摄时间显示可访问的最新图片，监听相册变化并在前台刷新；静态成品处理后、写库前生成小尺寸内存预览，Live 不等待视频处理；保存失败撤回对应预览，跨相机页面保留，重启不持久化 | [CameraBottomControls](../ios/Framewise/Features/Camera/CameraBottomControls.swift)、[CameraScreen](../ios/Framewise/Features/Camera/CameraScreen.swift)、[CameraAlbumThumbnail](../ios/Framewise/Core/Camera/CameraAlbumThumbnail.swift)、[CameraPhotoProcessor](../ios/Framewise/Core/Camera/CameraPhotoProcessor.swift) |
 | 快门响应与背压 | 设备支持时启用 zero shutter lag / responsive capture；readiness coordinator 与最多 3 张 pending 请求共同控制快门；静态加工 actor 串行，单张 Live 内静态 / 视频并行 | [CameraController](../ios/Framewise/Core/Camera/CameraController.swift)、[CameraPhotoProcessor](../ios/Framewise/Core/Camera/CameraPhotoProcessor.swift)、[LivePhotoProcessor](../ios/Framewise/Core/Camera/LivePhotoProcessor.swift) |
 | 反馈与观测 | 快门遮罩、轻触感；拍摄阶段 Debug 日志，会话 / 权限阶段 Debug 和 Release 日志 | [CameraScreen](../ios/Framewise/Features/Camera/CameraScreen.swift)、[CameraCapturePerformance](../ios/Framewise/Core/Camera/CameraCapturePerformance.swift)、[CameraSessionPerformance](../ios/Framewise/Core/Camera/CameraSessionPerformance.swift) |
 
 构图引导只参与预览；水印属于最终资源处理。前摄宽窄档是当前自定义实现，不宣称与 Apple Camera 完全一致。
+
+相册跳转使用 `photos-redirect://`，Apple 未提供公开稳定契约；只能尝试打开「照片」App，不能保证定位到最新图片。按钮预览不代表保存成功；未写入相册的图片还不能在「照片」App 中看到。有限读取授权下，“最新”仅限允许访问的图片；只有 add-only 权限时使用本次应用运行中拍摄的内存预览，否则显示占位图标。
 
 ## 已实现：工具与资产
 
@@ -57,5 +60,7 @@
 ## 验收边界
 
 当前新相机已有局部真机反馈和性能样本，但它们只覆盖记录中的构建、素材和场景；旧相机 M0～M6 的验收不能转用。HEIF 的图像 / Live 配对、前置镜像与补光、各比例方向、多设备能力、中断恢复和连续保存的完整矩阵仍需验证。
+
+2026-09-29 相册入口与缩略图已通过 iOS Simulator 目标编译；用户反馈测试通过。未记录机型、系统与具体覆盖场景，不将该反馈视为完整验收矩阵通过；授权组合、iCloud 下载、删除 / 编辑同步和连续拍摄等边界仍待补充验证。代理未启动模拟器或操作真机。
 
 2026-09-28 首拍性能调查已结束，未产出经验证值得采用的进一步优化。Release trace 缺少拍摄标记和等待线程数据，不能解释此前 Debug 等待或证明问题消失。相关数据和限制保留在[实验记录](camera-experiments.md)。本轮文档整理没有运行应用或追加真机验收。

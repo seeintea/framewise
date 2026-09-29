@@ -13,11 +13,12 @@ actor CameraPhotoProcessor {
         _ data: Data,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        performance: CameraCapturePerformance
-    ) throws -> Data {
+        performance: CameraCapturePerformance,
+        onProcessed: @escaping @MainActor @Sendable (UIImage) -> Void
+    ) async throws -> Data {
         try Task.checkCancellation()
         performance.record("photoProcessingStarted")
-        return try autoreleasepool {
+        let output: (data: Data, thumbnail: UIImage?) = try autoreleasepool {
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),
                 let sourceType = CGImageSourceGetType(source),
                 let sourceProperties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
@@ -58,7 +59,25 @@ actor CameraPhotoProcessor {
             #else
                 performance.record("photoProcessingFinished")
             #endif
-            return output as Data
+            let data = output as Data
+            return (data, thumbnail(from: data))
         }
+        if let thumbnail = output.thumbnail { await onProcessed(thumbnail) }
+        return output.data
+    }
+
+    private func thumbnail(from data: Data) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let image = CGImageSourceCreateThumbnailAtIndex(
+                source, 0,
+                [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 256,
+                    kCGImageSourceShouldCacheImmediately: true,
+                ] as CFDictionary
+            )
+        else { return nil }
+        return UIImage(cgImage: image)
     }
 }

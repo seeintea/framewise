@@ -8,6 +8,7 @@
 import AVFoundation
 import CoreGraphics
 import CoreImage
+import UIKit
 
 /// Applies the same centered portrait crop and final quarter turn to both Live Photo resources.
 actor LivePhotoProcessor {
@@ -28,7 +29,8 @@ actor LivePhotoProcessor {
         movieURL: URL,
         ratio: PhotoAspectRatio,
         quarterTurns: Int,
-        performance: CameraCapturePerformance
+        performance: CameraCapturePerformance,
+        onPhotoProcessed: @escaping @MainActor @Sendable (UIImage) -> Void
     ) async throws -> Result {
         // The still render/encode runs on its own actor while AVFoundation
         // loads and exports the movie. Neither resource waits for the other to start.
@@ -36,7 +38,8 @@ actor LivePhotoProcessor {
             photoData,
             ratio: ratio,
             quarterTurns: quarterTurns,
-            performance: performance
+            performance: performance,
+            onProcessed: onPhotoProcessed
         )
         performance.record("movieProcessingStarted")
         let outputURL = try await processMovie(

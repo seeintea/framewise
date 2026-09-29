@@ -14,6 +14,7 @@ struct CameraScreen: View {
     }
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("camera.flashMode") private var storedFlashMode = 0
     @AppStorage("camera.annotationsVisible") private var areAnnotationsVisible =
@@ -25,6 +26,7 @@ struct CameraScreen: View {
     @Binding var prefersLivePhoto: Bool
 
     @State private var camera = CameraController()
+    @State private var albumThumbnail = CameraAlbumThumbnail.shared
     @State private var phase: CameraPhase = .stopped
     @State private var activeCaptureIDs: Set<UUID> = []
     @State private var isCaptureReady = false
@@ -105,10 +107,10 @@ struct CameraScreen: View {
         )
         .overlay(alignment: .bottom) {
             CameraBottomControls(
-                isAlbumEnabled: false,
+                isAlbumEnabled: true,
                 isCaptureEnabled: canCapture,
                 canSwitchCamera: cameraControlsAppearReady && canSwitchCamera,
-                onOpenAlbum: {},
+                onOpenAlbum: openAlbum,
                 onCapture: capture,
                 onSwitchCamera: switchCamera,
                 controlRotation: controlRotation,
@@ -118,7 +120,8 @@ struct CameraScreen: View {
                 selectedMaskId: selectedMaskId,
                 onSelectMask: selectMask,
                 isCapturing: isCapturing,
-                isCaptureFeedbackActive: isShutterFeedbackVisible
+                isCaptureFeedbackActive: isShutterFeedbackVisible,
+                albumThumbnail: albumThumbnail.image
             )
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.2),
@@ -224,6 +227,7 @@ struct CameraScreen: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
+            albumThumbnail.start()
             camera.onOrientationChange = { holdQuarterTurns = $0 }
             startCamera()
             guard masks.isEmpty else { return }
@@ -233,13 +237,16 @@ struct CameraScreen: View {
             showsMaskLoadError = false
         }
         .onDisappear {
+            albumThumbnail.stop()
             stopCamera()
             camera.onOrientationChange = nil
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                albumThumbnail.start()
                 startCamera()
             } else {
+                albumThumbnail.stop()
                 stopCamera()
             }
         }
@@ -764,6 +771,15 @@ struct CameraScreen: View {
                 stopCamera()
                 errorMessage = .cameraErrorLivePhoto
             }
+        }
+    }
+
+    private func openAlbum() {
+        // Photos has no documented launch URL. Treat this scheme as best effort;
+        // opening it grants no PhotoKit access and cannot target an unsaved photo.
+        guard let url = URL(string: "photos-redirect://") else { return }
+        openURL(url) { accepted in
+            if !accepted { errorMessage = .cameraAlbumOpenFailed }
         }
     }
 
