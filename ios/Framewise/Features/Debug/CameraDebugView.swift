@@ -3,6 +3,8 @@
     import SwiftUI
 
     struct CameraDebugView: View {
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
         private struct MockMask: Identifiable {
             let id: String
             let title: String
@@ -10,7 +12,7 @@
         }
 
         private static let previewMask = try? MaskServer().getMask(
-            id: "5aa983db-8730-4307-b18f-88ffe4735206"
+            id: "80ac5355-c807-4e28-8784-4d7c464be337"
         )
         private static let fallbackAspectRatio = MaskAspectRatio(
             width: 3,
@@ -48,7 +50,7 @@
         @State private var selectedZoomFactor = 1.0
         @State private var selectedExposureBias = 0.0
         @State private var selectedMaskId = "mask-3-4"
-        @State private var previewBottom: CGFloat?
+        @State private var selectedVariantId: String?
         @State private var shutterTop: CGFloat?
 
         private let zoomFactors = [0.5, 1.0, 2.0, 5.0]
@@ -65,26 +67,32 @@
                 let layout = CameraViewportLayout(
                     aspectRatio: showsRelatedMasks
                         ? selectedMask.aspectRatio
-                        : Self.previewMask?.defaultVariant.aspectRatio
+                        : selectedVariant?.aspectRatio
                             ?? Self.fallbackAspectRatio,
                     availableSize: CGSize(
                         width: geometry.size.width,
                         height: availableHeight
                     )
                 )
+                let previewBottom =
+                    (availableHeight + layout.previewSize.height) / 2 - geometry.safeAreaInsets.top
 
                 Color.gray
                     .overlay {
                         ZStack {
-                            if !showsRelatedMasks, let mask = Self.previewMask {
+                            if !showsRelatedMasks, let mask = Self.previewMask,
+                                let variant = selectedVariant
+                            {
                                 CameraMaskOverlay(
-                                    variant: mask.defaultVariant,
+                                    variant: variant,
                                     annotationTextById: mask.annotationTextById(
-                                        variantId: mask.defaultVariant.id
+                                        variantId: variant.id
                                     ),
                                     showsAnnotations: areAnnotationsVisible,
                                     layout: layout
                                 )
+                                .id(variant.id)
+                                .transition(.opacity)
                             }
 
                             CameraFocusExposureControl(
@@ -109,11 +117,7 @@
                         width: layout.previewSize.width,
                         height: layout.previewSize.height
                     )
-                    .onGeometryChange(for: CGFloat.self) { proxy in
-                        proxy.frame(in: .named("cameraDebug")).maxY
-                    } action: {
-                        previewBottom = $0
-                    }
+                    .clipped()
                     .overlay(alignment: .bottom) {
                         CameraZoomControls(
                             zoomOptions: zoomFactors.map { factor in
@@ -129,7 +133,7 @@
                             controlRotation: .zero
                         )
                         .padding(.bottom, 12)
-                        .offset(y: -zoomLift)
+                        .offset(y: -zoomLift(previewBottom: previewBottom))
                     }
                     .frame(
                         width: geometry.size.width,
@@ -152,7 +156,12 @@
                             CameraMaskOption(id: $0.id, title: $0.title)
                         } : [],
                     selectedMaskId: selectedMaskId,
-                    onSelectMask: { selectedMaskId = $0 }
+                    onSelectMask: { id in
+                        withAnimation(reduceMotion ? nil : CameraViewportLayout.transitionAnimation)
+                        {
+                            selectedMaskId = id
+                        }
+                    }
                 )
                 .padding(.horizontal, 36)
                 .padding(.bottom, showsRelatedMasks ? 0 : 16)
@@ -191,6 +200,15 @@
                     onToggleLivePhoto: { isLivePhotoEnabled.toggle() },
                     areAnnotationsVisible: areAnnotationsVisible,
                     onToggleAnnotations: { areAnnotationsVisible.toggle() },
+                    maskVariants: showsRelatedMasks
+                        ? [] : Self.previewMask?.definition.variants ?? [],
+                    selectedVariant: showsRelatedMasks ? nil : selectedVariant,
+                    onSelectVariant: { id in
+                        withAnimation(reduceMotion ? nil : CameraViewportLayout.transitionAnimation)
+                        {
+                            selectedVariantId = id
+                        }
+                    },
                     onMore: {}
                 )
             }
@@ -202,8 +220,14 @@
             Self.mockMasks.first { $0.id == selectedMaskId } ?? Self.mockMasks[0]
         }
 
-        private var zoomLift: CGFloat {
-            guard let previewBottom, let shutterTop else { return 0 }
+        private var selectedVariant: MaskVariant? {
+            guard let mask = Self.previewMask else { return nil }
+            return mask.definition.variants.first { $0.id == selectedVariantId }
+                ?? mask.defaultVariant
+        }
+
+        private func zoomLift(previewBottom: CGFloat) -> CGFloat {
+            guard let shutterTop else { return 0 }
             let defaultZoomBottom = previewBottom - 12
             return max(0, defaultZoomBottom + 24 - shutterTop)
         }

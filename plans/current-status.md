@@ -24,9 +24,10 @@
 | 首页快捷拍摄 | “拍一张”固定打开“前景纵深”模板 `foreground-depth`，不是旧文档中的九宫格 | [GuideView](../ios/Framewise/Features/Guide/GuideView.swift)、[模板 JSON](../composition/templates/foreground-depth/template.v1.json) |
 | 蒙版与注释 | SwiftUI Canvas 绘制实线 / 虚线、圆、圆角矩形及本地化注释；归一化坐标，注释可隐藏 | [MaskCanvas](../ios/Framewise/Core/Canvas/MaskCanvas.swift)、[CameraMaskOverlay](../ios/Framewise/Features/Camera/CameraMaskOverlay.swift) |
 | 关联模板切换组件 | 相机可接收有序关联模板并切换；正式入口目前只传单模板 | [AppRootView](../ios/Framewise/AppRootView.swift)、[CameraScreen](../ios/Framewise/Features/Camera/CameraScreen.swift) |
-| Debug 工具 | 权限检查与申请、单 / 多模板相机 UI mock 预览；mock 不执行真实采集 | [PermissionDebugView](../ios/Framewise/Features/Debug/PermissionDebugView.swift)、[CameraDebugView](../ios/Framewise/Features/Debug/CameraDebugView.swift) |
+| 模板尺寸选择 | 相机顶部显示当前比例，菜单只列出该模板已有且相机支持的画幅，勾选当前尺寸；单尺寸不可切换。蒙版、注释、预览与拍摄比例同步，切换模板回到其默认尺寸；画幅使用约 0.3 秒无回弹过渡，蒙版 / 注释交叉淡化，减少动态效果时直接切换 | [CameraTopBarControls](../ios/Framewise/Features/Camera/CameraTopBarControls.swift)、[CameraScreen](../ios/Framewise/Features/Camera/CameraScreen.swift)、[CameraPreview](../ios/Framewise/Features/Camera/CameraPreview.swift) |
+| Debug 工具 | 权限检查与申请、单 / 多模板相机 UI mock 预览；单模板使用“居中主体”验证 3:4 / 1:1 菜单与蒙版淡化，多模板支持五种画幅过渡；mock 不执行真实采集，也不验证实时视频层动画 | [PermissionDebugView](../ios/Framewise/Features/Debug/PermissionDebugView.swift)、[CameraDebugView](../ios/Framewise/Features/Debug/CameraDebugView.swift) |
 
-模板按当前 `defaultVariant` 使用；存在多种画幅的数据结构和输出支持，不表示已有面向用户的变体选择器。当前渲染器是 SwiftUI Canvas，旧 Skia 指南仅供历史参考。
+模板初次进入使用 `defaultVariant`，相机内可选择已有画幅变体；选择仅保留在本次页面生命周期内，不持久化。当前渲染器是 SwiftUI Canvas，旧 Skia 指南仅供历史参考。
 
 ## 已实现：原生相机
 
@@ -65,6 +66,8 @@
 ## 验收边界
 
 当前新相机已有局部真机反馈和性能样本，但它们只覆盖记录中的构建、素材和场景；旧相机 M0～M6 的验收不能转用。HEIF 的图像 / Live 配对、前置镜像与补光、各比例方向、多设备能力、中断恢复和连续保存的完整矩阵仍需验证。
+
+2026-10-01 相机顶部模板尺寸选择及画幅过渡已通过 Xcode 27 的无签名 generic iOS Simulator 构建，最低部署版本仍为 iOS 18。尺寸选择同步驱动蒙版、注释、预览和拍摄比例；固定大小的 UIKit 容器通过 iOS 18 `context.animate` 同步内部视频层与 SwiftUI 裁剪框，保留同一预览层和 session。过渡期间锁住快门、对焦和缩放，支持再次选择尺寸并忽略过期动画完成回调；离页 / 中断清理过渡状态。未启动模拟器或操作真机，实时画面是否平滑、几何是否同步、连续切换与普通 / Live 成片一致性仍待验收。
 
 2026-09-29 Camera / Photo 职责拆分已通过 Xcode 27 的无签名 generic iOS Simulator 构建，部署版本仍为 iOS 18。
 使用临时 macOS SwiftUI `Binding` 与相机命令替身运行实际 `CameraFocusInteraction`，验证配置 ID 在命令提交时冻结、

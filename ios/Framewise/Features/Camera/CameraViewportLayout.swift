@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct CameraViewportLayout {
+    static let transitionAnimation = Animation.smooth(duration: 0.3)
+
     let previewSize: CGSize
     let maskDrawingSize: CGSize
     let maskRotation: Angle

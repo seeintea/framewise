@@ -18,6 +18,9 @@ struct CameraTopBarControls: ToolbarContent {
     let onToggleLivePhoto: () -> Void
     let areAnnotationsVisible: Bool
     let onToggleAnnotations: () -> Void
+    let maskVariants: [MaskVariant]
+    let selectedVariant: MaskVariant?
+    let onSelectVariant: (String) -> Void
     let onMore: () -> Void
     var controlRotation = Angle.zero
     var isCameraReady = true
@@ -27,6 +30,33 @@ struct CameraTopBarControls: ToolbarContent {
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             HStack(spacing: 12) {
+                if let selectedVariant {
+                    Menu {
+                        Picker(
+                            .cameraMaskSize,
+                            selection: Binding(
+                                get: { selectedVariant.id },
+                                set: onSelectVariant
+                            )
+                        ) {
+                            ForEach(maskVariants) { variant in
+                                Text(verbatim: aspectRatioLabel(for: variant))
+                                    .tag(variant.id)
+                            }
+                        }
+                    } label: {
+                        Text(verbatim: aspectRatioLabel(for: selectedVariant))
+                            .font(.subheadline.monospacedDigit())
+                            .fixedSize()
+                            .rotationEffect(controlRotation)
+                    }
+                    .tint(.white)
+                    .disabled(!isCameraReady || maskVariants.count < 2)
+                    .allowsHitTesting(!isCapturing)
+                    .accessibilityLabel(Text(.cameraMaskSize))
+                    .accessibilityValue(Text(verbatim: aspectRatioLabel(for: selectedVariant)))
+                }
+
                 Button(action: onToggleFlash) {
                     Image(systemName: flashSymbol)
                         .resizable()
@@ -95,6 +125,11 @@ struct CameraTopBarControls: ToolbarContent {
             )
             .padding(.horizontal, 12)
         }
+    }
+
+    private func aspectRatioLabel(for variant: MaskVariant) -> String {
+        let ratio = variant.aspectRatio
+        return "\(Int(ratio.width)):\(Int(ratio.height))"
     }
 
     private var flashSymbol: String {

@@ -3,30 +3,39 @@ import SwiftUI
 
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
+    let viewportSize: CGSize
     var isMirrored = false
     let onTap: (CGPoint, CGPoint) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onTap: onTap) }
 
-    func makeUIView(context: Context) -> PreviewView {
-        let view = PreviewView()
-        view.previewLayer.videoGravity = .resizeAspectFill
-        view.previewLayer.session = session
-        view.isMirrored = isMirrored
+    func makeUIView(context: Context) -> PreviewContainerView {
+        let view = PreviewContainerView(viewportSize: viewportSize)
+        view.previewView.previewLayer.videoGravity = .resizeAspectFill
+        view.previewView.previewLayer.session = session
+        view.previewView.isMirrored = isMirrored
         let tap = UITapGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.didTap(_:))
         )
-        view.addGestureRecognizer(tap)
+        view.previewView.addGestureRecognizer(tap)
         return view
     }
 
-    func updateUIView(_ view: PreviewView, context: Context) {
+    func updateUIView(_ view: PreviewContainerView, context: Context) {
         context.coordinator.onTap = onTap
-        if view.previewLayer.session !== session {
-            view.previewLayer.session = session
+        if view.previewView.previewLayer.session !== session {
+            view.previewView.previewLayer.session = session
         }
-        view.isMirrored = isMirrored
+        view.previewView.isMirrored = isMirrored
+        if view.viewportSize != viewportSize {
+            // Match the SwiftUI crop and overlay animation without resizing its hosted UIView.
+            context.animate {
+                view.viewportSize = viewportSize
+                view.setNeedsLayout()
+                view.layoutIfNeeded()
+            }
+        }
     }
 
     final class Coordinator: NSObject {
@@ -44,6 +53,29 @@ struct CameraPreview: UIViewRepresentable {
                 location
             )
         }
+    }
+}
+
+final class PreviewContainerView: UIView {
+    let previewView = PreviewView()
+    var viewportSize: CGSize
+
+    init(viewportSize: CGSize) {
+        self.viewportSize = viewportSize
+        super.init(frame: .zero)
+        previewView.clipsToBounds = true
+        addSubview(previewView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewView.bounds = CGRect(origin: .zero, size: viewportSize)
+        previewView.center = CGPoint(x: bounds.midX, y: bounds.midY)
     }
 }
 

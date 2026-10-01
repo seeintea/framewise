@@ -34,7 +34,8 @@ struct CameraScreen: View {
     @State private var shutterFeedbackIsLivePhoto = false
     @State private var isShutterFeedbackVisible = false
     @State private var selectedMaskId: String
-    @State private var captureRatio: PhotoAspectRatio
+    @State private var selectedVariantId: String?
+    @State private var viewportTransitionID: UUID?
     @State private var zoomOptions: [CameraEngine.ZoomOption] = []
     @State private var zoomFactor: CGFloat = 1
     @GestureState private var selfieZoomTarget: CGFloat?
@@ -47,7 +48,6 @@ struct CameraScreen: View {
     @State private var exposureRange: ClosedRange<Float> = 0...0
     @State private var flashModes: [AVCaptureDevice.FlashMode] = []
     @State private var focusState = CameraFocusInteraction.State()
-    @State private var previewBottom: CGFloat?
     @State private var shutterTop: CGFloat?
     @State private var previewFrame = CGRect.zero
     @State private var zoomFrame = CGRect.zero
@@ -67,32 +67,32 @@ struct CameraScreen: View {
         self._prefersLivePhoto = prefersLivePhoto
         self._selectedMaskId = State(initialValue: initialMaskId)
         let initialMask = masks.first { $0.id == initialMaskId }
-        self._captureRatio = State(
-            initialValue: Self.photoRatio(
-                for: initialMask?.defaultVariant.aspectRatio
-            )
-                ?? .standard
-        )
+        self._selectedVariantId = State(initialValue: initialMask?.defaultVariant.id)
     }
 
     var body: some View {
         GeometryReader { geometry in
             let availableHeight =
                 geometry.size.height + geometry.safeAreaInsets.top
+            let availableSize = CGSize(width: geometry.size.width, height: availableHeight)
             let layout = CameraViewportLayout(
-                aspectRatio: selectedMask?.defaultVariant.aspectRatio
+                aspectRatio: selectedVariant?.aspectRatio
                     ?? MaskAspectRatio(width: 3, height: 4),
-                availableSize: CGSize(
-                    width: geometry.size.width,
-                    height: availableHeight
-                ),
+                availableSize: availableSize,
                 landscapeRotation: holdQuarterTurns == 1
                     ? .degrees(-90) : .degrees(90)
             )
 
-            preview(layout: layout)
-                .frame(width: geometry.size.width, height: availableHeight)
-                .offset(y: -geometry.safeAreaInsets.top)
+            let previewBottom =
+                (availableHeight + layout.previewSize.height) / 2 - geometry.safeAreaInsets.top
+
+            preview(
+                layout: layout,
+                availableSize: availableSize,
+                zoomLift: zoomLift(previewBottom: previewBottom)
+            )
+            .frame(width: geometry.size.width, height: availableHeight)
+            .offset(y: -geometry.safeAreaInsets.top)
         }
         .background(Color.black.ignoresSafeArea())
         .sensoryFeedback(
@@ -168,6 +168,9 @@ struct CameraScreen: View {
                 onToggleLivePhoto: toggleLivePhoto,
                 areAnnotationsVisible: areAnnotationsVisible,
                 onToggleAnnotations: { areAnnotationsVisible.toggle() },
+                maskVariants: availableVariants,
+                selectedVariant: selectedVariant,
+                onSelectVariant: selectVariant,
                 onMore: {},
                 controlRotation: controlRotation,
                 isCameraReady: cameraControlsAppearReady,
@@ -230,24 +233,36 @@ struct CameraScreen: View {
         }
     }
 
-    private func preview(layout: CameraViewportLayout) -> some View {
-        CameraPreview(session: camera.session, isMirrored: isFrontCamera) {
+    private func preview(
+        layout: CameraViewportLayout,
+        availableSize: CGSize,
+        zoomLift: CGFloat
+    ) -> some View {
+        CameraPreview(
+            session: camera.session,
+            viewportSize: layout.previewSize,
+            isMirrored: isFrontCamera
+        ) {
             devicePoint, viewPoint in
             focus(at: devicePoint, showAt: viewPoint)
         }
+        // Keep the UIKit host stable; only its preview subview and this crop change size.
+        .frame(width: availableSize.width, height: availableSize.height)
         .frame(
             width: layout.previewSize.width,
             height: layout.previewSize.height
         )
         .clipped()
+        .contentShape(Rectangle())
         .gesture(
             MagnificationGesture()
                 .updating($isZoomGestureActive) { _, active, _ in
-                    guard phase == .ready else { return }
+                    guard phase == .ready, viewportTransitionID == nil else { return }
                     active = true
                 }
                 .updating($selfieZoomTarget) { value, target, _ in
-                    guard phase == .ready, isFrontCamera, target == nil,
+                    guard phase == .ready, viewportTransitionID == nil,
+                        isFrontCamera, target == nil,
                         zoomOptions.count == 2
                     else { return }
                     // Front-camera pinches select a framing, never a continuous factor.
@@ -258,7 +273,9 @@ struct CameraScreen: View {
                     }
                 }
                 .onChanged { value in
-                    guard phase == .ready, !isFrontCamera else { return }
+                    guard phase == .ready, viewportTransitionID == nil, !isFrontCamera else {
+                        return
+                    }
                     let configurationID = cameraConfigurationID
                     camera.magnifyZoom(value) { value in
                         guard phase != .stopped, cameraConfigurationID == configurationID
@@ -266,29 +283,35 @@ struct CameraScreen: View {
                         zoomFactor = value
                     }
                 },
-            including: phase == .ready ? .all : .subviews
+            including: phase == .ready && viewportTransitionID == nil ? .all : .subviews
         )
         .onChange(of: isZoomGestureActive) { _, isActive in
             if !isActive { camera.endZoomGesture() }
         }
         .onChange(of: selfieZoomTarget) { _, target in
-            guard phase == .ready, isFrontCamera, let target,
+            guard phase == .ready, viewportTransitionID == nil, isFrontCamera, let target,
                 abs(target - zoomFactor) > 0.01
             else { return }
             setZoom(target)
         }
         .overlay {
-            if let mask = selectedMask {
-                CameraMaskOverlay(
-                    variant: mask.defaultVariant,
-                    annotationTextById: mask.annotationTextById(
-                        variantId: mask.defaultVariant.id
-                    ),
-                    showsAnnotations: areAnnotationsVisible,
-                    layout: layout
-                )
-                .allowsHitTesting(false)
+            ZStack {
+                if let mask = selectedMask, let variant = selectedVariant {
+                    CameraMaskOverlay(
+                        variant: variant,
+                        annotationTextById: mask.annotationTextById(
+                            variantId: variant.id
+                        ),
+                        showsAnnotations: areAnnotationsVisible,
+                        layout: layout
+                    )
+                    .id(variant.id)
+                    .transition(.opacity)
+                }
             }
+            .frame(width: layout.previewSize.width, height: layout.previewSize.height)
+            .clipped()
+            .allowsHitTesting(false)
 
             if let focusPoint = focusInteraction.point {
                 CameraFocusExposureControl(
@@ -314,7 +337,6 @@ struct CameraScreen: View {
             proxy.frame(in: .named("cameraScreen"))
         } action: { frame in
             previewFrame = frame
-            previewBottom = frame.maxY
         }
         .overlay(alignment: .bottom) {
             CameraZoomControls(
@@ -325,7 +347,7 @@ struct CameraScreen: View {
                 controlRotation: controlRotation,
                 isFrontCamera: isFrontCamera
             )
-            .allowsHitTesting(!isCapturing)
+            .allowsHitTesting(!isCapturing && viewportTransitionID == nil)
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.2),
                 value: controlRotation
@@ -359,7 +381,7 @@ struct CameraScreen: View {
 
     private var canCapture: Bool {
         cameraControlsAppearReady && isCaptureReady && !zoomOptions.isEmpty
-            && !isShutterFeedbackVisible
+            && !isShutterFeedbackVisible && captureRatio != nil && viewportTransitionID == nil
     }
 
     // Capture locks other camera controls without changing their normal appearance.
@@ -370,6 +392,20 @@ struct CameraScreen: View {
 
     private var selectedMask: MaskContent? {
         masks.first { $0.id == selectedMaskId }
+    }
+
+    private var selectedVariant: MaskVariant? {
+        selectedMask?.definition.variants.first { $0.id == selectedVariantId }
+    }
+
+    private var availableVariants: [MaskVariant] {
+        selectedMask?.definition.variants.filter {
+            Self.photoRatio(for: $0.aspectRatio) != nil
+        } ?? []
+    }
+
+    private var captureRatio: PhotoAspectRatio? {
+        Self.photoRatio(for: selectedVariant?.aspectRatio)
     }
 
     private var controlRotation: Angle {
@@ -394,18 +430,42 @@ struct CameraScreen: View {
             supported[(currentIndex + 1) % supported.count].rawValue
     }
 
-    private var zoomLift: CGFloat {
-        guard let previewBottom, let shutterTop else { return 0 }
+    private func zoomLift(previewBottom: CGFloat) -> CGFloat {
+        guard let shutterTop else { return 0 }
         return max(0, previewBottom - 12 + 24 - shutterTop)
     }
 
     private func selectMask(_ id: String) {
-        guard let mask = masks.first(where: { $0.id == id }),
-            let ratio = Self.photoRatio(for: mask.defaultVariant.aspectRatio)
+        guard phase == .ready, id != selectedMaskId,
+            let mask = masks.first(where: { $0.id == id }),
+            Self.photoRatio(for: mask.defaultVariant.aspectRatio) != nil
         else { return }
-        selectedMaskId = id
-        captureRatio = ratio
+        updateMaskSelection(maskId: id, variantId: mask.defaultVariant.id)
+    }
+
+    private func selectVariant(_ id: String) {
+        guard phase == .ready, id != selectedVariantId,
+            availableVariants.contains(where: { $0.id == id })
+        else { return }
+        updateMaskSelection(maskId: selectedMaskId, variantId: id)
+    }
+
+    private func updateMaskSelection(maskId: String, variantId: String) {
         focusInteraction.hideFeedback()
+        camera.endZoomGesture()
+        let transitionID = UUID()
+        viewportTransitionID = transitionID
+        withAnimation(
+            reduceMotion ? nil : CameraViewportLayout.transitionAnimation,
+            completionCriteria: .removed
+        ) {
+            selectedMaskId = maskId
+            selectedVariantId = variantId
+        } completion: {
+            // A superseded animation must not unlock controls during a newer transition.
+            guard viewportTransitionID == transitionID else { return }
+            viewportTransitionID = nil
+        }
     }
 
     private static func photoRatio(for aspect: MaskAspectRatio?)
@@ -423,7 +483,7 @@ struct CameraScreen: View {
     }
 
     private func focus(at devicePoint: CGPoint, showAt viewPoint: CGPoint) {
-        guard phase == .ready else { return }
+        guard phase == .ready, viewportTransitionID == nil else { return }
         let screenPoint = CGPoint(
             x: previewFrame.minX + viewPoint.x,
             y: previewFrame.minY + viewPoint.y
@@ -436,7 +496,7 @@ struct CameraScreen: View {
         CameraFocusInteraction(
             state: $focusState,
             camera: camera,
-            canInteract: { phase == .ready },
+            canInteract: { phase == .ready && viewportTransitionID == nil },
             configurationID: { cameraConfigurationID },
             isRunning: { phase != .stopped },
             reduceMotion: reduceMotion,
@@ -446,6 +506,7 @@ struct CameraScreen: View {
 
     private func stopCamera() {
         phase = .stopped
+        viewportTransitionID = nil
         isShutterFeedbackVisible = false
         activeCaptureIDs.removeAll()
         isCaptureReady = false
@@ -474,6 +535,7 @@ struct CameraScreen: View {
 
     private func suspendCameraControls() {
         cameraConfigurationID = UUID()
+        viewportTransitionID = nil
         activeCaptureIDs.removeAll()
         isCaptureReady = false
         isShutterFeedbackVisible = false
@@ -539,7 +601,7 @@ struct CameraScreen: View {
     }
 
     private func setZoom(_ requestedFactor: CGFloat) {
-        guard phase == .ready else { return }
+        guard phase == .ready, viewportTransitionID == nil else { return }
         let configurationID = cameraConfigurationID
         camera.setZoom(requestedFactor, animated: !reduceMotion) { value in
             guard phase != .stopped, cameraConfigurationID == configurationID
@@ -591,8 +653,7 @@ struct CameraScreen: View {
     }
 
     private func capture() {
-        guard canCapture, camera.canCapture else { return }
-        let ratioAtShutter = captureRatio
+        guard canCapture, camera.canCapture, let ratioAtShutter = captureRatio else { return }
         let flashAtShutter = flashMode
         let livePhotoAtShutter = livePhotoEnabled
         let operationID = UUID()

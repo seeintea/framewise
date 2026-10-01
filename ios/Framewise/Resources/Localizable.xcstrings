@@ -884,6 +884,23 @@
         }
       }
     },
+    "camera.mask-size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template size"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模版尺寸"
+          }
+        }
+      }
+    },
     "camera.zoom.accessibility-label" : {
       "extractionState" : "manual",
       "localizations" : {
