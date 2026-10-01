@@ -11,8 +11,10 @@ struct SearchTemplateCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let mask: MaskContent
+    var aspectRatioOverride: CGFloat? = nil
 
     private var aspectRatio: CGFloat {
+        if let aspectRatioOverride { return aspectRatioOverride }
         let ratio = mask.defaultVariant.aspectRatio
         return CGFloat(ratio.width / ratio.height)
     }

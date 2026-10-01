@@ -12,6 +12,7 @@ struct MainTabView: View {
 
     let onCameraRequest: (CameraMaskRequest) -> Void
     let onSearch: () -> Void
+    let onSearchTest: () -> Void
 
     var body: some View {
         content
@@ -31,7 +32,7 @@ struct MainTabView: View {
         case .guide:
             GuideView(onCameraRequest: onCameraRequest)
         case .settings:
-            SettingView()
+            SettingView(onSearchTest: onSearchTest)
         }
     }
 }

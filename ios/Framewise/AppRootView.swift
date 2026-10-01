@@ -9,6 +9,9 @@ import SwiftUI
 
 private enum AppRoute: Hashable {
     case search
+    #if DEBUG
+        case searchTest
+    #endif
     case camera(CameraMaskRequest)
 }
 
@@ -29,12 +32,21 @@ struct AppRootView: View {
                 },
                 onSearch: {
                     path.append(.search)
+                },
+                onSearchTest: {
+                    #if DEBUG
+                        path.append(.searchTest)
+                    #endif
                 }
             )
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .search:
                     searchDestination()
+                #if DEBUG
+                    case .searchTest:
+                        searchTestDestination()
+                #endif
                 case .camera(let request):
                     cameraDestination(for: request)
                 }
@@ -49,6 +61,26 @@ struct AppRootView: View {
             Text(.cameraErrorSave)
         }
     }
+
+    #if DEBUG
+        @ViewBuilder
+        private func searchTestDestination() -> some View {
+            if case .success(let masks) = Self.masks {
+                SearchTestView(
+                    masks: masks,
+                    onCameraRequest: { request in
+                        path.append(.camera(request))
+                    }
+                )
+            } else {
+                ContentUnavailableView(
+                    "无法加载模版",
+                    systemImage: "square.grid.2x2",
+                    description: Text("请稍后重试。")
+                )
+            }
+        }
+    #endif
 
     @ViewBuilder
     private func searchDestination() -> some View {

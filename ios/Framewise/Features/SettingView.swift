@@ -8,10 +8,16 @@
 import SwiftUI
 
 struct SettingView: View {
+    let onSearchTest: () -> Void
+
     var body: some View {
         Form {
             #if DEBUG
                 Section("开发调试") {
+                    Button(action: onSearchTest) {
+                        Label("SearchTest", systemImage: "rectangle.grid.2x2")
+                    }
+
                     NavigationLink {
                         PermissionDebugView()
                     } label: {

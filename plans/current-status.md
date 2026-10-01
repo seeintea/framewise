@@ -1,6 +1,6 @@
 # 当前实现清单
 
-> 状态：当前代码事实。核对日期：2026-09-29。依据为当前工作树的 Swift、模板 JSON、Web 工具源码和 `Framewise` target build settings。
+> 状态：当前代码事实。核对日期：2026-10-01。依据为当前工作树的 Swift、模板 JSON、Web 工具源码和 `Framewise` target build settings。
 >
 > “已实现”表示代码链路存在，不等于所有设备与场景已通过真机验收。未完成和待验证事项统一放在[待实现与待优化](next-steps.md)，实验结果见[相机实验记录](camera-experiments.md)。
 
@@ -21,6 +21,7 @@
 | 本地模板加载与解码 | 14 个模板；独立 `template.v1.json` 与 `zh-Hans.v1.json`，UUID 引用，校验 schema、默认变体与本地化 | [模板数据说明](../composition/README.md)、[MaskDataSource](../ios/Framewise/MaskDataSource.swift)、[MaskContent 解码](../ios/Framewise/Server/Models/MaskContent+Decoding.swift) |
 | 本地查询入口 | `MaskServer` 列表与按 ID 查询；没有网络服务 | [ListMasks](../ios/Framewise/Server/ListMasks.swift)、[GetMask](../ios/Framewise/Server/GetMask.swift) |
 | 模板搜索与选择 | 顶部搜索框按名称与简介实时筛选，支持清空与无结果状态；双列瀑布流以默认变体的真实画幅显示色块卡片，仅叠加标题与推荐比例，文字使用浅色半透明底，较矮卡片使用紧凑排版，点击打开该模板；辅助功能大字号使用单列 | [SearchView](../ios/Framewise/Features/Search/SearchView.swift)、[SearchTemplateCard](../ios/Framewise/Features/Search/SearchTemplateCard.swift)、[SearchTemplateLayout](../ios/Framewise/Features/Search/SearchTemplateLayout.swift)、[CameraMaskRequest](../ios/Framewise/Navigation/CameraMaskRequest.swift) |
+| SearchTest 色块实验 | Debug 设置页独立入口；竖版与方形保留默认变体比例，横版卡片在列表中显示为 3:4；保留双列瀑布流和大字号单列，使用系统搜索框筛选名称 / 简介。长按通过系统上下文菜单预览真实画幅，并提供“使用模版拍摄”；轻点卡片直接进入该模板相机。正式 Search 与模板数据不变 | [SearchTestView](../ios/Framewise/Features/Debug/SearchTestView.swift)、[SettingView](../ios/Framewise/Features/SettingView.swift)、[AppRootView](../ios/Framewise/AppRootView.swift) |
 | 首页快捷拍摄 | “拍一张”固定打开“前景纵深”模板 `foreground-depth`，不是旧文档中的九宫格 | [GuideView](../ios/Framewise/Features/Guide/GuideView.swift)、[模板 JSON](../composition/templates/foreground-depth/template.v1.json) |
 | 蒙版与注释 | SwiftUI Canvas 绘制实线 / 虚线、圆、圆角矩形及本地化注释；归一化坐标，注释可隐藏 | [MaskCanvas](../ios/Framewise/Core/Canvas/MaskCanvas.swift)、[CameraMaskOverlay](../ios/Framewise/Features/Camera/CameraMaskOverlay.swift) |
 | 关联模板切换组件 | 相机可接收有序关联模板并切换；正式入口目前只传单模板 | [AppRootView](../ios/Framewise/AppRootView.swift)、[CameraScreen](../ios/Framewise/Features/Camera/CameraScreen.swift) |
@@ -79,3 +80,5 @@
 2026-09-29 跨页面采集额度与取消捏合清理已实现，无签名 generic iOS Simulator 构建通过；使用临时 PhotoKit 替身验证了共享额度、当前页面通知、保存成功与失败后的释放及 Live 临时资源清理。替身为非仓库材料，不调用真实相册；退出重入快门及被打断捏合的真机体验仍待验证，本轮未运行应用或追加真机验收。
 
 2026-09-29 模板搜索与双列瀑布流已通过无签名 generic iOS Simulator 构建。卡片以封面内叠加标题与推荐比例的方式保持原画幅，简介不再显示，文字不增加卡片高度。使用临时 macOS SwiftUI 离屏渲染核对了五种画幅、浅 / 深色与显式放大字体时的紧凑排版；这些样例为非仓库材料，不能替代 iOS Dynamic Type 与真机验收。搜索交互与可访问性的实际体验仍待验证，本轮未启动模拟器或操作真机。
+
+2026-10-01 独立 SearchTest 页面已通过 Xcode 27 的 Debug / Release 无签名 generic iOS Simulator 构建，最低部署版本仍为 iOS 18。测试入口与页面仅在 Debug 中提供，正式 Search 沿用原展示规则。长按使用 iOS 16 起可用的系统上下文菜单预览。用户反馈页面外观可接受，但未记录机型、系统或具体交互覆盖；预览尺寸、手势、返回路径和可访问性仍待完整验收，也不能用色块证明真实图片裁切效果。代理本轮未启动模拟器或操作真机。
