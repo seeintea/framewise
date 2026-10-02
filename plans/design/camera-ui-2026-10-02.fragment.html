@@ -1,0 +1,317 @@
+<style>
+  #fw-camera-full-width .fw-stage { min-height: 720px; padding: 22px 12px 12px; display: flex; justify-content: center; align-items: flex-start; box-sizing: border-box; }
+  #fw-camera-full-width .fw-phone { --fw-shell: light-dark(#18191a,#101112); --fw-ink: light-dark(#f5f5f0,#f2f2ed); --fw-muted: #a4a5a4; --fw-button: #292b2d; --fw-accent: #dfc28a; --fw-guide: .72; position: relative; display: flex; flex-direction: column; width: min(320px,100%); min-height: 676px; padding: 0 0 12px; overflow: hidden; box-sizing: border-box; border: 1px solid light-dark(#484947,#393b3b); border-radius: 36px; background: var(--fw-shell); color: var(--fw-ink); font-family: -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif; font-size: 13px; font-weight: 400; line-height: 1.4; box-shadow: 0 14px 28px light-dark(#19212a20,#00000040); }
+  #fw-camera-full-width .fw-phone * { box-sizing: border-box; }
+  #fw-camera-full-width .fw-phone button { font: inherit; color: inherit; border: 0; background: transparent; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+  #fw-camera-full-width .fw-phone button:active { opacity: .7; }
+  #fw-camera-full-width .fw-phone svg { width: 19px; height: 19px; stroke-width: 1.6; }
+  #fw-camera-full-width .fw-status { height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 4px 24px 0; font-size: 12px; font-weight: 500; }
+  #fw-camera-full-width .fw-status-right { display: flex; align-items: center; gap: 5px; }
+  #fw-camera-full-width .fw-status-right svg { width: 14px; height: 14px; }
+  #fw-camera-full-width .fw-toolbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; position: relative; z-index: 4; }
+  #fw-camera-full-width .fw-tools { display: flex; align-items: center; gap: 2px; }
+  #fw-camera-full-width .fw-icon { width: 44px; height: 44px; border-radius: 50%; }
+  #fw-camera-full-width .fw-tools .fw-ratio { width: 46px; font-variant-numeric: tabular-nums; font-size: 13px; letter-spacing: .5px; }
+  #fw-camera-full-width .fw-phone button[aria-pressed="true"] { color: var(--fw-accent); }
+  #fw-camera-full-width .fw-meta { height: 34px; padding: 0 18px 10px; display: flex; align-items: center; justify-content: space-between; color: var(--fw-muted); font-size: 11px; letter-spacing: .8px; }
+  #fw-camera-full-width .fw-meta strong { color: var(--fw-ink); font-size: 12px; font-weight: 500; letter-spacing: 1.5px; }
+  #fw-camera-full-width .fw-viewfinder { position: relative; margin: 0 12px; aspect-ratio: 3/4; background: #cfccbd; overflow: hidden; border-radius: 2px; isolation: isolate; }
+  #fw-camera-full-width .fw-scene { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(115deg,#e9e1cc 0%,#ded5c2 46%,#beb9a4 100%); }
+  #fw-camera-full-width .fw-wall-shadow { position: absolute; inset: 0; background: linear-gradient(117deg,transparent 0 41%,#6b665c28 41.5% 59%,transparent 59.5%),linear-gradient(0deg,#9e967821,transparent 50%); }
+  #fw-camera-full-width .fw-arch { position: absolute; width: 48%; height: 68%; left: 52%; top: -9%; border-radius: 50% 50% 0 0; background: linear-gradient(105deg,#666f64,#8b9986 54%,#bbc2a9); box-shadow: inset 12px 0 0 #c2b69a, -5px 0 12px #847d6526; }
+  #fw-camera-full-width .fw-arch:before { content: ''; position: absolute; height: 100%; width: 2px; left: 45%; background: #4f5b4e88; }
+  #fw-camera-full-width .fw-table { position: absolute; width: 145%; height: 34%; left: -25%; top: 76%; background: linear-gradient(164deg,#b39a73,#8f7355); border-radius: 50% 50% 0 0/14% 14% 0 0; box-shadow: 0 -4px 15px #74624616; }
+  #fw-camera-full-width .fw-table:after { content: ''; position: absolute; inset: 0; opacity: .12; background: repeating-linear-gradient(0deg,transparent 0 3px,#f6ead6 4px,transparent 5px); }
+  #fw-camera-full-width .fw-vase { position: absolute; width: 21%; height: 26%; left: 40%; top: 55%; background: linear-gradient(90deg,#aaa58e,#e8e0c6 38%,#d0c8ac 76%,#a49d83); border-radius: 24% 25% 33% 31%/40% 37% 19% 18%; transform: rotate(-2deg); box-shadow: 13px 8px 13px #45463229,inset 3px 0 4px #eee8d322; }
+  #fw-camera-full-width .fw-vase:before { content: ''; position: absolute; width: 55%; height: 5%; left: 24%; top: 0; background: #898774; border-radius: 50%; }
+  #fw-camera-full-width .fw-stem { position: absolute; height: 36%; width: 2px; left: 50%; top: 24%; background: #626e49; transform-origin: bottom; transform: rotate(-9deg); }
+  #fw-camera-full-width .fw-leaf { position: absolute; width: 43px; height: 15px; border-radius: 0 85% 0 85%; background: linear-gradient(170deg,#788060,#45523d); transform-origin: left center; box-shadow: 2px 3px 4px #5a645c0d; }
+  #fw-camera-full-width .fw-leaf:nth-child(1) { top: 10%; left: 0; transform: rotate(-42deg); }
+  #fw-camera-full-width .fw-leaf:nth-child(2) { top: 26%; right: 0; transform-origin: right; transform: rotate(30deg); }
+  #fw-camera-full-width .fw-leaf:nth-child(3) { top: 40%; left: 0; transform: rotate(-26deg); }
+  #fw-camera-full-width .fw-leaf:nth-child(4) { top: 59%; right: 0; transform-origin: right; transform: rotate(25deg); }
+  #fw-camera-full-width .fw-leaf:nth-child(5) { top: 71%; left: 0; transform: rotate(-16deg); }
+  #fw-camera-full-width .fw-book { position: absolute; left: 5%; top: 80%; width: 28%; height: 6%; background: linear-gradient(#dbd3bd 0 15%,#b6b09d 18% 82%,#708074 83%); transform: skewY(8deg) rotate(-12deg); box-shadow: 9px 8px 8px #5b4b372b; }
+  #fw-camera-full-width .fw-mask { pointer-events: none; position: absolute; inset: 20% 20% 17%; border: 1px solid #fff8dd; opacity: var(--fw-guide); border-radius: 48% 48% 6px 6px; box-shadow: 0 0 0 1px #39453620; }
+  #fw-camera-full-width .fw-mask:before, #fw-camera-full-width .fw-mask:after { content: ''; position: absolute; background: #fff8dd99; }
+  #fw-camera-full-width .fw-mask:before { width: 1px; height: 12px; left: 50%; top: -6px; }
+  #fw-camera-full-width .fw-mask:after { height: 1px; width: 12px; left: calc(50% - 6px); bottom: 0; }
+  #fw-camera-full-width .fw-annotation { position: absolute; top: 9%; left: 0; right: 0; text-align: center; font-size: 11px; letter-spacing: 1px; color: #ffffff; text-shadow: 0 1px 6px #333d35; }
+  #fw-camera-full-width .fw-annotation[hidden] { display: none; }
+  #fw-camera-full-width .fw-zoom { display: flex; align-items: center; justify-content: center; gap: 7px; height: 57px; }
+  #fw-camera-full-width .fw-zoom button { width: 44px; height: 44px; border-radius: 50%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #fw-camera-full-width .fw-zoom button[aria-pressed="true"] { background: var(--fw-button); color: var(--fw-accent); }
+  #fw-camera-full-width .fw-bottom { height: 86px; display: flex; align-items: center; justify-content: space-between; padding: 0 27px; margin-top: auto; position: relative; z-index: 3; }
+  #fw-camera-full-width .fw-phone .fw-side { width: 44px; height: 44px; background: var(--fw-button); border-radius: 50%; }
+  #fw-camera-full-width .fw-phone .fw-album { padding: 3px; overflow: hidden; }
+  #fw-camera-full-width .fw-thumb { width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(155deg,#d9d4bd 0 44%,#839073 45% 70%,#7d6b51 71%); }
+  #fw-camera-full-width .fw-phone .fw-shutter { width: 72px; height: 72px; border: 1.5px solid #f1eee3; border-radius: 50%; padding: 5px; color: #fff; }
+  #fw-camera-full-width .fw-shutter span { display: block; width: 100%; height: 100%; background: #f5f2e8; border-radius: 50%; }
+  #fw-camera-full-width .fw-home { width: 102px; height: 4px; background: var(--fw-ink); border-radius: 3px; margin: 13px auto 0; opacity: .6; }
+  #fw-camera-full-width .fw-flash { position: absolute; inset: 0; z-index: 3; background: #ffffff; opacity: 0; pointer-events: none; }
+  #fw-camera-full-width .fw-phone.is-shooting .fw-flash { animation: fw-capture .23s ease-out; }
+  @keyframes fw-capture { 0% { opacity: .45; } 100% { opacity: 0; } }
+  #fw-camera-full-width .fw-stage { min-height: 752px; }
+  #fw-camera-full-width .fw-phone { --fw-shell: light-dark(#1a1c1a,#121513); --fw-ink: #f0eee5; --fw-muted: #a5aba3; --fw-button: light-dark(#2b302a,#252a24); --fw-accent: #d4bc89; --fw-guide: .7; --fw-corner: 12px; --fw-guides-color: #f5f0df; width: min(330px,100%); min-height: 708px; border-color: light-dark(#484d43,#373c34); border-radius: 34px; }
+  #fw-camera-full-width .fw-status { height: 34px; }
+  #fw-camera-full-width .fw-toolbar { height: 45px; padding: 0 12px; display: grid; grid-template-columns: 80px 1fr 80px; }
+  #fw-camera-full-width .fw-wordmark { font-size: 13px; font-weight: 500; letter-spacing: 1.3px; text-align: center; color: var(--fw-ink); }
+  #fw-camera-full-width .fw-tools { gap: 0; justify-self: end; }
+  #fw-camera-full-width .fw-toolbar .fw-icon { width: 40px; height: 44px; }
+  #fw-camera-full-width .fw-tools button { position: relative; color: #a5aba3; }
+  #fw-camera-full-width .fw-tools button span[hidden] { display: none; }
+  #fw-camera-full-width .fw-tools button[aria-pressed="true"] { color: var(--fw-ink); }
+  #fw-camera-full-width .fw-tools button[aria-pressed="true"]:after { content: ''; position: absolute; bottom: 4px; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+  #fw-camera-full-width .fw-editor { display: flex; flex-direction: column; margin: 0 13px; }
+  #fw-camera-full-width .fw-meta { position: relative; z-index: 5; height: 59px; padding: 0 4px 12px; justify-content: flex-start; gap: 10px; letter-spacing: 0; }
+  #fw-camera-full-width .fw-template-mark { display: grid; place-items: center; color: var(--fw-accent); width: 30px; height: 36px; flex-shrink: 0; }
+  #fw-camera-full-width .fw-template-mark svg { width: 27px; height: 27px; stroke-width: 1.2; }
+  #fw-camera-full-width .fw-template-title { display: flex; flex-direction: column; gap: 1px; }
+  #fw-camera-full-width .fw-template-title span { font-size: 11px; color: var(--fw-muted); letter-spacing: .5px; }
+  #fw-camera-full-width .fw-meta strong { font-size: 16px; font-weight: 500; letter-spacing: 1.1px; }
+  #fw-camera-full-width .fw-ratio-picker { margin-left: auto; position: relative; }
+  #fw-camera-full-width .fw-phone .fw-ratio { height: 44px; min-width: 54px; gap: 5px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--fw-ink); }
+  #fw-camera-full-width .fw-ratio svg { width: 12px; height: 12px; color: var(--fw-muted); }
+  #fw-camera-full-width .fw-ratio-menu { position: absolute; right: 0; top: 43px; width: 110px; background: #2d322b; padding: 4px; border: 1px solid #565d50; border-radius: 12px; box-shadow: 0 8px 24px #00000040; z-index: 8; }
+  #fw-camera-full-width .fw-ratio-menu[hidden] { display: none; }
+  #fw-camera-full-width .fw-ratio-menu button { width: 100%; height: 44px; justify-content: space-between; border-radius: 8px; padding: 0 12px; font-size: 13px; }
+  #fw-camera-full-width .fw-ratio-menu button[aria-pressed="true"] { background: #3d4537; color: var(--fw-accent); }
+  #fw-camera-full-width .fw-ratio-menu .fw-check { opacity: 0; }
+  #fw-camera-full-width .fw-ratio-menu button[aria-pressed="true"] .fw-check { opacity: 1; }
+  #fw-camera-full-width .fw-photo-mount { position: relative; aspect-ratio: 3/4; }
+  #fw-camera-full-width .fw-photo-wrap { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); aspect-ratio: var(--fw-ratio,3/4); }
+  #fw-camera-full-width .fw-viewfinder { position: absolute; inset: 0; margin: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 1px; }
+  #fw-camera-full-width .fw-scene { inset: auto 0; top: 50%; height: auto; aspect-ratio: 3/4; transform: translateY(-50%) scale(var(--fw-scene-scale,1)); transform-origin: center; }
+  #fw-camera-full-width .fw-corner { position: absolute; z-index: 3; width: var(--fw-corner); height: var(--fw-corner); border-color: var(--fw-accent); border-style: solid; opacity: .85; pointer-events: none; }
+  #fw-camera-full-width .fw-corner-tl { left: -3px; top: -3px; border-width: 1px 0 0 1px; }
+  #fw-camera-full-width .fw-corner-tr { right: -3px; top: -3px; border-width: 1px 1px 0 0; }
+  #fw-camera-full-width .fw-corner-bl { left: -3px; bottom: -3px; border-width: 0 0 1px 1px; }
+  #fw-camera-full-width .fw-corner-br { right: -3px; bottom: -3px; border-width: 0 1px 1px 0; }
+  #fw-camera-full-width .fw-mask { border-color: var(--fw-guides-color); }
+  #fw-camera-full-width .fw-annotation { top: 8%; color: #fffdf5; font-size: 11px; font-weight: 400; text-shadow: 0 1px 7px #333d35; }
+  #fw-camera-full-width .fw-workbar { height: 53px; display: flex; align-items: center; justify-content: space-between; }
+  #fw-camera-full-width .fw-phone .fw-guide-toggle { min-height: 44px; padding: 0 6px; gap: 6px; font-size: 12px; color: var(--fw-muted); }
+  #fw-camera-full-width .fw-phone .fw-guide-toggle[aria-pressed="true"] { color: var(--fw-accent); }
+  #fw-camera-full-width .fw-guide-toggle svg { width: 16px; height: 16px; }
+  #fw-camera-full-width .fw-zoom { gap: 0; height: 44px; }
+  #fw-camera-full-width .fw-zoom button { position: relative; width: 42px; height: 44px; color: var(--fw-muted); border-radius: 0; }
+  #fw-camera-full-width .fw-zoom button[aria-pressed="true"] { background: transparent; color: var(--fw-ink); font-weight: 500; }
+  #fw-camera-full-width .fw-zoom button[aria-pressed="true"]:after { content: ''; position: absolute; bottom: 6px; height: 1px; width: 12px; background: var(--fw-ink); }
+  #fw-camera-full-width .fw-bottom { height: 91px; padding: 0 31px; }
+  #fw-camera-full-width .fw-phone .fw-side { background: transparent; width: 46px; height: 46px; border-radius: 12px; }
+  #fw-camera-full-width .fw-phone .fw-album { border: 1px solid #606657; padding: 4px; border-radius: 7px; }
+  #fw-camera-full-width .fw-thumb { border-radius: 3px; }
+  #fw-camera-full-width .fw-phone .fw-switch { background: var(--fw-button); border: 1px solid #41493c; }
+  #fw-camera-full-width .fw-phone .fw-shutter { width: 74px; height: 74px; border: 0; padding: 9px; border-radius: 20px; position: relative; background: transparent; }
+  #fw-camera-full-width .fw-shutter:before, #fw-camera-full-width .fw-shutter:after { content: ''; position: absolute; width: 15px; height: 15px; border-color: #d8d9ce; border-style: solid; pointer-events: none; }
+  #fw-camera-full-width .fw-shutter:before { top: 0; left: 0; border-width: 1px 0 0 1px; border-top-left-radius: 9px; }
+  #fw-camera-full-width .fw-shutter:after { bottom: 0; right: 0; border-width: 0 1px 1px 0; border-bottom-right-radius: 9px; }
+  #fw-camera-full-width .fw-shutter span { background: #efeee2; }
+  #fw-camera-full-width .fw-home { opacity: .45; margin-top: 12px; }
+  #fw-camera-full-width .fw-stage { min-height: 0; padding: 22px 12px; }
+  #fw-camera-full-width .fw-phone { aspect-ratio: 390/844; min-height: 0; height: auto; width: min(330px,100%); }
+  #fw-camera-full-width .fw-status { flex: 0 0 34px; }
+  #fw-camera-full-width .fw-toolbar { display: flex; flex: 0 0 48px; height: 48px; padding: 0 8px; gap: 0; z-index: 10; }
+  #fw-camera-full-width .fw-toolbar .fw-icon { width: 44px; height: 44px; }
+  #fw-camera-full-width .fw-tools { flex-shrink: 0; }
+  #fw-camera-full-width .fw-tools .fw-ratio { min-width: 44px; width: 44px; gap: 2px; font-size: 12px; letter-spacing: 0; }
+  #fw-camera-full-width .fw-tools .fw-ratio svg { width: 10px; height: 10px; }
+  #fw-camera-full-width .fw-editor { flex: 1; min-height: 0; margin: 5px 13px 0; }
+  #fw-camera-full-width .fw-photo-mount { flex: 1; min-height: 0; aspect-ratio: auto; }
+  #fw-camera-full-width .fw-photo-wrap { left: 50%; right: auto; top: 50%; transform: translate(-50%,-50%); aspect-ratio: auto; width: 100%; height: 100%; }
+  #fw-camera-full-width .fw-scene { inset: auto; top: 50%; left: 50%; aspect-ratio: auto; width: 100%; height: 100%; transform: translate(-50%,-50%) scale(var(--fw-scene-scale,1)); }
+  #fw-camera-full-width .fw-workbar { flex: 0 0 48px; height: 48px; }
+  #fw-camera-full-width .fw-bottom { flex: 0 0 86px; height: 86px; margin-top: 0; }
+  #fw-camera-full-width .fw-home { flex: 0 0 4px; margin-top: 10px; }
+  #fw-camera-full-width .fw-phone .fw-shutter { border: 1px solid #b9c1aa; padding: 8px; border-radius: 23px; }
+  #fw-camera-full-width .fw-shutter:before, #fw-camera-full-width .fw-shutter:after { display: none; }
+  #fw-camera-full-width .fw-shutter span { border-radius: 17px; }
+  #fw-camera-full-width .fw-phone { padding-bottom: 0; }
+  #fw-camera-full-width .fw-status { position: absolute; top: 0; left: 0; right: 0; height: 34px; z-index: 12; }
+  #fw-camera-full-width .fw-toolbar { position: absolute; top: 43px; left: 10px; right: 10px; padding: 0; height: 44px; justify-content: space-between; }
+  #fw-camera-full-width .fw-phone .fw-back { background: #20271f; border-radius: 12px; color: #f2f2e9; }
+  #fw-camera-full-width .fw-tools { background: #20271f; border-radius: 12px; padding: 0 3px; }
+  #fw-camera-full-width .fw-tools button { color: #c0c8ba; }
+  #fw-camera-full-width .fw-tools button[aria-pressed="true"] { color: #f8faee; }
+  #fw-camera-full-width .fw-editor { position: absolute; inset: 34px 0 94px; margin: 0; }
+  #fw-camera-full-width .fw-photo-mount { position: absolute; inset: 0; }
+  #fw-camera-full-width .fw-viewfinder { border-radius: 0; }
+  #fw-camera-full-width .fw-corner { opacity: .8; }
+  #fw-camera-full-width .fw-corner-tl { left: 0; top: 0; }
+  #fw-camera-full-width .fw-corner-tr { right: 0; top: 0; }
+  #fw-camera-full-width .fw-corner-bl { left: 0; bottom: 0; }
+  #fw-camera-full-width .fw-corner-br { right: 0; bottom: 0; }
+  #fw-camera-full-width .fw-workbar { position: absolute; left: 12px; right: 12px; bottom: 5px; height: 44px; z-index: 6; }
+  #fw-camera-full-width .fw-phone .fw-guide-toggle { background: #20271f; padding: 0 10px; border-radius: 11px; color: #c3caba; }
+  #fw-camera-full-width .fw-phone .fw-guide-toggle[aria-pressed="true"] { color: var(--fw-accent); }
+  #fw-camera-full-width .fw-zoom { background: #20271f; border-radius: 11px; padding: 0 2px; }
+  #fw-camera-full-width .fw-zoom button { color: #c3caba; }
+  #fw-camera-full-width .fw-bottom { position: absolute; left: 0; right: 0; bottom: 15px; height: 80px; padding: 0 30px; }
+  #fw-camera-full-width .fw-home { position: absolute; left: 50%; transform: translateX(-50%); bottom: 7px; margin: 0; height: 4px; }
+  #fw-camera-full-width .fw-scene-content { position: absolute; width: 100%; aspect-ratio: 3/4; top: 50%; left: 0; transform: translateY(-50%); }
+  #fw-camera-full-width .fw-table { height: 100%; }
+  #fw-camera-full-width .fw-annotation { top: 14%; }
+  @media (max-width: 360px) { #fw-camera-full-width .fw-stage { padding: 16px 4px; } #fw-camera-full-width .fw-phone .fw-guide-toggle { font-size: 11px; padding: 0 8px; } #fw-camera-full-width .fw-zoom button { width: 40px; } }
+  #fw-camera-full-width .fw-phone { --fw-shell: light-dark(#161816,#111311); border-color: light-dark(#42463e,#33372f); }
+  #fw-camera-full-width .fw-editor { inset: 0 0 var(--fw-safe-bottom,28.6px); }
+  #fw-camera-full-width .fw-photo-wrap { top: 50%; bottom: auto; transform: translate(-50%,-50%); }
+  #fw-camera-full-width .fw-toolbar { top: 42px; left: 14px; right: 14px; }
+  #fw-camera-full-width .fw-phone .fw-back, #fw-camera-full-width .fw-tools, #fw-camera-full-width .fw-phone .fw-guide-toggle, #fw-camera-full-width .fw-zoom, #fw-camera-full-width .fw-phone .fw-switch { background: transparent; border: 0; padding: 0; border-radius: 0; }
+  #fw-camera-full-width .fw-tools { gap: 3px; }
+  #fw-camera-full-width .fw-toolbar .fw-icon { color: #eeeee6; }
+  #fw-camera-full-width .fw-toolbar .fw-icon[aria-pressed="true"] { color: var(--fw-accent); }
+  #fw-camera-full-width .fw-toolbar .fw-icon:after { display: none; }
+  #fw-camera-full-width .fw-toolbar-start { display: flex; align-items: center; }
+  #fw-camera-full-width .fw-toolbar .fw-guide-toggle { width: 44px; height: 44px; color: #eeeee6; }
+  #fw-camera-full-width .fw-toolbar .fw-guide-toggle svg { width: 18px; height: 18px; }
+  #fw-camera-full-width .fw-toolbar .fw-ratio-picker { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; }
+  #fw-camera-full-width .fw-phone .fw-ratio { min-width: 60px; color: #eeeee6; font-size: 12px; letter-spacing: .6px; }
+  #fw-camera-full-width .fw-viewfinder { overflow: hidden; }
+  #fw-camera-full-width .fw-shade { position: absolute; inset: 0; background: linear-gradient(rgba(17,20,15,.2),transparent 18%,transparent 58%,rgba(17,20,15,var(--fw-shade-strength,.34))); pointer-events: none; z-index: 1; }
+  #fw-camera-full-width .fw-mask { z-index: 2; inset: 17% 20% 28%; opacity: var(--fw-guide); box-shadow: none; }
+  #fw-camera-full-width .fw-mask[hidden] { display: none; }
+  #fw-camera-full-width .fw-corner { display: none; }
+  #fw-camera-full-width .fw-workbar { left: 0; right: 0; bottom: var(--fw-zoom-bottom,12px); justify-content: center; }
+  #fw-camera-full-width .fw-zoom { gap: 6px; }
+  #fw-camera-full-width .fw-zoom button { width: 44px; height: 44px; font-size: 12px; color: #e7e6dc; text-shadow: 0 1px 5px #12190f70; }
+  #fw-camera-full-width .fw-zoom button[aria-pressed="true"] { color: #fffef5; }
+  #fw-camera-full-width .fw-zoom button[aria-pressed="true"]:after { bottom: 6px; width: 10px; height: 1px; background: var(--fw-accent); }
+  #fw-camera-full-width .fw-bottom { bottom: 43px; height: 78px; padding: 0 30px; z-index: 7; background: transparent; }
+  #fw-camera-full-width .fw-phone .fw-side { width: 44px; height: 48px; color: #fffdf1; background: transparent; }
+  #fw-camera-full-width .fw-phone .fw-switch svg { width: 24px; height: 24px; stroke-width: 1.5; filter: drop-shadow(0 1px 3px #00000050); }
+  #fw-camera-full-width .fw-phone .fw-album { border: 0; padding: 6px; border-radius: 0; }
+  #fw-camera-full-width .fw-thumb { width: 32px; height: 38px; border-radius: 4px; border: 1px solid #fffdf185; box-shadow: 0 2px 8px #00000020; }
+  #fw-camera-full-width .fw-phone .fw-shutter { width: 74px; height: 74px; border: 1px solid #f4f2e7; padding: 7px; border-radius: 23px; background: transparent; }
+  #fw-camera-full-width .fw-shutter span { border-radius: 17px; background: #f2f0e4; box-shadow: 0 2px 9px #222c1818; }
+  #fw-camera-full-width .fw-home { bottom: 8px; width: 102px; opacity: .55; }
+  @media (max-width: 360px) { #fw-camera-full-width .fw-toolbar { top: 37px; } }
+  @media (prefers-reduced-motion: reduce) { #fw-camera-full-width .fw-phone.is-shooting .fw-flash { animation: none; } }
+</style>
+<div id="fw-camera-full-width" class="viz-dotted-background" aria-label="沿用现有预览布局的相机概念">
+  <section aria-label="相机画幅预览" class="fw-stage">
+    <div class="fw-phone" aria-label="相机设计">
+      <div class="fw-status"><span>9:41</span><span class="fw-status-right"><i data-lucide="wifi" aria-hidden="true"></i><i data-lucide="battery-full" aria-hidden="true"></i></span></div>
+      <div class="fw-toolbar">
+        <div class="fw-toolbar-start"><button type="button" class="fw-icon fw-back" aria-label="返回，概念展示"><i data-lucide="chevron-left" aria-hidden="true"></i></button><button type="button" class="fw-guide-toggle" data-action="annotations" aria-label="显示构图引导" aria-pressed="true"><i data-lucide="scan-line" aria-hidden="true"></i></button></div>
+        <div class="fw-ratio-picker">
+          <button type="button" class="fw-ratio" data-action="ratio-menu" aria-label="选择画幅" aria-expanded="false"><span class="fw-ratio-label">9:16</span><i data-lucide="chevron-down" aria-hidden="true"></i></button>
+          <div class="fw-ratio-menu" aria-label="可选画幅" hidden>
+            <button type="button" data-ratio="3:4" aria-pressed="false"><span>3:4</span><span class="fw-check" aria-hidden="true">✓</span></button>
+            <button type="button" data-ratio="1:1" aria-pressed="false"><span>1:1</span><span class="fw-check" aria-hidden="true">✓</span></button>
+            <button type="button" data-ratio="9:16" aria-pressed="true"><span>9:16</span><span class="fw-check" aria-hidden="true">✓</span></button>
+          </div>
+        </div>
+        <div class="fw-tools">
+          <button type="button" class="fw-icon" data-action="flash" aria-label="闪光灯" aria-pressed="false"><span class="fw-flash-off"><i data-lucide="zap-off" aria-hidden="true"></i></span><span class="fw-flash-on" hidden><i data-lucide="zap" aria-hidden="true"></i></span></button>
+          <button type="button" class="fw-icon" data-action="live" aria-label="实况照片" aria-pressed="false"><i data-lucide="circle-dot" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <div class="fw-editor">
+      <div class="fw-photo-mount"><div class="fw-photo-wrap">
+      <span class="fw-corner fw-corner-tl"></span><span class="fw-corner fw-corner-tr"></span><span class="fw-corner fw-corner-bl"></span><span class="fw-corner fw-corner-br"></span>
+      <div class="fw-viewfinder" role="img" aria-label="植物与花瓶的占位取景场景，叠加构图引导">
+        <div class="fw-scene"><div class="fw-scene-content"><div class="fw-arch"></div><div class="fw-wall-shadow"></div><div class="fw-table"></div><div class="fw-book"></div><div class="fw-stem"><span class="fw-leaf"></span><span class="fw-leaf"></span><span class="fw-leaf"></span><span class="fw-leaf"></span><span class="fw-leaf"></span></div><div class="fw-vase"></div></div></div>
+        <div class="fw-mask"></div><div class="fw-shade"></div><div class="fw-flash"></div>
+      </div>
+      <div class="fw-workbar">
+      <div class="fw-zoom" aria-label="焦距"><button type="button" data-zoom="0.5" aria-pressed="false">0.5</button><button type="button" data-zoom="1" aria-pressed="true">1×</button><button type="button" data-zoom="2" aria-pressed="false">2</button></div>
+      </div>
+      </div></div></div>
+      <div class="fw-bottom"><button type="button" class="fw-side fw-album" aria-label="相册，概念展示"><span class="fw-thumb"></span></button><button type="button" class="fw-shutter" data-action="capture" aria-label="预览快门反馈"><span></span></button><button type="button" class="fw-side fw-switch" data-action="camera" aria-label="切换镜头，概念展示"><i data-lucide="switch-camera" aria-hidden="true"></i></button></div>
+      <div class="fw-home" aria-hidden="true"></div>
+    </div>
+  </section>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('fw-camera-full-width');
+  const phone = root.querySelector('.fw-phone');
+  const mount = phone.querySelector('.fw-photo-mount');
+  const frame = phone.querySelector('.fw-photo-wrap');
+  const scene = phone.querySelector('.fw-scene');
+  const state = { accent: '#d4bc89', guide: 48, annotations: true, live: false, flash: false, zoom: '1', ratio: '3:4', corner: 12, shade: 34 };
+  const ratios = { '3:4': 3/4, '1:1': 1, '9:16': 9/16 };
+  let menuOpen = false;
+  function restore(snapshot) {
+    const saved = snapshot && snapshot.privateContent && snapshot.privateContent.alignedPreviewLayout;
+    if (!saved || typeof saved !== 'object') return;
+    for (const key of ['annotations','live','flash']) if (typeof saved[key] === 'boolean') state[key] = saved[key];
+    if (['0.5','1','2'].includes(saved.zoom)) state.zoom = saved.zoom;
+    if (Object.hasOwn(ratios,saved.ratio)) state.ratio = saved.ratio;
+    if (typeof saved.corner === 'number' && saved.corner >= 6 && saved.corner <= 22) state.corner = saved.corner;
+    if (typeof saved.guide === 'number' && saved.guide >= 25 && saved.guide <= 100) state.guide = saved.guide;
+    if (typeof saved.shade === 'number' && saved.shade >= 0 && saved.shade <= 55) state.shade = saved.shade;
+    if (typeof saved.accent === 'string' && /^#[0-9a-f]{6}$/i.test(saved.accent)) state.accent = saved.accent;
+  }
+  restore(window.openai && window.openai.widgetState);
+  function persist() {
+    if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({modelContent: { cameraLayout: {ratio: state.ratio, preview: 'current-code-centered-layout', shutter: 'floating-rounded-square', controlBackgrounds: false, showTemplateName: false, guideOpacity: state.guide, edgeShade: state.shade} },privateContent: { alignedPreviewLayout: state }}).catch(() => {});
+  }
+  function fitViewport() {
+    // Match CameraScreen's available area: full top extent, excluding the bottom safe area.
+    // The concept scales a 390 x 844 phone with a 34-point bottom safe area.
+    phone.style.setProperty('--fw-safe-bottom', (phone.clientWidth * 34 / 390) + 'px');
+    const bounds = mount.getBoundingClientRect();
+    const ratio = ratios[state.ratio];
+    const width = Math.min(bounds.width, bounds.height * ratio);
+    const height = width / ratio;
+    if (width <= 0 || height <= 0) return;
+    frame.style.width = width + 'px';
+    frame.style.height = height + 'px';
+    const previewBottom = (bounds.height + height) / 2;
+    const shutterTop = phone.querySelector('.fw-bottom').offsetTop;
+    phone.style.setProperty('--fw-zoom-bottom', Math.max(12, previewBottom + 24 - shutterTop) + 'px');
+    const sceneWidth = Math.max(width,height * 9/16);
+    scene.style.width = sceneWidth + 'px';
+    scene.style.height = sceneWidth * 16/9 + 'px';
+  }
+  phone.querySelectorAll('button').forEach(button => button.classList.add('cursor-interaction'));
+  function render() {
+      phone.style.setProperty('--fw-accent', state.accent);
+      phone.style.setProperty('--fw-guide', state.guide / 100);
+      phone.style.setProperty('--fw-shade-strength', state.shade / 100);
+      phone.style.setProperty('--fw-corner', state.corner + 'px');
+      phone.style.setProperty('--fw-scene-scale', state.zoom === '2' ? '2' : '1');
+      phone.querySelector('.fw-ratio-label').textContent = state.ratio;
+      phone.querySelector('.fw-ratio-menu').hidden = !menuOpen;
+      phone.querySelector('[data-action="ratio-menu"]').setAttribute('aria-expanded', String(menuOpen));
+      phone.querySelectorAll('[data-ratio]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.ratio === state.ratio)));
+      phone.querySelector('.fw-mask').hidden = !state.annotations;
+      phone.querySelector('.fw-flash-off').hidden = state.flash;
+      phone.querySelector('.fw-flash-on').hidden = !state.flash;
+      ['annotations','live','flash'].forEach(key => phone.querySelector('[data-action="' + key + '"]').setAttribute('aria-pressed', String(state[key])));
+      phone.querySelectorAll('[data-zoom]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.zoom === state.zoom)));
+      fitViewport();
+    }
+    render();
+    const observer = new ResizeObserver(fitViewport);
+    observer.observe(mount);
+    phone.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button || !phone.contains(button)) return;
+      const action = button.dataset.action;
+      if (['annotations','live','flash'].includes(action)) state[action] = !state[action];
+      else if (button.dataset.zoom) state.zoom = button.dataset.zoom;
+      else if (button.dataset.ratio) { state.ratio = button.dataset.ratio; menuOpen = false; }
+      else if (action === 'ratio-menu') { menuOpen = !menuOpen; render(); return; }
+      else if (action === 'capture') {
+        phone.classList.remove('is-shooting');
+        requestAnimationFrame(() => { phone.classList.add('is-shooting'); setTimeout(() => phone.classList.remove('is-shooting'),260); });
+        return;
+      } else return;
+      render(); persist();
+    });
+    phone.addEventListener('keydown', event => { if (event.key === 'Escape' && menuOpen) { menuOpen = false; render(); phone.querySelector('[data-action="ratio-menu"]').focus(); } });
+    if (globalThis.Tweak) {
+      const tweak = new Tweak({ container: phone, onChange: () => { render(); persist(); } });
+      tweak.addColorPicker(state, 'accent', { label: '构图强调色', reference: '--fw-accent' });
+      tweak.addSlider(state, 'guide', { label: '构图线条强度', min: 25, max: 100, unit: '%', reference: '--fw-guide' });
+      tweak.addToggle(state, 'annotations', { label: '显示构图引导' });
+      tweak.addSlider(state, 'shade', { label: '底部渐暗强度', min: 0, max: 55, unit: '%', reference: '--fw-shade-strength' });
+    }
+  window.addEventListener('openai:set_globals', event => {
+    if (event.detail && event.detail.globals && event.detail.globals.widgetState) { restore(event.detail.globals.widgetState); render(); }
+  });
+  if (globalThis.lucide) lucide.createIcons();
+})();
+</script>

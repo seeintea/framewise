@@ -31,6 +31,8 @@
 
 ## 已实现：原生相机
 
+2026-10-02 已归档[相机 UI 设计基线](ios-camera-ui-design.md)。该方案仅获视觉与布局确认，尚未替换下述原生实现，也未新增真机验收。
+
 | 能力 | 当前范围 | 主要代码 |
 | --- | --- | --- |
 | 权限入口 | 进入相机要求相机与相册 add-only 权限；麦克风仅在启用 Live Photo 时按需申请，提供拒绝 / 受限状态与设置入口 | [CameraAccess](../ios/Framewise/Features/Camera/CameraAccess.swift)、[Permissions](../ios/Framewise/Core/Permissions/Permissions.swift) |

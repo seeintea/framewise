@@ -12,6 +12,7 @@
 | [待实现与待优化](next-steps.md) | 未完成、待验证、待优化及暂不推进事项 |
 | [产品 V1](product-v1.md) | 当前 iOS 无 AI 产品目标与优先级 |
 | [新相机设计](ios-camera-architecture-v2.md) | 当前相机职责、输出契约与已确认取舍 |
+| [相机 UI 设计](ios-camera-ui-design.md) | 2026-10-02 确认的视觉与布局基线，含归档预览；待原生实现与验收 |
 | [模板到相机链路](ios-single-template-camera-flow.md) | 当前 `MaskServer` / `CameraMaskRequest` 导航与数据边界 |
 | [平台迁移记录](migration-history.md) | Expo → SwiftUI → 相机重写、可追溯历史源码与暂不迁移行为 |
 
