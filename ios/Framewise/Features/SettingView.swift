@@ -29,6 +29,12 @@ struct SettingView: View {
                     } label: {
                         Label("相机预览 · 单模版", systemImage: "camera")
                     }
+
+                    NavigationLink {
+                        CameraUIDesignPreview()
+                    } label: {
+                        Label("相机 UI 对比 · 新设计", systemImage: "camera.aperture")
+                    }
                 }
             #endif
         }

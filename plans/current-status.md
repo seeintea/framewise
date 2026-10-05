@@ -31,7 +31,7 @@
 
 ## 已实现：原生相机
 
-2026-10-02 已归档[相机 UI 设计基线](ios-camera-ui-design.md)。该方案仅获视觉与布局确认，尚未替换下述原生实现，也未新增真机验收。
+2026-10-05 已确认[相机 UI 打磨基线](ios-camera-ui-design.md)，独立 [CameraUIDesignPreview](../ios/Framewise/Features/Debug/CameraUIDesignPreview.swift) 已实现单 / 多模板 mock：圆形快门；单倍率轻按循环、长按打开单滑块底部面板；太阳曝光入口与单滑块面板，零值只显示图标、非零显示无 `EV` 后缀的带符号数值胶囊；下沿文档图标切换注释；顶部画幅轻按循环、长按打开贴近按钮的浮层。Related masks 使用五个比例命名的 mock，支持点击 / 滑动切换，单 / 多模板共用相册—快门—翻转行，多模板将整行上移，下方增加模板条。单模板入口为 Xcode Canvas 或 Debug 设置中的“相机 UI 对比 · 新设计”，Related masks 入口为 Canvas 的 `Camera UI design · Related masks`。已完成通用 iOS Simulator 构建，用户根据单模板截图确认继续打磨；未申请权限、启动相机、读取或保存照片，示意倍率、曝光与画幅不改变真实模板或设备能力。该方案尚未替换下述正式相机 UI，完整视觉 / 手势及真机验收待完成；2026-10-02 HTML 保留为历史概念稿。
 
 | 能力 | 当前范围 | 主要代码 |
 | --- | --- | --- |
