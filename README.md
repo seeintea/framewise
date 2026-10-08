@@ -57,4 +57,4 @@ plans/              归档时的实现状态、未完成事项、设计与历史
 
 ## License
 
-Framewise 是闭源商业软件。源代码、素材和文档均保留所有权利，详见 [LICENSE](./LICENSE)。
+Framewise 的原创代码、文档与资源采用 [MIT License](./LICENSE)。第三方依赖与素材（包括字体和图标）仍遵循各自的许可证与版权声明，不由本项目的 MIT License 重新授权。
